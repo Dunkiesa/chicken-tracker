@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: chicken_sqlserver
+    ports:
+      - "1433:1433"
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=YourStrong@Password123
+    volumes:
+      - sql_data:/var/opt/mssql
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: chicken_backend
+    ports:
+      - "8080:8080"
+    environment:
+      - DB_HOST=sqlserver
+      - DB_NAME=chicken_db
+      - DB_USER=sa
+      - DB_PASSWORD=YourStrong@Password123
+    depends_on:
+      - sqlserver
+
+volumes:
+  sql_data:
