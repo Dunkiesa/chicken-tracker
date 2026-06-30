@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, Suspense } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -46,6 +46,14 @@ function todayStr(): string {
 }
 
 export default function LogEggPage() {
+  return (
+    <Suspense fallback={<main style={{ padding: "2rem", textAlign: "center", color: "#999" }}>Loading...</main>}>
+      <LogEggContent />
+    </Suspense>
+  );
+}
+
+function LogEggContent() {
   const { data: session, status } = useSession();
   const router = useRouter();
 
