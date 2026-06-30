@@ -164,6 +164,19 @@ export async function runMigrations(): Promise<void> {
     )
   `);
 
+  await p.request().query(`
+    IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'eggs')
+    CREATE TABLE eggs (
+      id INT IDENTITY(1,1) PRIMARY KEY,
+      chicken_id INT NOT NULL REFERENCES chickens(id),
+      weight DECIMAL(5,2) NOT NULL,
+      date DATE NOT NULL,
+      recorded_by NVARCHAR(255) NOT NULL,
+      created_at DATETIME2 DEFAULT GETDATE(),
+      updated_at DATETIME2 DEFAULT GETDATE()
+    )
+  `);
+
   const seedEmail = process.env.SEED_ADMIN_EMAIL;
   if (seedEmail) {
     const countResult = await p
