@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import { runMigrations } from "@/lib/db";
 import { createChicken, listChickens } from "@/lib/chickens";
 
@@ -19,6 +21,20 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.email) {
+      return NextResponse.json(
+        { message: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+    if (session.user.role !== "Admin") {
+      return NextResponse.json(
+        { message: "Only admins can create chickens" },
+        { status: 403 }
+      );
+    }
+
     await runMigrations();
     const body = await request.json();
     const { name } = body;

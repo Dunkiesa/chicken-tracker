@@ -19,16 +19,16 @@ This slice goes end-to-end: the UI sign-in flow, the API verifying the Google id
 
 ## Acceptance criteria
 
-- [ ] A user can sign in with Google through the web app
-- [ ] An authenticated user whose verified email is not in the `users` table is denied access with a clear message (authenticated, but not authorized)
-- [ ] An authenticated user in the `users` table is admitted with their assigned Admin or Viewer role
-- [ ] The first Admin is seeded from configuration on startup so the allowlist is never empty (no lockout)
-- [ ] Admins can add an email and assign a role, and remove an entry, via an Admin UI
-- [ ] Managing the allowlist is restricted to Admins; Viewers cannot access it
-- [ ] Sessions are long-lived and validated locally against the allowlist on each request; routine use works over the LAN, with only sign-in/re-login needing internet
-- [ ] Creating a chicken is restricted to Admins; Viewers receive an authorization error
-- [ ] Viewers can sign in and read the chicken list
-- [ ] Automated tests cover: allowlisted-admitted, non-allowlisted-denied, seed-bootstrap, and Admin-allowed vs Viewer-denied write paths
+- [x] A user can sign in with Google through the web app
+- [x] An authenticated user whose verified email is not in the `users` table is denied access with a clear message (authenticated, but not authorized)
+- [x] An authenticated user in the `users` table is admitted with their assigned Admin or Viewer role
+- [x] The first Admin is seeded from configuration on startup so the allowlist is never empty (no lockout)
+- [x] Admins can add an email and assign a role, and remove an entry, via an Admin UI
+- [x] Managing the allowlist is restricted to Admins; Viewers cannot access it
+- [x] Sessions are long-lived and validated locally against the allowlist on each request; routine use works over the LAN, with only sign-in/re-login needing internet
+- [x] Creating a chicken is restricted to Admins; Viewers receive an authorization error
+- [x] Viewers can sign in and read the chicken list
+- [x] Automated tests cover: allowlisted-admitted, non-allowlisted-denied, seed-bootstrap, and Admin-allowed vs Viewer-denied write paths
 
 ## Blocked by
 

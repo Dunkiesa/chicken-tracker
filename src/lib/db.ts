@@ -21,13 +21,15 @@ let pool: sql.ConnectionPool | null = null;
 
 export async function getPool(): Promise<sql.ConnectionPool> {
   if (pool) return pool;
-  pool = await sql.connect(config);
+  const p = new sql.ConnectionPool(config);
+  pool = await p.connect();
   return pool;
 }
 
 export async function ensureDatabase(): Promise<void> {
   const masterConfig = { ...config, database: "master" };
-  const masterPool = await sql.connect(masterConfig);
+  const masterPool = new sql.ConnectionPool(masterConfig);
+  await masterPool.connect();
   await masterPool.request().query(
     `IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = '${config.database}')
      CREATE DATABASE ${config.database}`
@@ -54,4 +56,30 @@ export async function runMigrations(): Promise<void> {
       name NVARCHAR(255) NOT NULL UNIQUE
     )
   `);
+
+  await p.request().query(`
+    IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'users')
+    CREATE TABLE users (
+      email NVARCHAR(255) PRIMARY KEY,
+      role NVARCHAR(50) NOT NULL CHECK (role IN ('Admin', 'Viewer')),
+      created_at DATETIME2 DEFAULT GETDATE()
+    )
+  `);
+
+  const seedEmail = process.env.SEED_ADMIN_EMAIL;
+  if (seedEmail) {
+    const countResult = await p
+      .request()
+      .query("SELECT COUNT(*) AS cnt FROM users");
+    const count = countResult.recordset[0].cnt;
+    if (count === 0) {
+      await p
+        .request()
+        .input("email", sql.NVarChar(255), seedEmail)
+        .input("role", sql.NVarChar(50), "Admin")
+        .query(
+          "INSERT INTO users (email, role) VALUES (@email, @role)"
+        );
+    }
+  }
 }

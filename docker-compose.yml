@@ -29,6 +29,11 @@ services:
       DB_NAME: ChickenTrack
       DB_USER: sa
       DB_PASSWORD: ${SA_PASSWORD}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL}
     volumes:
       - images:/app/images
     depends_on:
