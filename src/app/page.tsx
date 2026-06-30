@@ -121,7 +121,12 @@ export default function Home() {
       setBreed("");
       setOriginSource("");
       setAcquisitionType("");
-      await fetchChickens();
+      await Promise.all([
+        fetchChickens(),
+        fetchDynamicList("breeds", setBreeds),
+        fetchDynamicList("origin-sources", setOriginSources),
+        fetchDynamicList("acquisition-types", setAcquisitionTypes),
+      ]);
     } catch {
       setEnrollError("Failed to enroll chicken");
     } finally {
