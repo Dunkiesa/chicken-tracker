@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 type Chicken = {
   id: number;
@@ -61,8 +61,12 @@ export default function LogEggPage() {
   const [duplicateConfirmId, setDuplicateConfirmId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [quickLastUsedId, setQuickLastUsedId] = useState<number | null>(null);
+  const [quickLastUsedName, setQuickLastUsedName] = useState<string | null>(null);
 
   const isAdmin = session?.user?.role === "Admin";
+  const searchParams = useSearchParams();
+  const quickMode = searchParams.get("quick") === "1";
 
   const fetchData = useCallback(async () => {
     try {
@@ -86,6 +90,31 @@ export default function LogEggPage() {
     }
     if (status === "authenticated") fetchData();
   }, [status, fetchData, router]);
+
+  useEffect(() => {
+    if (!quickMode || status !== "authenticated") return;
+    (async () => {
+      try {
+        const res = await fetch("/api/eggs?last_used=true");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data?.chicken_id) {
+          setQuickLastUsedId(data.chicken_id);
+          setQuickLastUsedName(data.chicken_name);
+        }
+      } catch {
+        // ignore
+      }
+    })();
+  }, [quickMode, status]);
+
+  useEffect(() => {
+    if (!quickMode || !quickLastUsedId || chickens.length === 0) return;
+    const chicken = chickens.find((c) => c.id === quickLastUsedId);
+    if (chicken && !chicken.departed) {
+      setSelectedChickenId(quickLastUsedId);
+    }
+  }, [quickMode, quickLastUsedId, chickens]);
 
   function getContext(chickenId: number): LayingContext | undefined {
     return layingContext.find((c) => c.chicken_id === chickenId);
@@ -179,7 +208,14 @@ export default function LogEggPage() {
 
       setSuccessMsg(isEditing ? "Egg updated!" : "Egg logged!");
       setDuplicateConfirmId(null);
-      resetForm();
+      if (quickMode && !isEditing) {
+        setWeight("");
+        setDate(todayStr());
+        setWarnings([]);
+        setError(null);
+      } else {
+        resetForm();
+      }
       await fetchData();
     } catch {
       setError("Failed to save egg");
@@ -248,17 +284,31 @@ export default function LogEggPage() {
           width: "100%",
         }}
       >
-        <h1 style={{ fontSize: "1.5rem" }}>Log an Egg</h1>
-        <a
-          href="/"
-          style={{
-            color: "#1565c0",
-            textDecoration: "none",
-            fontSize: "0.875rem",
-          }}
-        >
-          &larr; Back
-        </a>
+        <h1 style={{ fontSize: "1.5rem" }}>{quickMode ? "Quick Log" : "Log an Egg"}</h1>
+        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+          {quickMode && (
+            <a
+              href="/log-egg"
+              style={{
+                color: "#1565c0",
+                textDecoration: "none",
+                fontSize: "0.875rem",
+              }}
+            >
+              Full log &rarr;
+            </a>
+          )}
+          <a
+            href="/"
+            style={{
+              color: "#1565c0",
+              textDecoration: "none",
+              fontSize: "0.875rem",
+            }}
+          >
+            &larr; Back
+          </a>
+        </div>
       </div>
 
       <div
@@ -270,143 +320,177 @@ export default function LogEggPage() {
           background: "#fff",
         }}
       >
-        <div style={{ marginBottom: "0.75rem" }}>
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search chickens..."
+        {quickMode && selectedChickenId ? (
+          <div
             style={{
-              width: "100%",
-              padding: "0.5rem",
-              border: "1px solid #ccc",
-              borderRadius: "4px",
-              fontSize: "1rem",
-              boxSizing: "border-box",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "0.75rem",
+              marginBottom: "0.75rem",
+              border: "1px solid #e0e0e0",
+              borderRadius: "6px",
+              background: "#f5f5f5",
             }}
-          />
-        </div>
+          >
+            <div>
+              <span style={{ fontSize: "0.75rem", color: "#666" }}>Chicken</span>
+              <div style={{ fontWeight: 600, fontSize: "1rem" }}>
+                {quickLastUsedName || "Selected"}
+              </div>
+            </div>
+            <a
+              href="/log-egg"
+              style={{
+                fontSize: "0.8rem",
+                color: "#1565c0",
+                textDecoration: "none",
+              }}
+            >
+              Change
+            </a>
+          </div>
+        ) : (
+          <>
+            <div style={{ marginBottom: "0.75rem" }}>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search chickens..."
+                style={{
+                  width: "100%",
+                  padding: "0.5rem",
+                  border: "1px solid #ccc",
+                  borderRadius: "4px",
+                  fontSize: "1rem",
+                  boxSizing: "border-box",
+                }}
+              />
+            </div>
 
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "0.5rem",
-            marginBottom: "0.75rem",
-            fontSize: "0.875rem",
-          }}
-        >
-          <label style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
-            <input
-              type="checkbox"
-              checked={showAll}
-              onChange={(e) => setShowAll(e.target.checked)}
-            />
-            Show roosters
-          </label>
-          <span style={{ color: "#999" }}>
-            {filteredChickens.length} of{" "}
-            {chickens.filter((c) => !c.departed).length} eligible
-          </span>
-        </div>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                marginBottom: "0.75rem",
+                fontSize: "0.875rem",
+              }}
+            >
+              <label style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
+                <input
+                  type="checkbox"
+                  checked={showAll}
+                  onChange={(e) => setShowAll(e.target.checked)}
+                />
+                Show roosters
+              </label>
+              <span style={{ color: "#999" }}>
+                {filteredChickens.length} of{" "}
+                {chickens.filter((c) => !c.departed).length} eligible
+              </span>
+            </div>
 
-        <div
-          style={{
-            maxHeight: "300px",
-            overflowY: "auto",
-            border: "1px solid #e0e0e0",
-            borderRadius: "4px",
-            marginBottom: "1rem",
-          }}
-        >
-          {filteredChickens.length === 0 ? (
-            <p style={{ padding: "1rem", color: "#999", textAlign: "center" }}>
-              {searchQuery ? "No chickens match your search" : "No laying-eligible chickens"}
-            </p>
-          ) : (
-            filteredChickens.map((chicken) => {
-              const ctx = getContext(chicken.id);
-              const isSelected = selectedChickenId === chicken.id;
-              return (
-                <div
-                  key={chicken.id}
-                  onClick={() => setSelectedChickenId(chicken.id)}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.75rem",
-                    padding: "0.6rem 0.75rem",
-                    cursor: "pointer",
-                    borderBottom: "1px solid #f0f0f0",
-                    background: isSelected ? "#e3f2fd" : "transparent",
-                  }}
-                >
-                  <input
-                    type="radio"
-                    name="chicken"
-                    checked={isSelected}
-                    onChange={() => setSelectedChickenId(chicken.id)}
-                    style={{ flexShrink: 0 }}
-                  />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 500, fontSize: "0.95rem" }}>
-                      {chicken.name}
-                    </div>
-                    {ctx && (
-                      <div
+            <div
+              style={{
+                maxHeight: "300px",
+                overflowY: "auto",
+                border: "1px solid #e0e0e0",
+                borderRadius: "4px",
+                marginBottom: "1rem",
+              }}
+            >
+              {filteredChickens.length === 0 ? (
+                <p style={{ padding: "1rem", color: "#999", textAlign: "center" }}>
+                  {searchQuery ? "No chickens match your search" : "No laying-eligible chickens"}
+                </p>
+              ) : (
+                filteredChickens.map((chicken) => {
+                  const ctx = getContext(chicken.id);
+                  const isSelected = selectedChickenId === chicken.id;
+                  return (
+                    <div
+                      key={chicken.id}
+                      onClick={() => setSelectedChickenId(chicken.id)}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.75rem",
+                        padding: "0.6rem 0.75rem",
+                        cursor: "pointer",
+                        borderBottom: "1px solid #f0f0f0",
+                        background: isSelected ? "#e3f2fd" : "transparent",
+                      }}
+                    >
+                      <input
+                        type="radio"
+                        name="chicken"
+                        checked={isSelected}
+                        onChange={() => setSelectedChickenId(chicken.id)}
+                        style={{ flexShrink: 0 }}
+                      />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 500, fontSize: "0.95rem" }}>
+                          {chicken.name}
+                        </div>
+                        {ctx && (
+                          <div
+                            style={{
+                              fontSize: "0.75rem",
+                              color: "#666",
+                              display: "flex",
+                              gap: "0.75rem",
+                              flexWrap: "wrap",
+                            }}
+                          >
+                            {ctx.last_egg_date && (
+                              <span>Last egg: {ctx.last_egg_date}</span>
+                            )}
+                            {ctx.recent_avg_weight && (
+                              <span>Typical: ~{ctx.recent_avg_weight}g</span>
+                            )}
+                            {!ctx.last_egg_date && !ctx.recent_avg_weight && (
+                              <span>No eggs logged yet</span>
+                            )}
+                          </div>
+                        )}
+                        {!ctx && (
+                          <div style={{ fontSize: "0.75rem", color: "#999" }}>
+                            No eggs logged yet
+                          </div>
+                        )}
+                      </div>
+                      <span
                         style={{
-                          fontSize: "0.75rem",
-                          color: "#666",
-                          display: "flex",
-                          gap: "0.75rem",
-                          flexWrap: "wrap",
+                          fontSize: "0.7rem",
+                          padding: "0.1rem 0.35rem",
+                          borderRadius: "3px",
+                          fontWeight: 600,
+                          background:
+                            chicken.sex === "Hen"
+                              ? "#fce4ec"
+                              : chicken.sex === "Rooster"
+                              ? "#e3f2fd"
+                              : "#f3e5f5",
+                          color:
+                            chicken.sex === "Hen"
+                              ? "#c62828"
+                              : chicken.sex === "Rooster"
+                              ? "#1565c0"
+                              : "#7b1fa2",
+                          flexShrink: 0,
                         }}
                       >
-                        {ctx.last_egg_date && (
-                          <span>Last egg: {ctx.last_egg_date}</span>
-                        )}
-                        {ctx.recent_avg_weight && (
-                          <span>Typical: ~{ctx.recent_avg_weight}g</span>
-                        )}
-                        {!ctx.last_egg_date && !ctx.recent_avg_weight && (
-                          <span>No eggs logged yet</span>
-                        )}
-                      </div>
-                    )}
-                    {!ctx && (
-                      <div style={{ fontSize: "0.75rem", color: "#999" }}>
-                        No eggs logged yet
-                      </div>
-                    )}
-                  </div>
-                  <span
-                    style={{
-                      fontSize: "0.7rem",
-                      padding: "0.1rem 0.35rem",
-                      borderRadius: "3px",
-                      fontWeight: 600,
-                      background:
-                        chicken.sex === "Hen"
-                          ? "#fce4ec"
-                          : chicken.sex === "Rooster"
-                          ? "#e3f2fd"
-                          : "#f3e5f5",
-                      color:
-                        chicken.sex === "Hen"
-                          ? "#c62828"
-                          : chicken.sex === "Rooster"
-                          ? "#1565c0"
-                          : "#7b1fa2",
-                      flexShrink: 0,
-                    }}
-                  >
-                    {chicken.sex}
-                  </span>
-                </div>
-              );
-            })
-          )}
-        </div>
+                        {chicken.sex}
+                      </span>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </>
+        )}
 
         <div
           style={{
@@ -455,35 +539,37 @@ export default function LogEggPage() {
               </div>
             )}
           </div>
-          <div style={{ flex: "1 1 180px" }}>
-            <label
-              htmlFor="date"
-              style={{
-                display: "block",
-                fontSize: "0.8rem",
-                fontWeight: 600,
-                marginBottom: "0.25rem",
-                color: "#555",
-              }}
-            >
-              Date
-            </label>
-            <input
-              id="date"
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              disabled={saving}
-              style={{
-                width: "100%",
-                padding: "0.5rem",
-                border: "1px solid #ccc",
-                borderRadius: "4px",
-                fontSize: "1rem",
-                boxSizing: "border-box",
-              }}
-            />
-          </div>
+          {!quickMode && (
+            <div style={{ flex: "1 1 180px" }}>
+              <label
+                htmlFor="date"
+                style={{
+                  display: "block",
+                  fontSize: "0.8rem",
+                  fontWeight: 600,
+                  marginBottom: "0.25rem",
+                  color: "#555",
+                }}
+              >
+                Date
+              </label>
+              <input
+                id="date"
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                disabled={saving}
+                style={{
+                  width: "100%",
+                  padding: "0.5rem",
+                  border: "1px solid #ccc",
+                  borderRadius: "4px",
+                  fontSize: "1rem",
+                  boxSizing: "border-box",
+                }}
+              />
+            </div>
+          )}
         </div>
 
         {error && (

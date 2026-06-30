@@ -179,6 +179,20 @@ export default function Home() {
           {session?.user && (
             <>
               <a
+                href="/log-egg?quick=1"
+                style={{
+                  padding: "0.4rem 0.75rem",
+                  background: "#2e7d32",
+                  color: "#fff",
+                  borderRadius: "4px",
+                  textDecoration: "none",
+                  fontSize: "0.875rem",
+                  fontWeight: 600,
+                }}
+              >
+                Quick Log
+              </a>
+              <a
                 href="/log-egg"
                 style={{
                   padding: "0.4rem 0.75rem",

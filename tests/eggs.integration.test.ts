@@ -7,6 +7,7 @@ import {
   deleteEgg,
   checkDuplicate,
   getLayingContext,
+  getLastUsedChicken,
   type Egg,
 } from "@/lib/eggs";
 import { createChicken, listChickens, type Chicken } from "@/lib/chickens";
@@ -389,6 +390,55 @@ describe("Edit/delete authorization", () => {
     // Should detect duplicate when trying to change to hen2 on same date
     const existingId = await checkDuplicate(hen2.id, "2026-06-27", egg.id);
     expect(existingId).not.toBeNull();
+  }, 15000);
+});
+
+describe("Last Used Chicken", () => {
+  it("returns null when user has no eggs", async () => {
+    const result = await getLastUsedChicken("never-logged@example.com");
+    expect(result).toBeNull();
+  }, 15000);
+
+  it("returns the most recent chicken for the user", async () => {
+    const henA = await ensureHen("Last Used A");
+    const henB = await ensureHen("Last Used B");
+
+    await createEgg({
+      chicken_id: henA.id,
+      weight: 50.00,
+      date: "2026-07-01",
+      recorded_by: RECORDED_BY,
+    });
+
+    await createEgg({
+      chicken_id: henB.id,
+      weight: 55.00,
+      date: "2026-07-02",
+      recorded_by: RECORDED_BY,
+    });
+
+    const result = await getLastUsedChicken(RECORDED_BY);
+    expect(result).not.toBeNull();
+    expect(result!.chicken_id).toBe(henB.id);
+    expect(result!.chicken_name).toBe("Last Used B");
+  }, 15000);
+
+  it("returns correct chicken per user", async () => {
+    const hen = await ensureHen("Per User Hen");
+
+    await createEgg({
+      chicken_id: hen.id,
+      weight: 60.00,
+      date: "2026-07-03",
+      recorded_by: SECOND_USER,
+    });
+
+    const resultA = await getLastUsedChicken(RECORDED_BY);
+    expect(resultA!.chicken_name).toBe("Last Used B");
+
+    const resultB = await getLastUsedChicken(SECOND_USER);
+    expect(resultB).not.toBeNull();
+    expect(resultB!.chicken_name).toBe("Per User Hen");
   }, 15000);
 });
 

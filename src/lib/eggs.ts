@@ -187,6 +187,23 @@ export async function checkDuplicate(
   return result.recordset[0]?.id ?? null;
 }
 
+export async function getLastUsedChicken(
+  email: string
+): Promise<{ chicken_id: number; chicken_name: string } | null> {
+  const pool = await getPool();
+  const result = await pool
+    .request()
+    .input("email", sql.NVarChar(255), email)
+    .query(`
+      SELECT TOP 1 e.chicken_id, c.name AS chicken_name
+      FROM eggs e
+      JOIN chickens c ON e.chicken_id = c.id
+      WHERE e.recorded_by = @email
+      ORDER BY e.created_at DESC
+    `);
+  return result.recordset[0] || null;
+}
+
 export async function getLayingContext(): Promise<LayingContext[]> {
   const pool = await getPool();
 

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { runMigrations } from "@/lib/db";
-import { createEgg, listEggs, checkDuplicate, getLayingContext } from "@/lib/eggs";
+import { createEgg, listEggs, checkDuplicate, getLayingContext, getLastUsedChicken } from "@/lib/eggs";
 
 export async function GET(request: NextRequest) {
   try {
@@ -19,6 +19,12 @@ export async function GET(request: NextRequest) {
       ? parseInt(searchParams.get("chicken_id")!, 10)
       : undefined;
     const context = searchParams.get("context") === "true";
+    const lastUsed = searchParams.get("last_used") === "true";
+
+    if (lastUsed) {
+      const chicken = await getLastUsedChicken(session.user.email);
+      return NextResponse.json(chicken);
+    }
 
     if (context) {
       const layingContext = await getLayingContext();
