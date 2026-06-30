@@ -29,6 +29,16 @@ type HealthStatus = {
 
 const SEX_OPTIONS = ["Hen", "Rooster", "Unknown"] as const;
 
+const DEPARTURE_REASONS = ["died/illness", "sold", "predator", "gave away", "Other"] as const;
+
+function todayStr(): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 export default function Home() {
   const { data: session, status } = useSession();
   const [health, setHealth] = useState<HealthStatus | null>(null);
@@ -41,6 +51,12 @@ export default function Home() {
   const [acquisitionType, setAcquisitionType] = useState("");
   const [enrolling, setEnrolling] = useState(false);
   const [enrollError, setEnrollError] = useState<string | null>(null);
+  const [includeDeparted, setIncludeDeparted] = useState(false);
+  const [departingChickenId, setDepartingChickenId] = useState<number | null>(null);
+  const [departureDate, setDepartureDate] = useState(todayStr());
+  const [departureReason, setDepartureReason] = useState("died/illness");
+  const [departureOtherReason, setDepartureOtherReason] = useState("");
+  const [departingSave, setDepartingSave] = useState(false);
 
   const [breeds, setBreeds] = useState<DynamicListEntry[]>([]);
   const [originSources, setOriginSources] = useState<DynamicListEntry[]>([]);
@@ -48,9 +64,10 @@ export default function Home() {
 
   const isAdmin = session?.user?.role === "Admin";
 
-  const fetchChickens = useCallback(async () => {
+  const fetchChickens = useCallback(async (showDeparted = false) => {
     try {
-      const res = await fetch("/api/chickens");
+      const url = showDeparted ? "/api/chickens?includeDeparted=true" : "/api/chickens";
+      const res = await fetch(url);
       const data = await res.json();
       setChickens(data);
     } catch {
@@ -86,11 +103,11 @@ export default function Home() {
         setError(err instanceof Error ? err.message : "Failed to fetch");
       });
 
-    fetchChickens();
+    fetchChickens(includeDeparted);
     fetchDynamicList("breeds", setBreeds);
     fetchDynamicList("origin-sources", setOriginSources);
     fetchDynamicList("acquisition-types", setAcquisitionTypes);
-  }, [fetchChickens, fetchDynamicList]);
+  }, [fetchChickens, fetchDynamicList, includeDeparted]);
 
   async function handleEnroll(e: React.FormEvent) {
     e.preventDefault();
@@ -122,7 +139,7 @@ export default function Home() {
       setOriginSource("");
       setAcquisitionType("");
       await Promise.all([
-        fetchChickens(),
+        fetchChickens(includeDeparted),
         fetchDynamicList("breeds", setBreeds),
         fetchDynamicList("origin-sources", setOriginSources),
         fetchDynamicList("acquisition-types", setAcquisitionTypes),
@@ -131,6 +148,62 @@ export default function Home() {
       setEnrollError("Failed to enroll chicken");
     } finally {
       setEnrolling(false);
+    }
+  }
+
+  async function handleMarkDeparted(chicken: Chicken) {
+    setDepartingSave(true);
+    try {
+      const reason = departureReason === "Other" ? departureOtherReason.trim() : departureReason;
+      const res = await fetch(`/api/chickens/${chicken.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          departed: true,
+          departure_date: departureDate,
+          departure_reason: reason || "Other",
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        setEnrollError(data.message || "Failed to mark as departed");
+        return;
+      }
+
+      setDepartingChickenId(null);
+      setDepartureDate(todayStr());
+      setDepartureReason("died/illness");
+      setDepartureOtherReason("");
+      await fetchChickens(includeDeparted);
+    } catch {
+      setEnrollError("Failed to mark as departed");
+    } finally {
+      setDepartingSave(false);
+    }
+  }
+
+  async function handleReinstate(chicken: Chicken) {
+    try {
+      const res = await fetch(`/api/chickens/${chicken.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          departed: false,
+          departure_date: null,
+          departure_reason: null,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        setEnrollError(data.message || "Failed to reinstate");
+        return;
+      }
+
+      await fetchChickens(includeDeparted);
+    } catch {
+      setEnrollError("Failed to reinstate");
     }
   }
 
@@ -480,9 +553,30 @@ export default function Home() {
           </p>
         )}
 
+        {session?.user && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              marginBottom: "1rem",
+              fontSize: "0.875rem",
+            }}
+          >
+            <label style={{ display: "flex", alignItems: "center", gap: "0.3rem", cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={includeDeparted}
+                onChange={(e) => setIncludeDeparted(e.target.checked)}
+              />
+              Show departed
+            </label>
+          </div>
+        )}
+
         {chickens.length === 0 ? (
           <p style={{ color: "#999" }}>
-            No chickens enrolled yet.
+            {includeDeparted ? "No chickens enrolled yet." : "No active chickens enrolled yet."}
           </p>
         ) : (
           <div style={{ overflowX: "auto" }}>
@@ -494,11 +588,19 @@ export default function Home() {
                   <th style={{ textAlign: "left", padding: "0.5rem", fontWeight: 600 }}>Breed</th>
                   <th style={{ textAlign: "left", padding: "0.5rem", fontWeight: 600 }}>Origin</th>
                   <th style={{ textAlign: "left", padding: "0.5rem", fontWeight: 600 }}>Acquisition</th>
+                  <th style={{ textAlign: "left", padding: "0.5rem", fontWeight: 600 }}>Status</th>
+                  {isAdmin && <th style={{ textAlign: "center", padding: "0.5rem", fontWeight: 600 }}>Actions</th>}
                 </tr>
               </thead>
               <tbody>
                 {chickens.map((chicken) => (
-                  <tr key={chicken.id} style={{ borderBottom: "1px solid #eee" }}>
+                  <tr
+                    key={chicken.id}
+                    style={{
+                      borderBottom: "1px solid #eee",
+                      background: chicken.departed ? "#f5f5f5" : "transparent",
+                    }}
+                  >
                     <td style={{ padding: "0.5rem 0.5rem 0.5rem 0", fontWeight: 500 }}>
                       {chicken.name}
                     </td>
@@ -535,6 +637,176 @@ export default function Home() {
                     <td style={{ padding: "0.5rem", color: "#666", fontSize: "0.9rem" }}>
                       {chicken.acquisition_type_name || "-"}
                     </td>
+                    <td style={{ padding: "0.5rem" }}>
+                      {chicken.departed ? (
+                        <span
+                          style={{
+                            padding: "0.15rem 0.4rem",
+                            borderRadius: "4px",
+                            fontSize: "0.8rem",
+                            fontWeight: 600,
+                            background: "#ffebee",
+                            color: "#b71c1c",
+                          }}
+                        >
+                          Departed
+                        </span>
+                      ) : (
+                        <span
+                          style={{
+                            padding: "0.15rem 0.4rem",
+                            borderRadius: "4px",
+                            fontSize: "0.8rem",
+                            fontWeight: 600,
+                            background: "#e8f5e9",
+                            color: "#2e7d32",
+                          }}
+                        >
+                          Active
+                        </span>
+                      )}
+                      {chicken.departed && chicken.departure_date && (
+                        <span style={{ display: "block", fontSize: "0.75rem", color: "#888", marginTop: "0.2rem" }}>
+                          {chicken.departure_date}
+                          {chicken.departure_reason && ` · ${chicken.departure_reason}`}
+                        </span>
+                      )}
+                    </td>
+                    {isAdmin && (
+                      <td style={{ padding: "0.5rem", textAlign: "center" }}>
+                        {departingChickenId === chicken.id ? (
+                          <div
+                            style={{
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: "0.5rem",
+                              padding: "0.75rem",
+                              border: "1px solid #e0e0e0",
+                              borderRadius: "6px",
+                              background: "#fafafa",
+                              minWidth: "220px",
+                            }}
+                          >
+                            <input
+                              type="date"
+                              value={departureDate}
+                              onChange={(e) => setDepartureDate(e.target.value)}
+                              disabled={departingSave}
+                              style={{
+                                padding: "0.4rem",
+                                border: "1px solid #ccc",
+                                borderRadius: "4px",
+                                fontSize: "0.85rem",
+                              }}
+                            />
+                            <select
+                              value={departureReason}
+                              onChange={(e) => setDepartureReason(e.target.value)}
+                              disabled={departingSave}
+                              style={{
+                                padding: "0.4rem",
+                                border: "1px solid #ccc",
+                                borderRadius: "4px",
+                                fontSize: "0.85rem",
+                              }}
+                            >
+                              {DEPARTURE_REASONS.map((r) => (
+                                <option key={r} value={r}>{r}</option>
+                              ))}
+                            </select>
+                            {departureReason === "Other" && (
+                              <input
+                                type="text"
+                                value={departureOtherReason}
+                                onChange={(e) => setDepartureOtherReason(e.target.value)}
+                                placeholder="Describe reason..."
+                                disabled={departingSave}
+                                style={{
+                                  padding: "0.4rem",
+                                  border: "1px solid #ccc",
+                                  borderRadius: "4px",
+                                  fontSize: "0.85rem",
+                                }}
+                              />
+                            )}
+                            <div style={{ display: "flex", gap: "0.3rem" }}>
+                              <button
+                                onClick={() => handleMarkDeparted(chicken)}
+                                disabled={departingSave || (departureReason === "Other" && !departureOtherReason.trim())}
+                                style={{
+                                  flex: 1,
+                                  padding: "0.3rem 0.5rem",
+                                  fontSize: "0.8rem",
+                                  border: "none",
+                                  borderRadius: "4px",
+                                  background: "#d32f2f",
+                                  color: "#fff",
+                                  cursor: "pointer",
+                                  opacity: departingSave ? 0.6 : 1,
+                                }}
+                              >
+                                {departingSave ? "Saving..." : "Confirm"}
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setDepartingChickenId(null);
+                                  setDepartureDate(todayStr());
+                                  setDepartureReason("died/illness");
+                                  setDepartureOtherReason("");
+                                }}
+                                disabled={departingSave}
+                                style={{
+                                  padding: "0.3rem 0.5rem",
+                                  fontSize: "0.8rem",
+                                  border: "1px solid #ccc",
+                                  borderRadius: "4px",
+                                  background: "#fff",
+                                  cursor: "pointer",
+                                }}
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : chicken.departed ? (
+                          <button
+                            onClick={() => handleReinstate(chicken)}
+                            style={{
+                              padding: "0.25rem 0.5rem",
+                              fontSize: "0.75rem",
+                              border: "1px solid #a5d6a7",
+                              borderRadius: "4px",
+                              background: "#fff",
+                              color: "#2e7d32",
+                              cursor: "pointer",
+                            }}
+                          >
+                            Reinstate
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              setDepartingChickenId(chicken.id);
+                              setDepartureDate(todayStr());
+                              setDepartureReason("died/illness");
+                              setDepartureOtherReason("");
+                              setEnrollError(null);
+                            }}
+                            style={{
+                              padding: "0.25rem 0.5rem",
+                              fontSize: "0.75rem",
+                              border: "1px solid #ef9a9a",
+                              borderRadius: "4px",
+                              background: "#fff",
+                              color: "#c62828",
+                              cursor: "pointer",
+                            }}
+                          >
+                            Mark Departed
+                          </button>
+                        )}
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

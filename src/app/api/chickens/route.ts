@@ -4,10 +4,12 @@ import { authOptions } from "@/lib/auth";
 import { runMigrations } from "@/lib/db";
 import { createChicken, listChickens } from "@/lib/chickens";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     await runMigrations();
-    const chickens = await listChickens();
+    const { searchParams } = new URL(request.url);
+    const includeDeparted = searchParams.get("includeDeparted") === "true";
+    const chickens = await listChickens(includeDeparted);
     return NextResponse.json(chickens);
   } catch (error) {
     return NextResponse.json(
