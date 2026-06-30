@@ -13,6 +13,8 @@ Write operations (such as creating a chicken) are gated to Admins; Viewers can s
 
 To avoid a chicken-and-egg lockout, the **first Admin is seeded from configuration** (an env/config value) so there is always at least one account that can manage the allowlist. Thereafter, Admins manage the allowlist through an **Admin UI**: add an email, assign its role, and remove an entry.
 
+Sessions are **long-lived** and validated locally against the allowlist on every request, so routine egg logging works over the LAN without re-contacting Google — only the occasional initial sign-in or re-login needs internet. The user base is small and trusted, so long-lived tokens are an acceptable risk.
+
 This slice goes end-to-end: the UI sign-in flow, the API verifying the Google identity and enforcing the allowlist, the API enforcing role-based authorization on endpoints, and the Admin UI for managing allowed users.
 
 ## Acceptance criteria
@@ -23,6 +25,7 @@ This slice goes end-to-end: the UI sign-in flow, the API verifying the Google id
 - [ ] The first Admin is seeded from configuration on startup so the allowlist is never empty (no lockout)
 - [ ] Admins can add an email and assign a role, and remove an entry, via an Admin UI
 - [ ] Managing the allowlist is restricted to Admins; Viewers cannot access it
+- [ ] Sessions are long-lived and validated locally against the allowlist on each request; routine use works over the LAN, with only sign-in/re-login needing internet
 - [ ] Creating a chicken is restricted to Admins; Viewers receive an authorization error
 - [ ] Viewers can sign in and read the chicken list
 - [ ] Automated tests cover: allowlisted-admitted, non-allowlisted-denied, seed-bootstrap, and Admin-allowed vs Viewer-denied write paths

@@ -11,6 +11,7 @@ End-to-end: the UI surfaces the Quick Log button with sensible defaults, and "mo
 - [ ] A Quick Log button is available on the mobile view
 - [ ] Quick Log defaults the date to the current day
 - [ ] Quick Log pre-selects the most-recently-used chicken
+- [ ] If the most-recently-used chicken is no longer eligible (e.g. departed), Quick Log falls back to no pre-selection
 - [ ] A user can complete a Quick Log entry by supplying only the weight
 
 ## Blocked by
