@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
 
     await runMigrations();
     const body = await request.json();
-    const { name } = body;
+    const { name, sex, breed, origin_source, acquisition_type } = body;
 
     if (!name || typeof name !== "string" || name.trim().length === 0) {
       return NextResponse.json(
@@ -46,7 +46,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const chicken = await createChicken(name);
+    if (!sex || !["Hen", "Rooster", "Unknown"].includes(sex)) {
+      return NextResponse.json(
+        { message: "Sex must be Hen, Rooster, or Unknown" },
+        { status: 400 }
+      );
+    }
+
+    const chicken = await createChicken({
+      name,
+      sex,
+      breed: breed || undefined,
+      origin_source: origin_source || undefined,
+      acquisition_type: acquisition_type || undefined,
+    });
+
     return NextResponse.json(chicken, { status: 201 });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : "Unknown error";

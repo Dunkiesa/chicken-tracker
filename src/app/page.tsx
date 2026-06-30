@@ -1,11 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useSession, signIn, signOut } from "next-auth/react";
 
 type Chicken = {
   id: number;
   name: string;
+  sex: string;
+  breed_name: string | null;
+  origin_source_name: string | null;
+  acquisition_type_name: string | null;
+  departed: boolean;
+  departure_date: string | null;
+  departure_reason: string | null;
+};
+
+type DynamicListEntry = {
+  id: number;
+  value: string;
 };
 
 type HealthStatus = {
@@ -15,16 +27,54 @@ type HealthStatus = {
   message?: string;
 };
 
+const SEX_OPTIONS = ["Hen", "Rooster", "Unknown"] as const;
+
 export default function Home() {
   const { data: session, status } = useSession();
   const [health, setHealth] = useState<HealthStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [chickens, setChickens] = useState<Chicken[]>([]);
-  const [newName, setNewName] = useState("");
+  const [name, setName] = useState("");
+  const [sex, setSex] = useState<string>("Hen");
+  const [breed, setBreed] = useState("");
+  const [originSource, setOriginSource] = useState("");
+  const [acquisitionType, setAcquisitionType] = useState("");
   const [enrolling, setEnrolling] = useState(false);
   const [enrollError, setEnrollError] = useState<string | null>(null);
 
+  const [breeds, setBreeds] = useState<DynamicListEntry[]>([]);
+  const [originSources, setOriginSources] = useState<DynamicListEntry[]>([]);
+  const [acquisitionTypes, setAcquisitionTypes] = useState<DynamicListEntry[]>([]);
+
   const isAdmin = session?.user?.role === "Admin";
+
+  const fetchChickens = useCallback(async () => {
+    try {
+      const res = await fetch("/api/chickens");
+      const data = await res.json();
+      setChickens(data);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const fetchDynamicList = useCallback(
+    async (
+      type: string,
+      setter: (vals: DynamicListEntry[]) => void
+    ) => {
+      try {
+        const res = await fetch(`/api/dynamic-lists/${type}`);
+        if (res.ok) {
+          const data = await res.json();
+          setter(data);
+        }
+      } catch {
+        // ignore
+      }
+    },
+    []
+  );
 
   useEffect(() => {
     fetch("/api/health")
@@ -37,17 +87,10 @@ export default function Home() {
       });
 
     fetchChickens();
-  }, []);
-
-  async function fetchChickens() {
-    try {
-      const res = await fetch("/api/chickens");
-      const data = await res.json();
-      setChickens(data);
-    } catch {
-      // ignore
-    }
-  }
+    fetchDynamicList("breeds", setBreeds);
+    fetchDynamicList("origin-sources", setOriginSources);
+    fetchDynamicList("acquisition-types", setAcquisitionTypes);
+  }, [fetchChickens, fetchDynamicList]);
 
   async function handleEnroll(e: React.FormEvent) {
     e.preventDefault();
@@ -58,7 +101,13 @@ export default function Home() {
       const res = await fetch("/api/chickens", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newName }),
+        body: JSON.stringify({
+          name,
+          sex,
+          breed: breed || undefined,
+          origin_source: originSource || undefined,
+          acquisition_type: acquisitionType || undefined,
+        }),
       });
 
       if (!res.ok) {
@@ -67,7 +116,11 @@ export default function Home() {
         return;
       }
 
-      setNewName("");
+      setName("");
+      setSex("Hen");
+      setBreed("");
+      setOriginSource("");
+      setAcquisitionType("");
       await fetchChickens();
     } catch {
       setEnrollError("Failed to enroll chicken");
@@ -92,7 +145,7 @@ export default function Home() {
           justifyContent: "space-between",
           alignItems: "center",
           width: "100%",
-          maxWidth: "600px",
+          maxWidth: "700px",
         }}
       >
         <h1 style={{ fontSize: "2rem" }}>ChickenTrack</h1>
@@ -132,7 +185,7 @@ export default function Home() {
                     fontSize: "0.875rem",
                   }}
                 >
-                  Manage Users
+                  Admin
                 </a>
               )}
               <span style={{ color: "#666", fontSize: "0.875rem" }}>
@@ -182,7 +235,7 @@ export default function Home() {
           background: "#fff",
           minWidth: "320px",
           width: "100%",
-          maxWidth: "600px",
+          maxWidth: "700px",
         }}
       >
         <h2 style={{ fontSize: "1.25rem", marginBottom: "1rem" }}>
@@ -234,7 +287,7 @@ export default function Home() {
           background: "#fff",
           minWidth: "320px",
           width: "100%",
-          maxWidth: "600px",
+          maxWidth: "700px",
         }}
       >
         <h2 style={{ fontSize: "1.25rem", marginBottom: "1rem" }}>
@@ -246,40 +299,133 @@ export default function Home() {
             onSubmit={handleEnroll}
             style={{
               display: "flex",
-              gap: "0.5rem",
+              flexDirection: "column",
+              gap: "0.75rem",
               marginBottom: "1.5rem",
+              padding: "1rem",
+              border: "1px solid #e0e0e0",
+              borderRadius: "6px",
+              background: "#fafafa",
             }}
           >
-            <input
-              type="text"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              placeholder="Enter chicken name"
-              disabled={enrolling}
-              style={{
-                flex: 1,
-                padding: "0.5rem",
-                border: "1px solid #ccc",
-                borderRadius: "4px",
-                fontSize: "1rem",
-              }}
-            />
-            <button
-              type="submit"
-              disabled={enrolling || !newName.trim()}
-              style={{
-                padding: "0.5rem 1rem",
-                background: "#2e7d32",
-                color: "#fff",
-                border: "none",
-                borderRadius: "4px",
-                fontSize: "1rem",
-                cursor: "pointer",
-                opacity: enrolling || !newName.trim() ? 0.6 : 1,
-              }}
-            >
-              {enrolling ? "Adding..." : "Add Chicken"}
-            </button>
+            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Chicken name"
+                disabled={enrolling}
+                required
+                style={{
+                  flex: "1 1 200px",
+                  padding: "0.5rem",
+                  border: "1px solid #ccc",
+                  borderRadius: "4px",
+                  fontSize: "1rem",
+                }}
+              />
+              <select
+                value={sex}
+                onChange={(e) => setSex(e.target.value)}
+                disabled={enrolling}
+                style={{
+                  padding: "0.5rem",
+                  border: "1px solid #ccc",
+                  borderRadius: "4px",
+                  fontSize: "1rem",
+                }}
+              >
+                {SEX_OPTIONS.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+              <div style={{ flex: "1 1 200px", position: "relative" }}>
+                <input
+                  list="breed-list"
+                  value={breed}
+                  onChange={(e) => setBreed(e.target.value)}
+                  placeholder="Breed (pick or type)"
+                  disabled={enrolling}
+                  style={{
+                    width: "100%",
+                    padding: "0.5rem",
+                    border: "1px solid #ccc",
+                    borderRadius: "4px",
+                    fontSize: "1rem",
+                  }}
+                />
+                <datalist id="breed-list">
+                  {breeds.map((b) => (
+                    <option key={b.id} value={b.value} />
+                  ))}
+                </datalist>
+              </div>
+              <div style={{ flex: "1 1 200px", position: "relative" }}>
+                <input
+                  list="origin-list"
+                  value={originSource}
+                  onChange={(e) => setOriginSource(e.target.value)}
+                  placeholder="Origin source (pick or type)"
+                  disabled={enrolling}
+                  style={{
+                    width: "100%",
+                    padding: "0.5rem",
+                    border: "1px solid #ccc",
+                    borderRadius: "4px",
+                    fontSize: "1rem",
+                  }}
+                />
+                <datalist id="origin-list">
+                  {originSources.map((o) => (
+                    <option key={o.id} value={o.value} />
+                  ))}
+                </datalist>
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+              <div style={{ flex: "1 1 200px", position: "relative" }}>
+                <input
+                  list="acq-list"
+                  value={acquisitionType}
+                  onChange={(e) => setAcquisitionType(e.target.value)}
+                  placeholder="Acquisition type (pick or type)"
+                  disabled={enrolling}
+                  style={{
+                    width: "100%",
+                    padding: "0.5rem",
+                    border: "1px solid #ccc",
+                    borderRadius: "4px",
+                    fontSize: "1rem",
+                  }}
+                />
+                <datalist id="acq-list">
+                  {acquisitionTypes.map((a) => (
+                    <option key={a.id} value={a.value} />
+                  ))}
+                </datalist>
+              </div>
+              <button
+                type="submit"
+                disabled={enrolling || !name.trim()}
+                style={{
+                  padding: "0.5rem 1.5rem",
+                  background: "#2e7d32",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: "4px",
+                  fontSize: "1rem",
+                  cursor: "pointer",
+                  opacity: enrolling || !name.trim() ? 0.6 : 1,
+                  alignSelf: "flex-end",
+                }}
+              >
+                {enrolling ? "Adding..." : "Add Chicken"}
+              </button>
+            </div>
           </form>
         )}
 
@@ -303,27 +449,64 @@ export default function Home() {
 
         {chickens.length === 0 ? (
           <p style={{ color: "#999" }}>
-            No chickens enrolled yet. Add one above.
+            No chickens enrolled yet.
           </p>
         ) : (
-          <ul style={{ listStyle: "none", padding: 0 }}>
-            {chickens.map((chicken) => (
-              <li
-                key={chicken.id}
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  padding: "0.5rem 0",
-                  borderBottom: "1px solid #eee",
-                }}
-              >
-                <span>{chicken.name}</span>
-                <span style={{ color: "#999", fontSize: "0.875rem" }}>
-                  ID: {chicken.id}
-                </span>
-              </li>
-            ))}
-          </ul>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr style={{ borderBottom: "2px solid #eee" }}>
+                  <th style={{ textAlign: "left", padding: "0.5rem 0.5rem 0.5rem 0", fontWeight: 600 }}>Name</th>
+                  <th style={{ textAlign: "left", padding: "0.5rem", fontWeight: 600 }}>Sex</th>
+                  <th style={{ textAlign: "left", padding: "0.5rem", fontWeight: 600 }}>Breed</th>
+                  <th style={{ textAlign: "left", padding: "0.5rem", fontWeight: 600 }}>Origin</th>
+                  <th style={{ textAlign: "left", padding: "0.5rem", fontWeight: 600 }}>Acquisition</th>
+                </tr>
+              </thead>
+              <tbody>
+                {chickens.map((chicken) => (
+                  <tr key={chicken.id} style={{ borderBottom: "1px solid #eee" }}>
+                    <td style={{ padding: "0.5rem 0.5rem 0.5rem 0", fontWeight: 500 }}>
+                      {chicken.name}
+                    </td>
+                    <td style={{ padding: "0.5rem" }}>
+                      <span
+                        style={{
+                          padding: "0.15rem 0.4rem",
+                          borderRadius: "4px",
+                          fontSize: "0.8rem",
+                          fontWeight: 600,
+                          background:
+                            chicken.sex === "Hen"
+                              ? "#fce4ec"
+                              : chicken.sex === "Rooster"
+                              ? "#e3f2fd"
+                              : "#f3e5f5",
+                          color:
+                            chicken.sex === "Hen"
+                              ? "#c62828"
+                              : chicken.sex === "Rooster"
+                              ? "#1565c0"
+                              : "#7b1fa2",
+                        }}
+                      >
+                        {chicken.sex}
+                      </span>
+                    </td>
+                    <td style={{ padding: "0.5rem", color: "#666", fontSize: "0.9rem" }}>
+                      {chicken.breed_name || "-"}
+                    </td>
+                    <td style={{ padding: "0.5rem", color: "#666", fontSize: "0.9rem" }}>
+                      {chicken.origin_source_name || "-"}
+                    </td>
+                    <td style={{ padding: "0.5rem", color: "#666", fontSize: "0.9rem" }}>
+                      {chicken.acquisition_type_name || "-"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </main>

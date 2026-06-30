@@ -49,12 +49,110 @@ export async function checkConnection(): Promise<boolean> {
 
 export async function runMigrations(): Promise<void> {
   const p = await getPool();
+
+  // -- Dynamic list tables --
+  await p.request().query(`
+    IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'breeds')
+    CREATE TABLE breeds (
+      id INT IDENTITY(1,1) PRIMARY KEY,
+      value NVARCHAR(255) NOT NULL UNIQUE
+    )
+  `);
+
+  await p.request().query(`
+    IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'origin_sources')
+    CREATE TABLE origin_sources (
+      id INT IDENTITY(1,1) PRIMARY KEY,
+      value NVARCHAR(255) NOT NULL UNIQUE
+    )
+  `);
+
+  await p.request().query(`
+    IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'acquisition_types')
+    CREATE TABLE acquisition_types (
+      id INT IDENTITY(1,1) PRIMARY KEY,
+      value NVARCHAR(255) NOT NULL UNIQUE
+    )
+  `);
+
+  // -- Core tables --
   await p.request().query(`
     IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'chickens')
     CREATE TABLE chickens (
       id INT IDENTITY(1,1) PRIMARY KEY,
-      name NVARCHAR(255) NOT NULL UNIQUE
+      name NVARCHAR(255) NOT NULL UNIQUE,
+      sex NVARCHAR(50) NOT NULL DEFAULT 'Unknown',
+      breed_id INT NULL REFERENCES breeds(id),
+      origin_source_id INT NULL REFERENCES origin_sources(id),
+      acquisition_type_id INT NULL REFERENCES acquisition_types(id),
+      departed BIT NOT NULL DEFAULT 0,
+      departure_date DATE NULL,
+      departure_reason NVARCHAR(255) NULL,
+      created_at DATETIME2 DEFAULT GETDATE()
     )
+  `);
+
+  // -- Add columns to existing chickens table (idempotent) --
+  // Each ALTER TABLE is in its own query to avoid SQL Server batch-level
+  // name resolution issues with CHECK constraints referencing new columns.
+  await p.request().query(`
+    IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('chickens') AND name = 'sex')
+      ALTER TABLE chickens ADD sex NVARCHAR(50) NOT NULL DEFAULT 'Unknown'
+  `);
+
+  await p.request().query(`
+    IF NOT EXISTS (SELECT * FROM sys.check_constraints WHERE name = 'CK_chickens_sex' AND parent_object_id = OBJECT_ID('chickens'))
+      EXEC('ALTER TABLE dbo.chickens ADD CONSTRAINT CK_chickens_sex CHECK (sex IN (''Hen'', ''Rooster'', ''Unknown''))')
+  `);
+
+  await p.request().query(`
+    IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('chickens') AND name = 'breed_id')
+      ALTER TABLE chickens ADD breed_id INT NULL
+  `);
+
+  await p.request().query(`
+    IF NOT EXISTS (SELECT * FROM sys.foreign_keys WHERE name = 'FK_chickens_breeds')
+      EXEC('ALTER TABLE dbo.chickens ADD CONSTRAINT FK_chickens_breeds FOREIGN KEY (breed_id) REFERENCES dbo.breeds(id)')
+  `);
+
+  await p.request().query(`
+    IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('chickens') AND name = 'origin_source_id')
+      ALTER TABLE chickens ADD origin_source_id INT NULL
+  `);
+
+  await p.request().query(`
+    IF NOT EXISTS (SELECT * FROM sys.foreign_keys WHERE name = 'FK_chickens_origin_sources')
+      EXEC('ALTER TABLE dbo.chickens ADD CONSTRAINT FK_chickens_origin_sources FOREIGN KEY (origin_source_id) REFERENCES dbo.origin_sources(id)')
+  `);
+
+  await p.request().query(`
+    IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('chickens') AND name = 'acquisition_type_id')
+      ALTER TABLE chickens ADD acquisition_type_id INT NULL
+  `);
+
+  await p.request().query(`
+    IF NOT EXISTS (SELECT * FROM sys.foreign_keys WHERE name = 'FK_chickens_acquisition_types')
+      EXEC('ALTER TABLE dbo.chickens ADD CONSTRAINT FK_chickens_acquisition_types FOREIGN KEY (acquisition_type_id) REFERENCES dbo.acquisition_types(id)')
+  `);
+
+  await p.request().query(`
+    IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('chickens') AND name = 'departed')
+      ALTER TABLE chickens ADD departed BIT NOT NULL DEFAULT 0
+  `);
+
+  await p.request().query(`
+    IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('chickens') AND name = 'departure_date')
+      ALTER TABLE chickens ADD departure_date DATE NULL
+  `);
+
+  await p.request().query(`
+    IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('chickens') AND name = 'departure_reason')
+      ALTER TABLE chickens ADD departure_reason NVARCHAR(255) NULL
+  `);
+
+  await p.request().query(`
+    IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('chickens') AND name = 'created_at')
+      ALTER TABLE chickens ADD created_at DATETIME2 DEFAULT GETDATE()
   `);
 
   await p.request().query(`
