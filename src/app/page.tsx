@@ -281,6 +281,19 @@ export default function Home() {
               >
                 Log Egg
               </a>
+              <a
+                href="/dashboard"
+                style={{
+                  padding: "0.4rem 0.75rem",
+                  background: "#6a1b9a",
+                  color: "#fff",
+                  borderRadius: "4px",
+                  textDecoration: "none",
+                  fontSize: "0.875rem",
+                }}
+              >
+                Dashboard
+              </a>
               {isAdmin && (
                 <a
                   href="/admin"
