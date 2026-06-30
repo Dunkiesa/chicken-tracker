@@ -19,7 +19,7 @@ const config: sql.config = {
 
 let pool: sql.ConnectionPool | null = null;
 
-async function getPool(): Promise<sql.ConnectionPool> {
+export async function getPool(): Promise<sql.ConnectionPool> {
   if (pool) return pool;
   pool = await sql.connect(config);
   return pool;
@@ -43,4 +43,15 @@ export async function checkConnection(): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+export async function runMigrations(): Promise<void> {
+  const p = await getPool();
+  await p.request().query(`
+    IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'chickens')
+    CREATE TABLE chickens (
+      id INT IDENTITY(1,1) PRIMARY KEY,
+      name NVARCHAR(255) NOT NULL UNIQUE
+    )
+  `);
 }
