@@ -8,11 +8,11 @@ Keep the schema deliberately minimal here; richer enrollment fields (sex, breed,
 
 ## Acceptance criteria
 
-- [ ] Creating a chicken assigns a unique ID automatically
-- [ ] Chicken names are unique across the flock (and not reused, including after a bird departs)
-- [ ] The API supports creating a chicken (name) and listing all chickens
-- [ ] The web app provides a form to add a chicken and a list view that shows enrolled chickens
-- [ ] Automated tests cover create and list behavior of the API
+- [x] Creating a chicken assigns a unique ID automatically
+- [x] Chicken names are unique across the flock (and not reused, including after a bird departs)
+- [x] The API supports creating a chicken (name) and listing all chickens
+- [x] The web app provides a form to add a chicken and a list view that shows enrolled chickens
+- [x] Automated tests cover create and list behavior of the API
 
 ## Blocked by
 
