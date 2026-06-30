@@ -8,11 +8,11 @@ End-to-end: the UI for composing and managing notes, the API persisting note tex
 
 ## Acceptance criteria
 
-- [ ] A user can add a dated note to a chicken
-- [ ] A user can edit an existing note
-- [ ] A user can delete a note
-- [ ] The chicken profile lists notes in chronological order
-- [ ] Automated tests cover add, edit, and delete of notes
+- [x] A user can add a dated note to a chicken
+- [x] A user can edit an existing note
+- [x] A user can delete a note
+- [x] The chicken profile lists notes in chronological order
+- [x] Automated tests cover add, edit, and delete of notes
 
 ## Blocked by
 

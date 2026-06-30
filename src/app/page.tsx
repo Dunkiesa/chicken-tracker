@@ -602,7 +602,16 @@ export default function Home() {
                     }}
                   >
                     <td style={{ padding: "0.5rem 0.5rem 0.5rem 0", fontWeight: 500 }}>
-                      {chicken.name}
+                      {session?.user ? (
+                        <a
+                          href={`/chickens/${chicken.id}`}
+                          style={{ color: "#1565c0", textDecoration: "none" }}
+                        >
+                          {chicken.name}
+                        </a>
+                      ) : (
+                        chicken.name
+                      )}
                     </td>
                     <td style={{ padding: "0.5rem" }}>
                       <span
