@@ -18,6 +18,8 @@ export type Chicken = {
   departure_date: string | null;
   departure_reason: string | null;
   created_at: string;
+  primary_photo_id: number | null;
+  primary_photo_path: string | null;
 };
 
 export type CreateChickenInput = {
@@ -47,11 +49,14 @@ const LIST_JOIN_SQL = `
     CONVERT(varchar, c.created_at, 20) AS created_at,
     c.breed_id, b.value AS breed_name,
     c.origin_source_id, os.value AS origin_source_name,
-    c.acquisition_type_id, atv.value AS acquisition_type_name
+    c.acquisition_type_id, atv.value AS acquisition_type_name,
+    c.primary_photo_id,
+    pp.file_path AS primary_photo_path
   FROM chickens c
   LEFT JOIN breeds b ON c.breed_id = b.id
   LEFT JOIN origin_sources os ON c.origin_source_id = os.id
   LEFT JOIN acquisition_types atv ON c.acquisition_type_id = atv.id
+  LEFT JOIN photos pp ON c.primary_photo_id = pp.id
 `;
 
 export async function createChicken(input: CreateChickenInput): Promise<Chicken> {

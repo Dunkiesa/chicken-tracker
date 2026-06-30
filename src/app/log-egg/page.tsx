@@ -9,6 +9,8 @@ type Chicken = {
   name: string;
   sex: string;
   departed: boolean;
+  primary_photo_id: number | null;
+  primary_photo_path: string | null;
 };
 
 type LayingContext = {
@@ -430,6 +432,33 @@ export default function LogEggPage() {
                         onChange={() => setSelectedChickenId(chicken.id)}
                         style={{ flexShrink: 0 }}
                       />
+                      {chicken.primary_photo_path ? (
+                        <img
+                          src={`/api/photos/${chicken.primary_photo_path}`}
+                          alt=""
+                          style={{
+                            width: "32px",
+                            height: "32px",
+                            borderRadius: "50%",
+                            objectFit: "cover",
+                            background: "#f0f0f0",
+                            flexShrink: 0,
+                          }}
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = "none";
+                          }}
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            width: "32px",
+                            height: "32px",
+                            borderRadius: "50%",
+                            background: "#f0f0f0",
+                            flexShrink: 0,
+                          }}
+                        />
+                      )}
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontWeight: 500, fontSize: "0.95rem" }}>
                           {chicken.name}

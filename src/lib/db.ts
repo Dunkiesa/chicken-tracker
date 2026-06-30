@@ -190,6 +190,28 @@ export async function runMigrations(): Promise<void> {
     )
   `);
 
+  await p.request().query(`
+    IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'photos')
+    CREATE TABLE photos (
+      id INT IDENTITY(1,1) PRIMARY KEY,
+      chicken_id INT NOT NULL REFERENCES chickens(id),
+      file_path NVARCHAR(500) NOT NULL,
+      description NVARCHAR(1000) NULL,
+      recorded_by NVARCHAR(255) NOT NULL,
+      created_at DATETIME2 DEFAULT GETDATE()
+    )
+  `);
+
+  await p.request().query(`
+    IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('chickens') AND name = 'primary_photo_id')
+      ALTER TABLE chickens ADD primary_photo_id INT NULL
+  `);
+
+  await p.request().query(`
+    IF NOT EXISTS (SELECT * FROM sys.foreign_keys WHERE name = 'FK_chickens_primary_photo')
+      EXEC('ALTER TABLE dbo.chickens ADD CONSTRAINT FK_chickens_primary_photo FOREIGN KEY (primary_photo_id) REFERENCES dbo.photos(id)')
+  `);
+
   const seedEmail = process.env.SEED_ADMIN_EMAIL;
   if (seedEmail) {
     const countResult = await p

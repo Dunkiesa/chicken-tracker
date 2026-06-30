@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useParams, useRouter } from "next/navigation";
 
@@ -15,6 +15,7 @@ type Chicken = {
   departure_date: string | null;
   departure_reason: string | null;
   created_at: string;
+  primary_photo_id: number | null;
 };
 
 type Note = {
@@ -26,6 +27,15 @@ type Note = {
   recorded_by: string;
   created_at: string;
   updated_at: string;
+};
+
+type Photo = {
+  id: number;
+  chicken_id: number;
+  file_path: string;
+  description: string | null;
+  recorded_by: string;
+  created_at: string;
 };
 
 function todayStr(): string {
@@ -44,6 +54,7 @@ export default function ChickenProfilePage() {
 
   const [chicken, setChicken] = useState<Chicken | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
+  const [photos, setPhotos] = useState<Photo[]>([]);
 
   const [newContent, setNewContent] = useState("");
   const [newDate, setNewDate] = useState(todayStr());
@@ -55,17 +66,23 @@ export default function ChickenProfilePage() {
   const [editDate, setEditDate] = useState("");
   const [saving, setSaving] = useState(false);
 
+  const [uploadDescription, setUploadDescription] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const isAdmin = session?.user?.role === "Admin";
 
   const fetchData = useCallback(async () => {
     if (isNaN(chickenId)) return;
     try {
-      const [chickenRes, notesRes] = await Promise.all([
+      const [chickenRes, notesRes, photosRes] = await Promise.all([
         fetch(`/api/chickens/${chickenId}`),
         fetch(`/api/chickens/${chickenId}/notes`),
+        fetch(`/api/chickens/${chickenId}/photos`),
       ]);
       if (chickenRes.ok) setChicken(await chickenRes.json());
       if (notesRes.ok) setNotes(await notesRes.json());
+      if (photosRes.ok) setPhotos(await photosRes.json());
     } catch {
       // ignore
     }
@@ -163,6 +180,78 @@ export default function ChickenProfilePage() {
       await fetchData();
     } catch {
       setError("Failed to delete note");
+    }
+  }
+
+  async function handleUploadPhoto(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    const file = fileInputRef.current?.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      if (uploadDescription.trim()) {
+        formData.append("description", uploadDescription.trim());
+      }
+
+      const res = await fetch(`/api/chickens/${chickenId}/photos`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.message || "Failed to upload photo");
+        return;
+      }
+
+      setUploadDescription("");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      await fetchData();
+    } catch {
+      setError("Failed to upload photo");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function handleSetPrimary(photoId: number) {
+    setError(null);
+    try {
+      const res = await fetch(
+        `/api/chickens/${chickenId}/photos/${photoId}/primary`,
+        { method: "PUT" }
+      );
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.message || "Failed to set primary photo");
+        return;
+      }
+      await fetchData();
+    } catch {
+      setError("Failed to set primary photo");
+    }
+  }
+
+  async function handleDeletePhoto(photoId: number) {
+    if (!confirm("Delete this photo?")) return;
+    setError(null);
+    try {
+      const res = await fetch(
+        `/api/chickens/${chickenId}/photos/${photoId}`,
+        { method: "DELETE" }
+      );
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.message || "Failed to delete photo");
+        return;
+      }
+      await fetchData();
+    } catch {
+      setError("Failed to delete photo");
     }
   }
 
@@ -309,6 +398,201 @@ export default function ChickenProfilePage() {
           </span>
         </div>
       </div>
+
+      {isAdmin && (
+        <div
+          style={{
+            width: "100%",
+            padding: "1.25rem 1.5rem",
+            borderRadius: "8px",
+            border: "1px solid #ddd",
+            background: "#fff",
+          }}
+        >
+          <h2 style={{ fontSize: "1.125rem", marginBottom: "1rem" }}>
+            Add Photo
+          </h2>
+          <form
+            onSubmit={handleUploadPhoto}
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "0.5rem",
+            }}
+          >
+            <input
+              type="file"
+              accept="image/*"
+              ref={fileInputRef}
+              disabled={uploading}
+              style={{
+                padding: "0.4rem",
+                border: "1px solid #ccc",
+                borderRadius: "4px",
+                fontSize: "0.9rem",
+              }}
+            />
+            <input
+              type="text"
+              value={uploadDescription}
+              onChange={(e) => setUploadDescription(e.target.value)}
+              placeholder="Description (optional)"
+              disabled={uploading}
+              style={{
+                width: "100%",
+                padding: "0.5rem",
+                border: "1px solid #ccc",
+                borderRadius: "4px",
+                fontSize: "0.9rem",
+                boxSizing: "border-box",
+              }}
+            />
+            <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+              <button
+                type="submit"
+                disabled={uploading}
+                style={{
+                  padding: "0.4rem 1rem",
+                  background: "#2e7d32",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: "4px",
+                  fontSize: "0.9rem",
+                  cursor: "pointer",
+                  opacity: uploading ? 0.6 : 1,
+                }}
+              >
+                {uploading ? "Uploading..." : "Upload Photo"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {photos.length > 0 && (
+        <div
+          style={{
+            width: "100%",
+            padding: "1.25rem 1.5rem",
+            borderRadius: "8px",
+            border: "1px solid #ddd",
+            background: "#fff",
+          }}
+        >
+          <h2 style={{ fontSize: "1.125rem", marginBottom: "1rem" }}>
+            Photos
+          </h2>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "1rem",
+            }}
+          >
+            {photos.map((photo) => {
+              const isPrimary = chicken?.primary_photo_id === photo.id;
+              return (
+                <div
+                  key={photo.id}
+                  style={{
+                    padding: "0.75rem",
+                    border: isPrimary ? "2px solid #2e7d32" : "1px solid #e0e0e0",
+                    borderRadius: "6px",
+                    background: isPrimary ? "#f1f8e9" : "#fafafa",
+                  }}
+                >
+                  <img
+                    src={`/api/photos/${photo.file_path}`}
+                    alt={photo.description || "Chicken photo"}
+                    style={{
+                      width: "100%",
+                      maxHeight: "400px",
+                      objectFit: "contain",
+                      borderRadius: "4px",
+                      background: "#f0f0f0",
+                    }}
+                  />
+                  {photo.description && (
+                    <p
+                      style={{
+                        marginTop: "0.5rem",
+                        fontSize: "0.9rem",
+                        color: "#333",
+                      }}
+                    >
+                      {photo.description}
+                    </p>
+                  )}
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginTop: "0.5rem",
+                      fontSize: "0.8rem",
+                      color: "#666",
+                    }}
+                  >
+                    <span>
+                      {new Date(photo.created_at).toLocaleString()} &middot;{" "}
+                      {photo.recorded_by}
+                      {isPrimary && (
+                        <span
+                          style={{
+                            marginLeft: "0.5rem",
+                            padding: "0.1rem 0.4rem",
+                            borderRadius: "4px",
+                            fontSize: "0.75rem",
+                            fontWeight: 600,
+                            background: "#e8f5e9",
+                            color: "#2e7d32",
+                          }}
+                        >
+                          Primary
+                        </span>
+                      )}
+                    </span>
+                    {isAdmin && (
+                      <div style={{ display: "flex", gap: "0.3rem" }}>
+                        {!isPrimary && (
+                          <button
+                            onClick={() => handleSetPrimary(photo.id)}
+                            style={{
+                              padding: "0.2rem 0.5rem",
+                              fontSize: "0.75rem",
+                              border: "1px solid #a5d6a7",
+                              borderRadius: "3px",
+                              background: "#fff",
+                              color: "#2e7d32",
+                              cursor: "pointer",
+                            }}
+                          >
+                            Set as Primary
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleDeletePhoto(photo.id)}
+                          style={{
+                            padding: "0.2rem 0.5rem",
+                            fontSize: "0.75rem",
+                            border: "1px solid #ef9a9a",
+                            borderRadius: "3px",
+                            background: "#fff",
+                            color: "#c62828",
+                            cursor: "pointer",
+                          }}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div
         style={{

@@ -8,15 +8,15 @@ End-to-end: the UI upload flow, the API saving the file to the local folder and 
 
 ## Acceptance criteria
 
-- [ ] An admin can upload a photo with a free-form description for a chicken
-- [ ] The image file is stored in the server's local folder with its path saved in the database
-- [ ] The chicken profile displays a gallery of all photos in chronological order
-- [ ] Each gallery item shows its description and timestamp
-- [ ] One photo can be set as the chicken's primary photo, used as its thumbnail in lists and the egg-logging picker
-- [ ] Automated tests cover the upload + path-persistence behavior
+- [x] An admin can upload a photo with a free-form description for a chicken
+- [x] The image file is stored in the server's local folder with its path saved in the database
+- [x] The chicken profile displays a gallery of all photos in chronological order
+- [x] Each gallery item shows its description and timestamp
+- [x] One photo can be set as the chicken's primary photo, used as its thumbnail in lists and the egg-logging picker
+- [x] Automated tests cover the upload + path-persistence behavior
 
 ## Blocked by
 
 - `.scratch/full-enrollment-dynamic-lists/issue.md`
 
-Triage: ready-for-agent
+Triage: ready-for-human

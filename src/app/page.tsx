@@ -13,6 +13,8 @@ type Chicken = {
   departed: boolean;
   departure_date: string | null;
   departure_reason: string | null;
+  primary_photo_id: number | null;
+  primary_photo_path: string | null;
 };
 
 type DynamicListEntry = {
@@ -583,7 +585,8 @@ export default function Home() {
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr style={{ borderBottom: "2px solid #eee" }}>
-                  <th style={{ textAlign: "left", padding: "0.5rem 0.5rem 0.5rem 0", fontWeight: 600 }}>Name</th>
+                  <th style={{ textAlign: "left", padding: "0.5rem 0.5rem 0.5rem 0", fontWeight: 600, width: "40px" }}></th>
+                  <th style={{ textAlign: "left", padding: "0.5rem", fontWeight: 600 }}>Name</th>
                   <th style={{ textAlign: "left", padding: "0.5rem", fontWeight: 600 }}>Sex</th>
                   <th style={{ textAlign: "left", padding: "0.5rem", fontWeight: 600 }}>Breed</th>
                   <th style={{ textAlign: "left", padding: "0.5rem", fontWeight: 600 }}>Origin</th>
@@ -601,6 +604,34 @@ export default function Home() {
                       background: chicken.departed ? "#f5f5f5" : "transparent",
                     }}
                   >
+                    <td style={{ padding: "0.5rem 0.5rem 0.5rem 0", width: "40px" }}>
+                      {chicken.primary_photo_path ? (
+                        <img
+                          src={`/api/photos/${chicken.primary_photo_path}`}
+                          alt=""
+                          style={{
+                            width: "36px",
+                            height: "36px",
+                            borderRadius: "50%",
+                            objectFit: "cover",
+                            background: "#f0f0f0",
+                            display: "block",
+                          }}
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = "none";
+                          }}
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            width: "36px",
+                            height: "36px",
+                            borderRadius: "50%",
+                            background: "#f0f0f0",
+                          }}
+                        />
+                      )}
+                    </td>
                     <td style={{ padding: "0.5rem 0.5rem 0.5rem 0", fontWeight: 500 }}>
                       {session?.user ? (
                         <a
