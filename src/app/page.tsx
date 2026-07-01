@@ -70,10 +70,14 @@ export default function Home() {
     try {
       const url = showDeparted ? "/api/chickens?includeDeparted=true" : "/api/chickens";
       const res = await fetch(url);
+      if (!res.ok) {
+        setChickens([]);
+        return;
+      }
       const data = await res.json();
-      setChickens(data);
+      setChickens(Array.isArray(data) ? data : []);
     } catch {
-      // ignore
+      setChickens([]);
     }
   }, []);
 
