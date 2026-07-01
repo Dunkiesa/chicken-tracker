@@ -96,6 +96,75 @@ export async function createEgg(
   return { egg: egg!, warnings };
 }
 
+export async function createEggs(
+  inputs: CreateEggInput[],
+  overrideDuplicate = false
+): Promise<{ eggs: Egg[]; warnings: CreateEggWarning[][] }> {
+  if (inputs.length === 0) {
+    return { eggs: [], warnings: [] };
+  }
+
+  const pool = await getPool();
+  const transaction = pool.transaction();
+  await transaction.begin();
+
+  try {
+    const eggs: Egg[] = [];
+    const warnings: CreateEggWarning[][] = [];
+
+    for (const input of inputs) {
+      const eggWarnings: CreateEggWarning[] = [];
+
+      if (!overrideDuplicate) {
+        const existing = await transaction
+          .request()
+          .input("chicken_id", sql.Int, input.chicken_id)
+          .input("date", sql.Date, input.date)
+          .query(
+            "SELECT id FROM eggs WHERE chicken_id = @chicken_id AND date = @date"
+          );
+
+        if (existing.recordset.length > 0) {
+          eggWarnings.push({
+            type: "duplicate_date",
+            message: `${input.chicken_id} already has an egg logged for ${input.date}`,
+          });
+        }
+      }
+
+      if (input.weight < 20 || input.weight > 200) {
+        eggWarnings.push({
+          type: "weight_out_of_range",
+          message: `Weight ${input.weight}g is outside the typical range of 20–200g`,
+        });
+      }
+
+      const result = await transaction
+        .request()
+        .input("chicken_id", sql.Int, input.chicken_id)
+        .input("weight", sql.Decimal(5, 2), input.weight)
+        .input("date", sql.Date, input.date)
+        .input("recorded_by", sql.NVarChar(255), input.recorded_by)
+        .query(`
+          INSERT INTO eggs (chicken_id, weight, date, recorded_by)
+          OUTPUT INSERTED.id
+          VALUES (@chicken_id, @weight, @date, @recorded_by)
+        `);
+
+      const id = result.recordset[0].id;
+      const egg = await getEgg(id);
+      eggs.push(egg!);
+      warnings.push(eggWarnings);
+    }
+
+    await transaction.commit();
+    return { eggs, warnings };
+  } catch (error) {
+    await transaction.rollback();
+    throw error;
+  }
+}
+
 export async function listEggs(
   filters?: { date?: string; chicken_id?: number }
 ): Promise<Egg[]> {
