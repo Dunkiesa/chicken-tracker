@@ -127,6 +127,22 @@ export default function AdminPage() {
     }
   }
 
+  async function handleRoleChange(email: string, newRole: "Admin" | "Viewer") {
+    try {
+      const res = await fetch("/api/admin/users", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, role: newRole }),
+      });
+
+      if (res.ok) {
+        await fetchUsers();
+      }
+    } catch {
+      // ignore
+    }
+  }
+
   async function handleAddValue(type: ListType) {
     const value = newValues[type]?.trim();
     if (!value) return;
@@ -375,7 +391,9 @@ export default function AdminPage() {
                 <tr key={u.email} style={{ borderBottom: "1px solid #eee" }}>
                   <td style={{ padding: "0.5rem 0.5rem 0.5rem 0" }}>{u.email}</td>
                   <td style={{ padding: "0.5rem" }}>
-                    <span
+                    <select
+                      value={u.role}
+                      onChange={(e) => handleRoleChange(u.email, e.target.value as "Admin" | "Viewer")}
                       style={{
                         padding: "0.15rem 0.5rem",
                         borderRadius: "4px",
@@ -383,10 +401,14 @@ export default function AdminPage() {
                         fontWeight: 600,
                         background: u.role === "Admin" ? "#e3f2fd" : "#f3e5f5",
                         color: u.role === "Admin" ? "#1565c0" : "#7b1fa2",
+                        border: "1px solid",
+                        borderColor: u.role === "Admin" ? "#1565c0" : "#7b1fa2",
+                        cursor: "pointer",
                       }}
                     >
-                      {u.role}
-                    </span>
+                      <option value="Viewer">Viewer</option>
+                      <option value="Admin">Admin</option>
+                    </select>
                   </td>
                   <td style={{ textAlign: "right", padding: "0.5rem 0" }}>
                     {u.email !== session?.user?.email && (

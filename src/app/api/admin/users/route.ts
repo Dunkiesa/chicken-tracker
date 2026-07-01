@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { listUsers, addUser, removeUser, type Role } from "@/lib/users";
+import { listUsers, addUser, removeUser, updateUserRole, type Role } from "@/lib/users";
 
 async function getSessionWithRole() {
   const session = await getServerSession(authOptions);
@@ -97,6 +97,45 @@ export async function DELETE(request: NextRequest) {
 
     await removeUser(email);
     return NextResponse.json({ message: "User removed" });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        message: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PUT(request: NextRequest) {
+  try {
+    const session = await getSessionWithRole();
+    if (!session) {
+      return NextResponse.json(
+        { message: "Forbidden" },
+        { status: 403 }
+      );
+    }
+
+    const body = await request.json();
+    const { email, role } = body;
+
+    if (!email || typeof email !== "string" || email.trim().length === 0) {
+      return NextResponse.json(
+        { message: "Email is required" },
+        { status: 400 }
+      );
+    }
+
+    if (!role || !["Admin", "Viewer"].includes(role)) {
+      return NextResponse.json(
+        { message: "Role must be Admin or Viewer" },
+        { status: 400 }
+      );
+    }
+
+    await updateUserRole(email, role as Role);
+    return NextResponse.json({ message: "User role updated" });
   } catch (error) {
     return NextResponse.json(
       {

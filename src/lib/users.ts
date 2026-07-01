@@ -47,3 +47,12 @@ export async function removeUser(email: string): Promise<void> {
     .input("email", sql.NVarChar(255), email)
     .query("DELETE FROM users WHERE email = @email");
 }
+
+export async function updateUserRole(email: string, role: Role): Promise<void> {
+  const pool = await getPool();
+  await pool
+    .request()
+    .input("email", sql.NVarChar(255), email.trim().toLowerCase())
+    .input("role", sql.NVarChar(50), role)
+    .query("UPDATE users SET role = @role WHERE email = @email");
+}
