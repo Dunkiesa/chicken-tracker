@@ -6,6 +6,11 @@ import { createChicken, listChickens } from "@/lib/chickens";
 
 export async function GET(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.email) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    }
+
     await runMigrations();
     const { searchParams } = new URL(request.url);
     const includeDeparted = searchParams.get("includeDeparted") === "true";

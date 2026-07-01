@@ -31,6 +31,11 @@ export async function GET(
   { params }: { params: { type: string } }
 ) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.email) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    }
+
     const listType = normalizeType(params.type);
     if (!listType) {
       return NextResponse.json({ message: "Invalid list type" }, { status: 400 });
