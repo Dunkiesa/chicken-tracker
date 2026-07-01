@@ -260,6 +260,24 @@ export default function DashboardPage() {
           />
         </div>
         <button
+          onClick={() => {
+            const url = `/api/analytics?from=${dateFrom}&to=${dateTo}&format=csv`;
+            window.open(url, "_blank");
+          }}
+          style={{
+            padding: "0.4rem 0.75rem",
+            background: "#2e7d32",
+            color: "#fff",
+            border: "none",
+            borderRadius: "4px",
+            cursor: "pointer",
+            fontSize: "0.875rem",
+            whiteSpace: "nowrap",
+          }}
+        >
+          Export CSV
+        </button>
+        <button
           onClick={handleRefresh}
           disabled={loading}
           style={{
