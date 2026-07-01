@@ -17,13 +17,13 @@ const config: sql.config = {
   },
 };
 
-let pool: sql.ConnectionPool | null = null;
+let poolPromise: Promise<sql.ConnectionPool> | null = null;
 
 export async function getPool(): Promise<sql.ConnectionPool> {
-  if (pool) return pool;
-  const p = new sql.ConnectionPool(config);
-  pool = await p.connect();
-  return pool;
+  if (!poolPromise) {
+    poolPromise = new sql.ConnectionPool(config).connect();
+  }
+  return poolPromise;
 }
 
 export async function ensureDatabase(): Promise<void> {
