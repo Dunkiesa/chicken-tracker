@@ -229,3 +229,14 @@ export async function runMigrations(): Promise<void> {
     }
   }
 }
+let migrationsRun = false;
+
+export async function ensureMigrations(): Promise<void> {
+  if (migrationsRun) return;
+  await runMigrations();
+  migrationsRun = true;
+}
+
+ensureMigrations().catch((err) => {
+  console.error("Migration failed:", err);
+});

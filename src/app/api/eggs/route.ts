@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { runMigrations } from "@/lib/db";
 import { createEgg, listEggs, checkDuplicate, getLayingContext, getLastUsedChicken } from "@/lib/eggs";
 
 export async function GET(request: NextRequest) {
@@ -10,8 +9,6 @@ export async function GET(request: NextRequest) {
     if (!session?.user?.email) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
-
-    await runMigrations();
 
     const { searchParams } = new URL(request.url);
     const date = searchParams.get("date") || undefined;
@@ -49,8 +46,6 @@ export async function POST(request: NextRequest) {
     if (!session?.user?.email) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
-
-    await runMigrations();
 
     const body = await request.json();
     const { chicken_id, weight, date, override_duplicate } = body;

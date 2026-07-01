@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { listUsers, addUser, removeUser, type Role } from "@/lib/users";
-import { runMigrations } from "@/lib/db";
 
 async function getSessionWithRole() {
   const session = await getServerSession(authOptions);
@@ -21,7 +20,6 @@ export async function GET() {
       );
     }
 
-    await runMigrations();
     const users = await listUsers();
     return NextResponse.json(users);
   } catch (error) {
@@ -44,7 +42,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    await runMigrations();
     const body = await request.json();
     const { email, role } = body;
 

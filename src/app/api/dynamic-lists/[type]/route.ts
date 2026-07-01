@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { runMigrations } from "@/lib/db";
 import {
   listValues,
   createValue,
@@ -41,7 +40,6 @@ export async function GET(
       return NextResponse.json({ message: "Invalid list type" }, { status: 400 });
     }
 
-    await runMigrations();
     const values = await listValues(listType);
     return NextResponse.json(values);
   } catch (error) {
@@ -66,7 +64,6 @@ export async function POST(
       return NextResponse.json({ message: "Invalid list type" }, { status: 400 });
     }
 
-    await runMigrations();
     const body = await request.json();
     const { value } = body;
 

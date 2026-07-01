@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { runMigrations } from "@/lib/db";
 import { getChicken } from "@/lib/chickens";
 import { getPhoto, setPrimaryPhoto } from "@/lib/photos";
 
@@ -20,8 +19,6 @@ export async function PUT(
         { status: 403 }
       );
     }
-
-    await runMigrations();
 
     const chickenId = parseInt(params.id, 10);
     const photoId = parseInt(params.photoId, 10);

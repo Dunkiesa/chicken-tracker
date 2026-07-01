@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { runMigrations } from "@/lib/db";
 import { createChicken, listChickens } from "@/lib/chickens";
 
 export async function GET(request: NextRequest) {
@@ -11,7 +10,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
-    await runMigrations();
     const { searchParams } = new URL(request.url);
     const includeDeparted = searchParams.get("includeDeparted") === "true";
     const chickens = await listChickens(includeDeparted);
@@ -42,7 +40,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    await runMigrations();
     const body = await request.json();
     const { name, sex, breed, origin_source, acquisition_type } = body;
 

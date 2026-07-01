@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { runMigrations } from "@/lib/db";
 import { getChicken } from "@/lib/chickens";
 import { createPhoto, listPhotos, getImageDirectory } from "@/lib/photos";
 import { writeFile, mkdir } from "fs/promises";
@@ -17,8 +16,6 @@ export async function GET(
     if (!session?.user?.email) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
-
-    await runMigrations();
 
     const chickenId = parseInt(params.id, 10);
     if (isNaN(chickenId)) {
@@ -55,8 +52,6 @@ export async function POST(
         { status: 403 }
       );
     }
-
-    await runMigrations();
 
     const chickenId = parseInt(params.id, 10);
     if (isNaN(chickenId)) {
