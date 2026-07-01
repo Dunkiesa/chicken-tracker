@@ -78,7 +78,7 @@ export async function updateUserRole(email: string, role: Role): Promise<void> {
 
 ### Step 2: Add PUT handler to admin users route
 
-In `src/app/api/admin/users/route.ts`, after the `DELETE` handler (after line 111), add a `PUT` handler:
+In `src/app/api/admin/users/route.ts`, after the `DELETE` handler (after line 108), add a `PUT` handler:
 
 ```typescript
 export async function PUT(request: NextRequest) {
