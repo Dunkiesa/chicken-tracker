@@ -6,7 +6,7 @@ import { getChicken } from "@/lib/chickens";
 import { createPhoto, listPhotos, getImageDirectory } from "@/lib/photos";
 import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
-import { v4 as uuidv4 } from "uuid";
+import { randomUUID } from "crypto";
 
 export async function GET(
   _request: NextRequest,
@@ -79,13 +79,48 @@ export async function POST(
       );
     }
 
+    const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp", "image/bmp"];
+    const MAX_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
+
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      return NextResponse.json(
+        { message: `File type ${file.type} is not allowed. Accepted: ${ALLOWED_TYPES.join(", ")}` },
+        { status: 400 }
+      );
+    }
+
+    if (file.size > MAX_SIZE_BYTES) {
+      return NextResponse.json(
+        { message: "File size exceeds 10 MB limit" },
+        { status: 400 }
+      );
+    }
+
     const ext = file.name.split(".").pop() || "jpg";
-    const filename = `${uuidv4()}.${ext}`;
+    const filename = `${randomUUID()}.${ext}`;
     const imageDir = getImageDirectory();
 
     await mkdir(imageDir, { recursive: true });
 
     const buffer = Buffer.from(await file.arrayBuffer());
+
+    // Verify file header (magic bytes) for common image formats
+    const header = buffer.slice(0, 4).toString("hex");
+    const VALID_HEADERS = [
+      "ffd8ffe0", // JPEG
+      "ffd8ffe1", // JPEG (Exif)
+      "ffd8ffe2", // JPEG (ICC)
+      "89504e47", // PNG
+      "47494638", // GIF87a
+      "47494639", // GIF89a
+      "52494646", // WEBP (RIFF...WEBP)
+      "424d",     // BMP
+    ];
+    const isImage = VALID_HEADERS.some((h) => header.startsWith(h));
+    if (!isImage) {
+      return NextResponse.json({ message: "File content does not match allowed image types" }, { status: 400 });
+    }
+
     const filePath = join(imageDir, filename);
     await writeFile(filePath, buffer);
 

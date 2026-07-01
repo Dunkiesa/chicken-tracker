@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getImageDirectory } from "@/lib/photos";
 import { readFile } from "fs/promises";
-import { join } from "path";
+import { join, resolve } from "path";
 
 const MIME_TYPES: Record<string, string> = {
   jpg: "image/jpeg",
@@ -26,11 +26,21 @@ export async function GET(
 
     const { filename } = params;
 
+    // Prevent path traversal: reject filenames containing path separators or parent refs
+    if (filename.includes("..") || filename.includes("/") || filename.includes("\\")) {
+      return NextResponse.json({ message: "Invalid filename" }, { status: 400 });
+    }
+
     const ext = filename.split(".").pop()?.toLowerCase() || "";
     const contentType = MIME_TYPES[ext] || "application/octet-stream";
 
     const imageDir = getImageDirectory();
     const filePath = join(imageDir, filename);
+
+    // Ensure resolved path stays inside image directory
+    if (!filePath.startsWith(resolve(imageDir))) {
+      return NextResponse.json({ message: "Invalid filename" }, { status: 400 });
+    }
 
     const buffer = await readFile(filePath);
 
