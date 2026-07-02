@@ -70,7 +70,37 @@ export default function ChickenProfilePage() {
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [editing, setEditing] = useState(false);
+  const [savingChicken, setSavingChicken] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editSex, setEditSex] = useState<"Hen" | "Rooster" | "Unknown">("Unknown");
+  const [editBreed, setEditBreed] = useState("");
+  const [editOrigin, setEditOrigin] = useState("");
+  const [editAcquisition, setEditAcquisition] = useState("");
+  const [editDeparted, setEditDeparted] = useState(false);
+  const [editDepartureDate, setEditDepartureDate] = useState("");
+  const [editDepartureReason, setEditDepartureReason] = useState("");
+
+  const [breeds, setBreeds] = useState<{ id: number; value: string }[]>([]);
+  const [originSources, setOriginSources] = useState<{ id: number; value: string }[]>([]);
+  const [acquisitionTypes, setAcquisitionTypes] = useState<{ id: number; value: string }[]>([]);
+
   const isAdmin = session?.user?.role === "Admin";
+
+  const fetchDynamicLists = useCallback(async () => {
+    try {
+      const [breedsRes, originsRes, acquisitionsRes] = await Promise.all([
+        fetch("/api/dynamic-lists/breeds"),
+        fetch("/api/dynamic-lists/origin_sources"),
+        fetch("/api/dynamic-lists/acquisition_types"),
+      ]);
+      if (breedsRes.ok) setBreeds(await breedsRes.json());
+      if (originsRes.ok) setOriginSources(await originsRes.json());
+      if (acquisitionsRes.ok) setAcquisitionTypes(await acquisitionsRes.json());
+    } catch {
+      // ignore
+    }
+  }, []);
 
   const fetchData = useCallback(async () => {
     if (isNaN(chickenId)) return;
@@ -95,8 +125,9 @@ export default function ChickenProfilePage() {
     }
     if (status === "authenticated" && !isNaN(chickenId)) {
       fetchData();
+      fetchDynamicLists();
     }
-  }, [status, chickenId, fetchData, router]);
+  }, [status, chickenId, fetchData, router, fetchDynamicLists]);
 
   async function handleAddNote(e: React.FormEvent) {
     e.preventDefault();
@@ -268,6 +299,75 @@ export default function ChickenProfilePage() {
     setEditDate("");
   }
 
+  function startEditChicken() {
+    if (!chicken) return;
+    setEditing(true);
+    setEditName(chicken.name);
+    setEditSex(chicken.sex as "Hen" | "Rooster" | "Unknown");
+    setEditBreed(chicken.breed_name || "");
+    setEditOrigin(chicken.origin_source_name || "");
+    setEditAcquisition(chicken.acquisition_type_name || "");
+    setEditDeparted(chicken.departed);
+    setEditDepartureDate(chicken.departure_date || "");
+    setEditDepartureReason(chicken.departure_reason || "");
+    setError(null);
+  }
+
+  function cancelEditChicken() {
+    setEditing(false);
+  }
+
+  async function handleSaveEdit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    if (!editName.trim()) return;
+
+    setSavingChicken(true);
+    try {
+      const updates: Record<string, unknown> = {
+        name: editName.trim(),
+        sex: editSex,
+      };
+
+      if (editBreed.trim()) {
+        updates.breed = editBreed.trim();
+      }
+      if (editOrigin.trim()) {
+        updates.origin_source = editOrigin.trim();
+      }
+      if (editAcquisition.trim()) {
+        updates.acquisition_type = editAcquisition.trim();
+      }
+      updates.departed = editDeparted;
+      if (editDepartureDate) {
+        updates.departure_date = editDepartureDate;
+      }
+      if (editDepartureReason.trim()) {
+        updates.departure_reason = editDepartureReason.trim();
+      }
+
+      const res = await fetch(`/api/chickens/${chickenId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.message || "Failed to update chicken");
+        setSavingChicken(false);
+        return;
+      }
+
+      setEditing(false);
+      await fetchData();
+    } catch {
+      setError("Failed to update chicken");
+    } finally {
+      setSavingChicken(false);
+    }
+  }
+
   const canModify = (note: Note) =>
     isAdmin || note.recorded_by === session?.user?.email;
 
@@ -300,16 +400,34 @@ export default function ChickenProfilePage() {
         }}
       >
         <h1 style={{ fontSize: "1.5rem" }}>{chicken.name}</h1>
-        <a
-          href="/"
-          style={{
-            color: "#1565c0",
-            textDecoration: "none",
-            fontSize: "0.875rem",
-          }}
-        >
-          &larr; Back
-        </a>
+        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+          {isAdmin && !editing && (
+            <button
+              onClick={startEditChicken}
+              style={{
+                padding: "0.3rem 0.75rem",
+                fontSize: "0.8rem",
+                border: "1px solid #1565c0",
+                borderRadius: "4px",
+                background: "#fff",
+                color: "#1565c0",
+                cursor: "pointer",
+              }}
+            >
+              Edit
+            </button>
+          )}
+          <a
+            href="/"
+            style={{
+              color: "#1565c0",
+              textDecoration: "none",
+              fontSize: "0.875rem",
+            }}
+          >
+            &larr; Back
+          </a>
+        </div>
       </div>
 
       <div
@@ -398,6 +516,213 @@ export default function ChickenProfilePage() {
           </span>
         </div>
       </div>
+
+      {editing && isAdmin && (
+        <div
+          style={{
+            width: "100%",
+            padding: "1.25rem 1.5rem",
+            borderRadius: "8px",
+            border: "1px solid #1565c0",
+            background: "#fff",
+          }}
+        >
+          <h2 style={{ fontSize: "1.125rem", marginBottom: "1rem" }}>
+            Edit Chicken
+          </h2>
+          <form
+            onSubmit={handleSaveEdit}
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "0.75rem",
+            }}
+          >
+            <div style={{ display: "grid", gridTemplateColumns: "100px 1fr", gap: "0.5rem", alignItems: "center" }}>
+              <label style={{ fontWeight: 600, color: "#555", fontSize: "0.9rem" }}>Name</label>
+              <input
+                type="text"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                required
+                style={{
+                  padding: "0.5rem",
+                  border: "1px solid #ccc",
+                  borderRadius: "4px",
+                  fontSize: "0.9rem",
+                }}
+              />
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "100px 1fr", gap: "0.5rem", alignItems: "center" }}>
+              <label style={{ fontWeight: 600, color: "#555", fontSize: "0.9rem" }}>Sex</label>
+              <select
+                value={editSex}
+                onChange={(e) => setEditSex(e.target.value as "Hen" | "Rooster" | "Unknown")}
+                style={{
+                  padding: "0.5rem",
+                  border: "1px solid #ccc",
+                  borderRadius: "4px",
+                  fontSize: "0.9rem",
+                  background: "#fff",
+                }}
+              >
+                <option value="Unknown">Unknown</option>
+                <option value="Hen">Hen</option>
+                <option value="Rooster">Rooster</option>
+              </select>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "100px 1fr", gap: "0.5rem", alignItems: "center" }}>
+              <label style={{ fontWeight: 600, color: "#555", fontSize: "0.9rem" }}>Breed</label>
+              <input
+                type="text"
+                value={editBreed}
+                onChange={(e) => setEditBreed(e.target.value)}
+                list="breeds-list"
+                placeholder="Select or type new"
+                style={{
+                  padding: "0.5rem",
+                  border: "1px solid #ccc",
+                  borderRadius: "4px",
+                  fontSize: "0.9rem",
+                }}
+              />
+              <datalist id="breeds-list">
+                {breeds.map((b) => (
+                  <option key={b.id} value={b.value} />
+                ))}
+              </datalist>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "100px 1fr", gap: "0.5rem", alignItems: "center" }}>
+              <label style={{ fontWeight: 600, color: "#555", fontSize: "0.9rem" }}>Origin Source</label>
+              <input
+                type="text"
+                value={editOrigin}
+                onChange={(e) => setEditOrigin(e.target.value)}
+                list="origin-list"
+                placeholder="Select or type new"
+                style={{
+                  padding: "0.5rem",
+                  border: "1px solid #ccc",
+                  borderRadius: "4px",
+                  fontSize: "0.9rem",
+                }}
+              />
+              <datalist id="origin-list">
+                {originSources.map((o) => (
+                  <option key={o.id} value={o.value} />
+                ))}
+              </datalist>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "100px 1fr", gap: "0.5rem", alignItems: "center" }}>
+              <label style={{ fontWeight: 600, color: "#555", fontSize: "0.9rem" }}>Acquisition Type</label>
+              <input
+                type="text"
+                value={editAcquisition}
+                onChange={(e) => setEditAcquisition(e.target.value)}
+                list="acquisition-list"
+                placeholder="Select or type new"
+                style={{
+                  padding: "0.5rem",
+                  border: "1px solid #ccc",
+                  borderRadius: "4px",
+                  fontSize: "0.9rem",
+                }}
+              />
+              <datalist id="acquisition-list">
+                {acquisitionTypes.map((a) => (
+                  <option key={a.id} value={a.value} />
+                ))}
+              </datalist>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "100px 1fr", gap: "0.5rem", alignItems: "center" }}>
+              <label style={{ fontWeight: 600, color: "#555", fontSize: "0.9rem" }}>Status</label>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <input
+                  type="checkbox"
+                  checked={editDeparted}
+                  onChange={(e) => setEditDeparted(e.target.checked)}
+                  style={{ width: "auto", cursor: "pointer" }}
+                />
+                <span style={{ fontSize: "0.9rem" }}>Departed</span>
+              </div>
+            </div>
+
+            {editDeparted && (
+              <>
+                <div style={{ display: "grid", gridTemplateColumns: "100px 1fr", gap: "0.5rem", alignItems: "center" }}>
+                  <label style={{ fontWeight: 600, color: "#555", fontSize: "0.9rem" }}>Departure Date</label>
+                  <input
+                    type="date"
+                    value={editDepartureDate}
+                    onChange={(e) => setEditDepartureDate(e.target.value)}
+                    style={{
+                      padding: "0.5rem",
+                      border: "1px solid #ccc",
+                      borderRadius: "4px",
+                      fontSize: "0.9rem",
+                    }}
+                  />
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "100px 1fr", gap: "0.5rem", alignItems: "center" }}>
+                  <label style={{ fontWeight: 600, color: "#555", fontSize: "0.9rem" }}>Reason</label>
+                  <input
+                    type="text"
+                    value={editDepartureReason}
+                    onChange={(e) => setEditDepartureReason(e.target.value)}
+                    placeholder="Reason (optional)"
+                    style={{
+                      padding: "0.5rem",
+                      border: "1px solid #ccc",
+                      borderRadius: "4px",
+                      fontSize: "0.9rem",
+                    }}
+                  />
+                </div>
+              </>
+            )}
+
+            <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+              <button
+                type="submit"
+                disabled={savingChicken || !editName.trim()}
+                style={{
+                  padding: "0.4rem 1rem",
+                  background: savingChicken ? "#90caf9" : "#1565c0",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: "4px",
+                  fontSize: "0.9rem",
+                  cursor: savingChicken || !editName.trim() ? "not-allowed" : "pointer",
+                  opacity: savingChicken || !editName.trim() ? 0.6 : 1,
+                }}
+              >
+                {saving ? "Saving..." : "Save"}
+              </button>
+              <button
+                type="button"
+                onClick={cancelEditChicken}
+                disabled={savingChicken}
+                style={{
+                  padding: "0.4rem 1rem",
+                  background: "#757575",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: "4px",
+                  fontSize: "0.9rem",
+                  cursor: savingChicken ? "not-allowed" : "pointer",
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {isAdmin && (
         <div
