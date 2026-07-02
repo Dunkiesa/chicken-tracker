@@ -14,6 +14,7 @@ export type Chicken = {
   origin_source_name: string | null;
   acquisition_type_id: number | null;
   acquisition_type_name: string | null;
+  acquisition_date: string | null;
   departed: boolean;
   departure_date: string | null;
   departure_reason: string | null;
@@ -28,6 +29,7 @@ export type CreateChickenInput = {
   breed?: string;
   origin_source?: string;
   acquisition_type?: string;
+  acquisition_date?: string | null;
 };
 
 export type UpdateChickenInput = {
@@ -36,6 +38,7 @@ export type UpdateChickenInput = {
   breed?: string | null;
   origin_source?: string | null;
   acquisition_type?: string | null;
+  acquisition_date?: string | null;
   departed?: boolean;
   departure_date?: string | null;
   departure_reason?: string | null;
@@ -50,6 +53,7 @@ const LIST_JOIN_SQL = `
     c.breed_id, b.value AS breed_name,
     c.origin_source_id, os.value AS origin_source_name,
     c.acquisition_type_id, atv.value AS acquisition_type_name,
+    CONVERT(varchar, c.acquisition_date, 23) AS acquisition_date,
     c.primary_photo_id,
     pp.file_path AS primary_photo_path
   FROM chickens c
@@ -73,10 +77,11 @@ export async function createChicken(input: CreateChickenInput): Promise<Chicken>
     .input("breed_id", sql.Int, breedId)
     .input("origin_source_id", sql.Int, originSourceId)
     .input("acquisition_type_id", sql.Int, acquisitionTypeId)
+    .input("acquisition_date", sql.Date, input.acquisition_date || null)
     .query(`
-      INSERT INTO chickens (name, sex, breed_id, origin_source_id, acquisition_type_id)
+      INSERT INTO chickens (name, sex, breed_id, origin_source_id, acquisition_type_id, acquisition_date)
       OUTPUT INSERTED.id
-      VALUES (@name, @sex, @breed_id, @origin_source_id, @acquisition_type_id)
+      VALUES (@name, @sex, @breed_id, @origin_source_id, @acquisition_type_id, @acquisition_date)
     `);
 
   const id = insertResult.recordset[0].id;
@@ -133,6 +138,10 @@ export async function updateChicken(id: number, input: UpdateChickenInput): Prom
     const aid = input.acquisition_type ? await getOrCreateValue("acquisition_types", input.acquisition_type) : null;
     sets.push("acquisition_type_id = @acquisition_type_id");
     request.input("acquisition_type_id", sql.Int, aid);
+  }
+  if (input.acquisition_date !== undefined) {
+    sets.push("acquisition_date = @acquisition_date");
+    request.input("acquisition_date", sql.Date, input.acquisition_date);
   }
   if (input.departed !== undefined) {
     sets.push("departed = @departed");

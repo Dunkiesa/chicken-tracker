@@ -11,6 +11,7 @@ type Chicken = {
   breed_name: string | null;
   origin_source_name: string | null;
   acquisition_type_name: string | null;
+  acquisition_date: string | null;
   departed: boolean;
   departure_date: string | null;
   departure_reason: string | null;
@@ -77,6 +78,7 @@ export default function ChickenProfilePage() {
   const [editBreed, setEditBreed] = useState("");
   const [editOrigin, setEditOrigin] = useState("");
   const [editAcquisition, setEditAcquisition] = useState("");
+  const [editAcquisitionDate, setEditAcquisitionDate] = useState("");
   const [editDeparted, setEditDeparted] = useState(false);
   const [editDepartureDate, setEditDepartureDate] = useState("");
   const [editDepartureReason, setEditDepartureReason] = useState("");
@@ -307,6 +309,7 @@ export default function ChickenProfilePage() {
     setEditBreed(chicken.breed_name || "");
     setEditOrigin(chicken.origin_source_name || "");
     setEditAcquisition(chicken.acquisition_type_name || "");
+    setEditAcquisitionDate(chicken.acquisition_date || "");
     setEditDeparted(chicken.departed);
     setEditDepartureDate(chicken.departure_date || "");
     setEditDepartureReason(chicken.departure_reason || "");
@@ -337,6 +340,11 @@ export default function ChickenProfilePage() {
       }
       if (editAcquisition.trim()) {
         updates.acquisition_type = editAcquisition.trim();
+      }
+      if (editAcquisitionDate) {
+        updates.acquisition_date = editAcquisitionDate;
+      } else {
+        updates.acquisition_date = null;
       }
       updates.departed = editDeparted;
       if (editDepartureDate) {
@@ -478,6 +486,8 @@ export default function ChickenProfilePage() {
           <span>{chicken.origin_source_name || "-"}</span>
           <span style={{ fontWeight: 600, color: "#555" }}>Acquisition</span>
           <span>{chicken.acquisition_type_name || "-"}</span>
+          <span style={{ fontWeight: 600, color: "#555" }}>Acquisition Date</span>
+          <span>{chicken.acquisition_date || "-"}</span>
           <span style={{ fontWeight: 600, color: "#555" }}>Status</span>
           <span>
             {chicken.departed ? (
@@ -637,6 +647,21 @@ export default function ChickenProfilePage() {
                   <option key={a.id} value={a.value} />
                 ))}
               </datalist>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "100px 1fr", gap: "0.5rem", alignItems: "center" }}>
+              <label style={{ fontWeight: 600, color: "#555", fontSize: "0.9rem" }}>Acquisition Date</label>
+              <input
+                type="date"
+                value={editAcquisitionDate}
+                onChange={(e) => setEditAcquisitionDate(e.target.value)}
+                style={{
+                  padding: "0.5rem",
+                  border: "1px solid #ccc",
+                  borderRadius: "4px",
+                  fontSize: "0.9rem",
+                }}
+              />
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "100px 1fr", gap: "0.5rem", alignItems: "center" }}>
