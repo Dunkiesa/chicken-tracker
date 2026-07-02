@@ -772,12 +772,11 @@ export default function Home() {
                                 }}
                               />
                             )}
-                            <div style={{ display: "flex", gap: "0.3rem" }}>
+                            <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
                               <button
                                 onClick={() => handleMarkDeparted(chicken)}
                                 disabled={departingSave || (departureReason === "Other" && !departureOtherReason.trim())}
                                 style={{
-                                  flex: 1,
                                   padding: "0.3rem 0.5rem",
                                   fontSize: "0.8rem",
                                   border: "none",
