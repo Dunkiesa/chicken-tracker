@@ -1,4 +1,4 @@
-import { ensureDatabase, runMigrations } from "@/lib/db";
+import { ensureDatabase, runMigrations, closePool } from "@/lib/db";
 import { createChicken, updateChicken, listChickens, type Chicken } from "@/lib/chickens";
 import { createEgg } from "@/lib/eggs";
 import { getAnalytics, type AnalyticsData } from "@/lib/analytics";
@@ -11,12 +11,7 @@ beforeAll(async () => {
 }, 30000);
 
 afterAll(async () => {
-  const chickens = await listChickens(true);
-  for (const c of chickens) {
-    if (c.name.startsWith("Analytics Test")) {
-      // Test DB is ephemeral for CI - no cleanup needed
-    }
-  }
+  await closePool();
 });
 
 async function createTestHen(name: string): Promise<Chicken> {

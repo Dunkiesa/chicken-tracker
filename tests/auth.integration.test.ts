@@ -1,4 +1,4 @@
-import { ensureDatabase, runMigrations } from "@/lib/db";
+import { ensureDatabase, runMigrations, closePool } from "@/lib/db";
 import { addUser, removeUser, getUserByEmail, listUsers } from "@/lib/users";
 
 const TEST_ADMIN_EMAIL = "test-admin@example.com";
@@ -21,6 +21,7 @@ afterAll(async () => {
   } catch {
     // ignore
   }
+  await closePool();
 }, 15000);
 
 describe("Users domain", () => {

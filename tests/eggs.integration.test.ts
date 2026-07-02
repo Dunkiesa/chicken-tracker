@@ -1,4 +1,4 @@
-import { ensureDatabase, runMigrations } from "@/lib/db";
+import { ensureDatabase, runMigrations, closePool } from "@/lib/db";
 import {
   createEgg,
   listEggs,
@@ -16,6 +16,10 @@ beforeAll(async () => {
   await ensureDatabase();
   await runMigrations();
 }, 30000);
+
+afterAll(async () => {
+  await closePool();
+});
 
 const RECORDED_BY = "test@example.com";
 const SECOND_USER = "viewer@example.com";

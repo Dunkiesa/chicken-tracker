@@ -37,6 +37,17 @@ export async function ensureDatabase(): Promise<void> {
   await masterPool.close();
 }
 
+export async function closePool(): Promise<void> {
+  if (migrationsPromise) {
+    await migrationsPromise;
+  }
+  if (poolPromise) {
+    const pool = await poolPromise;
+    await pool.close();
+    poolPromise = null;
+  }
+}
+
 export async function checkConnection(): Promise<boolean> {
   try {
     const p = await getPool();
@@ -230,11 +241,18 @@ export async function runMigrations(): Promise<void> {
   }
 }
 let migrationsRun = false;
+let migrationsPromise: Promise<void> | null = null;
 
 export async function ensureMigrations(): Promise<void> {
+  if (migrationsPromise) return migrationsPromise;
   if (migrationsRun) return;
-  await runMigrations();
-  migrationsRun = true;
+  migrationsPromise = runMigrations();
+  try {
+    await migrationsPromise;
+    migrationsRun = true;
+  } finally {
+    migrationsPromise = null;
+  }
 }
 
 ensureMigrations().catch((err) => {

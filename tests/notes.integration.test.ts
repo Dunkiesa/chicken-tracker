@@ -1,4 +1,4 @@
-import { ensureDatabase, runMigrations } from "@/lib/db";
+import { ensureDatabase, runMigrations, closePool } from "@/lib/db";
 import { createChicken, type Chicken } from "@/lib/chickens";
 import {
   createNote,
@@ -23,6 +23,10 @@ async function ensureHen(name: string): Promise<Chicken> {
   if (existing) return existing;
   return createChicken({ name, sex: "Hen" });
 }
+
+afterAll(async () => {
+  await closePool();
+});
 
 describe("Note CRUD", () => {
   it("creates a note and assigns a unique ID", async () => {

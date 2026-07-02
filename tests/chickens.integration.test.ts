@@ -1,4 +1,4 @@
-import { ensureDatabase, runMigrations, getPool } from "@/lib/db";
+import { ensureDatabase, runMigrations, getPool, closePool } from "@/lib/db";
 import { createChicken, listChickens, updateChicken, type Chicken } from "@/lib/chickens";
 import { listValues, createValue, renameValue, removeValue, mergeValues } from "@/lib/dynamic-lists";
 
@@ -19,6 +19,10 @@ beforeEach(async () => {
   await pool.request().query("DELETE FROM origin_sources");
   await pool.request().query("DELETE FROM breeds");
 }, 30000);
+
+afterAll(async () => {
+  await closePool();
+});
 
 describe("Chickens", () => {
   it("creates a chicken with full enrollment and assigns a unique ID", async () => {

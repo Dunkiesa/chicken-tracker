@@ -1,4 +1,4 @@
-import { ensureDatabase, runMigrations } from "@/lib/db";
+import { ensureDatabase, runMigrations, closePool } from "@/lib/db";
 import { createChicken, listChickens, type Chicken } from "@/lib/chickens";
 import {
   createPhoto,
@@ -23,6 +23,10 @@ async function ensureHen(name: string): Promise<Chicken> {
   if (existing) return existing;
   return createChicken({ name, sex: "Hen" });
 }
+
+afterAll(async () => {
+  await closePool();
+});
 
 describe("Photo CRUD", () => {
   it("creates a photo record with a file path and description", async () => {
