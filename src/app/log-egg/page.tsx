@@ -429,6 +429,24 @@ function LogEggContent() {
           </div>
         )}
 
+        {Object.entries(rowWarnings).length > 0 && (
+          <div style={{
+            padding: "0.5rem 0.75rem",
+            background: "#fff8e1",
+            border: "1px solid #ffd54f",
+            borderRadius: "4px",
+            fontSize: "0.85rem",
+            color: "#f57f17",
+            marginBottom: "0.75rem",
+          }}>
+            {Object.entries(rowWarnings).map(([chickenId, warns]) => (
+              warns.filter(w => w.type === "duplicate_date").map((w, i) => (
+                <div key={`${chickenId}-${i}`}>{w.message}</div>
+              ))
+            ))}
+          </div>
+        )}
+
         <button
           onClick={handleBulkSubmit}
           disabled={saving || hens.length === 0}
