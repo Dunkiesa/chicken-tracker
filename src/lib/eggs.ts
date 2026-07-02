@@ -152,7 +152,11 @@ export async function createEggs(
         `);
 
       const id = result.recordset[0].id;
-      const egg = await getEgg(id);
+      const eggResult = await transaction
+        .request()
+        .input("id", sql.Int, id)
+        .query(`${EGG_SELECT_SQL} WHERE e.id = @id`);
+      const egg = (eggResult.recordset[0] as Egg) || null;
       eggs.push(egg!);
       warnings.push(eggWarnings);
     }

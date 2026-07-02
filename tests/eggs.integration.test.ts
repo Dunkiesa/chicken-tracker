@@ -1,6 +1,7 @@
 import { ensureDatabase, runMigrations, closePool } from "@/lib/db";
 import {
   createEgg,
+  createEggs,
   listEggs,
   getEgg,
   updateEgg,
@@ -9,6 +10,8 @@ import {
   getLayingContext,
   getLastUsedChicken,
   type Egg,
+  type CreateEggInput,
+  type CreateEggWarning,
 } from "@/lib/eggs";
 import { createChicken, listChickens, type Chicken } from "@/lib/chickens";
 
@@ -394,6 +397,136 @@ describe("Edit/delete authorization", () => {
     // Should detect duplicate when trying to change to hen2 on same date
     const existingId = await checkDuplicate(hen2.id, "2026-06-27", egg.id);
     expect(existingId).not.toBeNull();
+  }, 15000);
+});
+
+describe("Batch Create (createEggs)", () => {
+  it("creates multiple eggs in a batch", async () => {
+    const hen1 = await ensureHen("Batch Create Hen 1");
+    const hen2 = await ensureHen("Batch Create Hen 2");
+
+    const result = await createEggs([
+      {
+        chicken_id: hen1.id,
+        weight: 55.00,
+        date: "2026-07-10",
+        recorded_by: RECORDED_BY,
+      },
+      {
+        chicken_id: hen2.id,
+        weight: 60.00,
+        date: "2026-07-10",
+        recorded_by: RECORDED_BY,
+      },
+    ]);
+
+    expect(result.eggs.length).toBe(2);
+    expect(result.warnings.length).toBe(2);
+    expect(result.eggs[0].chicken_id).toBe(hen1.id);
+    expect(result.eggs[0].weight).toBe(55.00);
+    expect(result.eggs[0].date).toBe("2026-07-10");
+    expect(result.eggs[1].chicken_id).toBe(hen2.id);
+    expect(result.eggs[1].weight).toBe(60.00);
+    expect(result.eggs[1].date).toBe("2026-07-10");
+  }, 15000);
+
+  it("returns warnings per-entry for duplicate dates", async () => {
+    const hen = await ensureHen("Batch Duplicate Hen");
+
+    await createEgg({
+      chicken_id: hen.id,
+      weight: 55.00,
+      date: "2026-07-11",
+      recorded_by: RECORDED_BY,
+    });
+
+    const result = await createEggs([
+      {
+        chicken_id: hen.id,
+        weight: 56.00,
+        date: "2026-07-11",
+        recorded_by: RECORDED_BY,
+      },
+    ]);
+
+    expect(result.eggs.length).toBe(1);
+    expect(result.warnings[0].some((w) => w.type === "duplicate_date")).toBe(true);
+    expect(result.eggs[0].weight).toBe(56.00);
+  }, 15000);
+
+  it("returns warnings per-entry for out-of-range weight", async () => {
+    const hen = await ensureHen("Batch Weight Hen");
+
+    const result = await createEggs([
+      {
+        chicken_id: hen.id,
+        weight: 15.00,
+        date: "2026-07-12",
+        recorded_by: RECORDED_BY,
+      },
+    ]);
+
+    expect(result.eggs.length).toBe(1);
+    expect(result.warnings[0].some((w) => w.type === "weight_out_of_range")).toBe(true);
+    expect(result.eggs[0].weight).toBe(15.00);
+  }, 15000);
+
+  it("overrideDuplicate=true suppresses duplicate warnings", async () => {
+    const hen = await ensureHen("Batch Override Hen");
+
+    await createEgg({
+      chicken_id: hen.id,
+      weight: 55.00,
+      date: "2026-07-13",
+      recorded_by: RECORDED_BY,
+    });
+
+    const result = await createEggs(
+      [
+        {
+          chicken_id: hen.id,
+          weight: 56.00,
+          date: "2026-07-13",
+          recorded_by: RECORDED_BY,
+        },
+      ],
+      true
+    );
+
+    expect(result.eggs.length).toBe(1);
+    expect(result.warnings[0].some((w) => w.type === "duplicate_date")).toBe(false);
+  }, 15000);
+
+  it("returns empty arrays for empty input", async () => {
+    const result = await createEggs([]);
+
+    expect(result.eggs.length).toBe(0);
+    expect(result.warnings.length).toBe(0);
+  }, 15000);
+
+  it("batch rolls back on error", async () => {
+    const hen1 = await ensureHen("Batch Rollback Hen 1");
+    const hen2 = await ensureHen("Batch Rollback Hen 2");
+
+    await expect(
+      createEggs([
+        {
+          chicken_id: hen1.id,
+          weight: 55.00,
+          date: "2026-07-14",
+          recorded_by: RECORDED_BY,
+        },
+        {
+          chicken_id: 999999,
+          weight: 60.00,
+          date: "2026-07-14",
+          recorded_by: RECORDED_BY,
+        },
+      ])
+    ).rejects.toThrow();
+
+    const eggs = await listEggs({ chicken_id: hen1.id });
+    expect(eggs.length).toBe(0);
   }, 15000);
 });
 
