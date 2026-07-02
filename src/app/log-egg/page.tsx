@@ -60,6 +60,7 @@ function LogEggContent() {
   const [editingEggId, setEditingEggId] = useState<number | null>(null);
   const [editWeight, setEditWeight] = useState("");
   const [editDate, setEditDate] = useState("");
+  const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -81,9 +82,12 @@ function LogEggContent() {
     if (status !== "authenticated") return;
     fetch("/api/chickens")
       .then((res) => res.ok ? res.json() : [])
-      .then((data) => setHens((data as Chicken[]).filter((c) => c.sex === "Hen" && !c.departed)))
+      .then((data) => {
+        const all = data as Chicken[];
+        setHens(all.filter((c) => !c.departed && (showAll || c.sex !== "Rooster")));
+      })
       .catch(() => {});
-  }, [status]);
+  }, [status, showAll]);
 
   useEffect(() => {
     if (status !== "authenticated") return;
@@ -264,6 +268,18 @@ function LogEggContent() {
               boxSizing: "border-box",
             }}
           />
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem", fontSize: "0.875rem" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: "0.3rem", cursor: "pointer" }}>
+            <input
+              type="checkbox"
+              checked={showAll}
+              onChange={(e) => setShowAll(e.target.checked)}
+            />
+            Show all chickens (including roosters)
+          </label>
+          <span style={{ color: "#999" }}>{hens.length} available</span>
         </div>
 
         {hens.length === 0 ? (
