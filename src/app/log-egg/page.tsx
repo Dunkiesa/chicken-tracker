@@ -62,6 +62,15 @@ function LogEggContent() {
   const [editDate, setEditDate] = useState("");
   const [showAll, setShowAll] = useState(false);
 
+  async function refreshEggs() {
+    try {
+      const res = await fetch("/api/eggs");
+      if (res.ok) setEggs(await res.json());
+    } catch {
+      // ignore
+    }
+  }
+
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/");
@@ -69,12 +78,7 @@ function LogEggContent() {
     }
     if (status !== "authenticated") return;
     (async () => {
-      try {
-        const res = await fetch("/api/eggs");
-        if (res.ok) setEggs(await res.json());
-      } catch {
-        // ignore
-      }
+      await refreshEggs();
     })();
   }, [status, router]);
 
@@ -181,6 +185,7 @@ function LogEggContent() {
         eggsData.forEach((egg) => map.set(egg.chicken_id, egg));
         setExistingEggsMap(map);
       }
+      await refreshEggs();
     } catch {
       setError("Failed to save eggs");
     } finally {
