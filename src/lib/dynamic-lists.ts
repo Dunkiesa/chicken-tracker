@@ -61,6 +61,13 @@ export async function createValue(type: DynamicListType, value: string): Promise
   const trimmed = value.trim();
   if (!trimmed) throw new Error("Value cannot be empty");
 
+  const existing = await pool
+    .request()
+    .input("value", sql.NVarChar(255), trimmed)
+    .query(`SELECT id, value FROM ${table(type)} WHERE LOWER(value) = LOWER(@value)`);
+
+  if (existing.recordset.length > 0) return existing.recordset[0];
+
   const result = await pool
     .request()
     .input("value", sql.NVarChar(255), trimmed)
