@@ -258,7 +258,7 @@ export default function Home() {
           {session?.user && (
             <>
               <a
-                href="/log-egg?quick=1"
+                href="/log-egg"
                 style={{
                   padding: "0.4rem 0.75rem",
                   background: "#2e7d32",
@@ -270,20 +270,6 @@ export default function Home() {
                 }}
               >
                 Bulk Log
-              </a>
-              <a
-                href="/log-egg"
-                style={{
-                  padding: "0.4rem 0.75rem",
-                  background: "#e65100",
-                  color: "#fff",
-                  borderRadius: "4px",
-                  textDecoration: "none",
-                  fontSize: "0.875rem",
-                  fontWeight: 600,
-                }}
-              >
-                Log Egg
               </a>
               <a
                 href="/dashboard"
