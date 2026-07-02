@@ -258,7 +258,7 @@ export default function Home() {
           {session?.user && (
             <>
               <a
-                href="/log-egg?quick=1"
+                href="/log-egg"
                 style={{
                   padding: "0.4rem 0.75rem",
                   background: "#2e7d32",
@@ -269,21 +269,7 @@ export default function Home() {
                   fontWeight: 600,
                 }}
               >
-                Quick Log
-              </a>
-              <a
-                href="/log-egg"
-                style={{
-                  padding: "0.4rem 0.75rem",
-                  background: "#e65100",
-                  color: "#fff",
-                  borderRadius: "4px",
-                  textDecoration: "none",
-                  fontSize: "0.875rem",
-                  fontWeight: 600,
-                }}
-              >
-                Log Egg
+                Bulk Log
               </a>
               <a
                 href="/dashboard"
@@ -786,12 +772,11 @@ export default function Home() {
                                 }}
                               />
                             )}
-                            <div style={{ display: "flex", gap: "0.3rem" }}>
+                            <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
                               <button
                                 onClick={() => handleMarkDeparted(chicken)}
                                 disabled={departingSave || (departureReason === "Other" && !departureOtherReason.trim())}
                                 style={{
-                                  flex: 1,
                                   padding: "0.3rem 0.5rem",
                                   fontSize: "0.8rem",
                                   border: "none",
