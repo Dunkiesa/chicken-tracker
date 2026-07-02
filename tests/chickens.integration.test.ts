@@ -1,10 +1,23 @@
-import { ensureDatabase, runMigrations } from "@/lib/db";
+import { ensureDatabase, runMigrations, getPool } from "@/lib/db";
 import { createChicken, listChickens, updateChicken, type Chicken } from "@/lib/chickens";
 import { listValues, createValue, renameValue, removeValue, mergeValues } from "@/lib/dynamic-lists";
 
 beforeAll(async () => {
   await ensureDatabase();
   await runMigrations();
+}, 30000);
+
+beforeEach(async () => {
+  const pool = await getPool();
+  // Break circular FK: chickens.primary_photo_id → photos, photos.chicken_id → chickens
+  await pool.request().query("UPDATE chickens SET primary_photo_id = NULL WHERE primary_photo_id IS NOT NULL");
+  await pool.request().query("DELETE FROM photos");
+  await pool.request().query("DELETE FROM notes");
+  await pool.request().query("DELETE FROM eggs");
+  await pool.request().query("DELETE FROM chickens");
+  await pool.request().query("DELETE FROM acquisition_types");
+  await pool.request().query("DELETE FROM origin_sources");
+  await pool.request().query("DELETE FROM breeds");
 }, 30000);
 
 describe("Chickens", () => {
