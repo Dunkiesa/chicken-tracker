@@ -46,6 +46,7 @@ export default function LogEggPage() {
 function LogEggContent() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const isAdmin = session?.user?.role === "Admin";
 
   const [eggs, setEggs] = useState<Egg[]>([]);
   const [saving, setSaving] = useState(false);
@@ -56,6 +57,9 @@ function LogEggContent() {
   const [existingEggsMap, setExistingEggsMap] = useState<Map<number, Egg>>(new Map());
   const [weights, setWeights] = useState<Record<number, string>>({});
   const [rowWarnings, setRowWarnings] = useState<Record<number, Warning[]>>({});
+  const [editingEggId, setEditingEggId] = useState<number | null>(null);
+  const [editWeight, setEditWeight] = useState("");
+  const [editDate, setEditDate] = useState("");
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -96,6 +100,31 @@ function LogEggContent() {
       }
     })();
   }, [status, batchDate]);
+
+  async function handleEdit(egg: Egg) {
+    setEditingEggId(egg.id);
+    setEditWeight(egg.weight.toString());
+    setEditDate(egg.date);
+    setError(null);
+    setSuccessMsg(null);
+  }
+
+  async function handleDelete(egg: Egg) {
+    if (!confirm(`Delete egg for ${egg.chicken_name} on ${egg.date}?`)) return;
+    try {
+      const res = await fetch(`/api/eggs/${egg.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.message || "Failed to delete egg");
+        return;
+      }
+      const eggsRes = await fetch("/api/eggs");
+      if (eggsRes.ok) setEggs(await eggsRes.json());
+      setSuccessMsg("Egg deleted");
+    } catch {
+      setError("Failed to delete egg");
+    }
+  }
 
   async function handleBulkSubmit() {
     setError(null);
@@ -420,6 +449,7 @@ function LogEggContent() {
                   <th style={{ textAlign: "left", padding: "0.4rem 0.4rem 0.4rem 0", fontWeight: 600 }}>Date</th>
                   <th style={{ textAlign: "left", padding: "0.4rem", fontWeight: 600 }}>Chicken</th>
                   <th style={{ textAlign: "right", padding: "0.4rem", fontWeight: 600 }}>Weight</th>
+                  <th style={{ textAlign: "center", padding: "0.4rem", fontWeight: 600 }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -433,6 +463,111 @@ function LogEggContent() {
                     </td>
                     <td style={{ padding: "0.4rem", textAlign: "right" }}>
                       {egg.weight.toFixed(2)}g
+                    </td>
+                    <td style={{ padding: "0.4rem", textAlign: "center" }}>
+                      {editingEggId === egg.id ? (
+                        <div style={{ display: "flex", gap: "0.4rem", alignItems: "center", justifyContent: "center" }}>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={editWeight}
+                            onChange={(e) => setEditWeight(e.target.value)}
+                            style={{ width: "80px", padding: "0.3rem 0.4rem", border: "1px solid #ccc", borderRadius: "4px", fontSize: "0.85rem", textAlign: "right" }}
+                          />
+                          <input
+                            type="date"
+                            value={editDate}
+                            onChange={(e) => setEditDate(e.target.value)}
+                            style={{ width: "130px", padding: "0.3rem 0.4rem", border: "1px solid #ccc", borderRadius: "4px", fontSize: "0.85rem" }}
+                          />
+                          <button
+                            onClick={async () => {
+                              setError(null);
+                              setSuccessMsg(null);
+                              try {
+                                const res = await fetch(`/api/eggs/${editingEggId}`, {
+                                  method: "PUT",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ weight: parseFloat(editWeight), date: editDate }),
+                                });
+                                if (res.status === 409) {
+                                  const data = await res.json();
+                                  setError(data.message);
+                                  return;
+                                }
+                                if (!res.ok) {
+                                  const data = await res.json();
+                                  setError(data.message || "Failed to update egg");
+                                  return;
+                                }
+                                setEditingEggId(null);
+                                const eggsRes = await fetch("/api/eggs");
+                                if (eggsRes.ok) setEggs(await eggsRes.json());
+                                setSuccessMsg("Egg updated");
+                              } catch {
+                                setError("Failed to update egg");
+                              }
+                            }}
+                            style={{
+                              padding: "0.3rem 0.5rem",
+                              fontSize: "0.8rem",
+                              border: "none",
+                              borderRadius: "4px",
+                              background: "#2e7d32",
+                              color: "#fff",
+                              cursor: "pointer",
+                            }}
+                          >
+                            Save
+                          </button>
+                          <button
+                            onClick={() => setEditingEggId(null)}
+                            style={{
+                              padding: "0.3rem 0.5rem",
+                              fontSize: "0.8rem",
+                              border: "1px solid #ccc",
+                              borderRadius: "4px",
+                              background: "#fff",
+                              cursor: "pointer",
+                            }}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        isAdmin || egg.recorded_by === session?.user?.email ? (
+                          <div style={{ display: "flex", gap: "0.4rem", justifyContent: "center" }}>
+                            <button
+                              onClick={() => handleEdit(egg)}
+                              style={{
+                                padding: "0.3rem 0.5rem",
+                                fontSize: "0.8rem",
+                                border: "1px solid #ccc",
+                                borderRadius: "4px",
+                                background: "#fff",
+                                cursor: "pointer",
+                              }}
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleDelete(egg)}
+                              style={{
+                                padding: "0.3rem 0.5rem",
+                                fontSize: "0.8rem",
+                                border: "none",
+                                borderRadius: "4px",
+                                background: "#d32f2f",
+                                color: "#fff",
+                                cursor: "pointer",
+                              }}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        ) : null
+                      )}
                     </td>
                   </tr>
                 ))}
