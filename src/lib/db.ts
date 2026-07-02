@@ -96,6 +96,7 @@ export async function runMigrations(): Promise<void> {
       breed_id INT NULL REFERENCES breeds(id),
       origin_source_id INT NULL REFERENCES origin_sources(id),
       acquisition_type_id INT NULL REFERENCES acquisition_types(id),
+      acquisition_date DATE NULL,
       departed BIT NOT NULL DEFAULT 0,
       departure_date DATE NULL,
       departure_reason NVARCHAR(255) NULL,
@@ -144,6 +145,11 @@ export async function runMigrations(): Promise<void> {
   await p.request().query(`
     IF NOT EXISTS (SELECT * FROM sys.foreign_keys WHERE name = 'FK_chickens_acquisition_types')
       EXEC('ALTER TABLE dbo.chickens ADD CONSTRAINT FK_chickens_acquisition_types FOREIGN KEY (acquisition_type_id) REFERENCES dbo.acquisition_types(id)')
+  `);
+
+  await p.request().query(`
+    IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('chickens') AND name = 'acquisition_date')
+      ALTER TABLE chickens ADD acquisition_date DATE NULL
   `);
 
   await p.request().query(`

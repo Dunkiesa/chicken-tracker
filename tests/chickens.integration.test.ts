@@ -73,6 +73,44 @@ describe("Chickens", () => {
     await expect(createChicken({ name: "Dup Test", sex: "Hen" })).rejects.toThrow();
   }, 15000);
 
+  it("creates a chicken with acquisition date", async () => {
+    const chicken = await createChicken({
+      name: "Dated Hen",
+      sex: "Hen",
+      acquisition_date: "2026-03-15",
+    });
+    expect(chicken.acquisition_date).toBe("2026-03-15");
+  }, 15000);
+
+  it("creates a chicken without acquisition date (null)", async () => {
+    const chicken = await createChicken({
+      name: "Dateless Hen",
+      sex: "Hen",
+    });
+    expect(chicken.acquisition_date).toBeNull();
+  }, 15000);
+
+  it("updates acquisition date", async () => {
+    const chicken = await createChicken({ name: "Update Date Hen", sex: "Hen" });
+    const updated = await updateChicken(chicken.id, {
+      acquisition_date: "2026-04-01",
+    });
+    expect(updated).not.toBeNull();
+    expect(updated!.acquisition_date).toBe("2026-04-01");
+  }, 15000);
+
+  it("includes acquisition date in chicken list", async () => {
+    await createChicken({
+      name: "List Date Hen",
+      sex: "Hen",
+      acquisition_date: "2026-05-10",
+    });
+    const list = await listChickens();
+    const found = list.find((c: Chicken) => c.name === "List Date Hen");
+    expect(found).toBeDefined();
+    expect(found!.acquisition_date).toBe("2026-05-10");
+  }, 15000);
+
   it("trims whitespace from names", async () => {
     const chicken = await createChicken({ name: "  Trimmed Hen  ", sex: "Hen" });
     expect(chicken.name).toBe("Trimmed Hen");

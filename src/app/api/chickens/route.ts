@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, sex, breed, origin_source, acquisition_type } = body;
+    const { name, sex, breed, origin_source, acquisition_type, acquisition_date } = body;
 
     if (!name || typeof name !== "string" || name.trim().length === 0) {
       return NextResponse.json(
@@ -63,6 +63,7 @@ export async function POST(request: NextRequest) {
       breed: breed || undefined,
       origin_source: origin_source || undefined,
       acquisition_type: acquisition_type || undefined,
+      acquisition_date: acquisition_date || undefined,
     });
 
     return NextResponse.json(chicken, { status: 201 });
