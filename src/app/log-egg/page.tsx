@@ -71,8 +71,11 @@ function LogEggContent() {
   const [duplicateConfirmId, setDuplicateConfirmId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
-  const [quickLastUsedId, setQuickLastUsedId] = useState<number | null>(null);
-  const [quickLastUsedName, setQuickLastUsedName] = useState<string | null>(null);
+  const [batchDate, setBatchDate] = useState(todayStr());
+  const [hens, setHens] = useState<Chicken[]>([]);
+  const [existingEggsMap, setExistingEggsMap] = useState<Map<number, Egg>>(new Map());
+  const [weights, setWeights] = useState<Record<number, string>>({});
+  const [rowWarnings, setRowWarnings] = useState<Record<number, Warning[]>>({});
 
   const isAdmin = session?.user?.role === "Admin";
   const searchParams = useSearchParams();
@@ -102,29 +105,28 @@ function LogEggContent() {
   }, [status, fetchData, router]);
 
   useEffect(() => {
+    if (status !== "authenticated") return;
+    fetch("/api/chickens")
+      .then((res) => res.ok ? res.json() : [])
+      .then((data) => setHens((data as Chicken[]).filter((c) => c.sex === "Hen" && !c.departed)))
+      .catch(() => {});
+  }, [status]);
+
+  useEffect(() => {
     if (!quickMode || status !== "authenticated") return;
     (async () => {
       try {
-        const res = await fetch("/api/eggs?last_used=true");
+        const res = await fetch(`/api/eggs?date=${batchDate}`);
         if (!res.ok) return;
-        const data = await res.json();
-        if (data?.chicken_id) {
-          setQuickLastUsedId(data.chicken_id);
-          setQuickLastUsedName(data.chicken_name);
-        }
+        const data: Egg[] = await res.json();
+        const map = new Map<number, Egg>();
+        data.forEach((egg) => map.set(egg.chicken_id, egg));
+        setExistingEggsMap(map);
       } catch {
         // ignore
       }
     })();
-  }, [quickMode, status]);
-
-  useEffect(() => {
-    if (!quickMode || !quickLastUsedId || chickens.length === 0) return;
-    const chicken = chickens.find((c) => c.id === quickLastUsedId);
-    if (chicken && !chicken.departed) {
-      setSelectedChickenId(quickLastUsedId);
-    }
-  }, [quickMode, quickLastUsedId, chickens]);
+  }, [quickMode, status, batchDate]);
 
   function getContext(chickenId: number): LayingContext | undefined {
     return layingContext.find((c) => c.chicken_id === chickenId);
@@ -149,6 +151,64 @@ function LogEggContent() {
     setDuplicateConfirmId(null);
     setError(null);
     setSuccessMsg(null);
+  }
+
+  async function handleBulkSubmit() {
+    setError(null);
+    setSuccessMsg(null);
+    setRowWarnings({});
+
+    const entries = hens
+      .filter((h) => !existingEggsMap.has(h.id) && weights[h.id] && parseFloat(weights[h.id]) > 0)
+      .map((h) => ({
+        chicken_id: h.id,
+        weight: Math.round(parseFloat(weights[h.id]) * 100) / 100,
+        date: batchDate,
+      }));
+
+    if (entries.length === 0) {
+      setError("No eggs to log — fill in weights or all hens already logged for this date");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const res = await fetch("/api/eggs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(entries),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.message || "Failed to save eggs");
+        return;
+      }
+
+      const result = await res.json();
+      const warningMap: Record<number, Warning[]> = {};
+      entries.forEach((entry, idx) => {
+        if (result.warnings[idx]?.length > 0) {
+          warningMap[entry.chicken_id] = result.warnings[idx];
+        }
+      });
+      setRowWarnings(warningMap);
+
+      setSuccessMsg(`Logged ${entries.length} egg(s)!`);
+      setWeights({});
+
+      const eggsRes = await fetch(`/api/eggs?date=${batchDate}`);
+      if (eggsRes.ok) {
+        const eggsData: Egg[] = await eggsRes.json();
+        const map = new Map<number, Egg>();
+        eggsData.forEach((egg) => map.set(egg.chicken_id, egg));
+        setExistingEggsMap(map);
+      }
+    } catch {
+      setError("Failed to save eggs");
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function handleSubmit() {
@@ -218,14 +278,7 @@ function LogEggContent() {
 
       setSuccessMsg(isEditing ? "Egg updated!" : "Egg logged!");
       setDuplicateConfirmId(null);
-      if (quickMode && !isEditing) {
-        setWeight("");
-        setDate(todayStr());
-        setWarnings([]);
-        setError(null);
-      } else {
-        resetForm();
-      }
+      resetForm();
       await fetchData();
     } catch {
       setError("Failed to save egg");
@@ -294,7 +347,7 @@ function LogEggContent() {
           width: "100%",
         }}
       >
-        <h1 style={{ fontSize: "1.5rem" }}>{quickMode ? "Quick Log" : "Log an Egg"}</h1>
+        <h1 style={{ fontSize: "1.5rem" }}>{quickMode ? "Bulk Log" : "Log an Egg"}</h1>
         <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
           {quickMode && (
             <a
@@ -305,7 +358,7 @@ function LogEggContent() {
                 fontSize: "0.875rem",
               }}
             >
-              Full log &rarr;
+              Single entry &rarr;
             </a>
           )}
           <a
@@ -330,36 +383,148 @@ function LogEggContent() {
           background: "#fff",
         }}
       >
-        {quickMode && selectedChickenId ? (
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              padding: "0.75rem",
-              marginBottom: "0.75rem",
-              border: "1px solid #e0e0e0",
-              borderRadius: "6px",
-              background: "#f5f5f5",
-            }}
-          >
-            <div>
-              <span style={{ fontSize: "0.75rem", color: "#666" }}>Chicken</span>
-              <div style={{ fontWeight: 600, fontSize: "1rem" }}>
-                {quickLastUsedName || "Selected"}
-              </div>
+        {quickMode ? (
+          <>
+            <div style={{ marginBottom: "0.75rem" }}>
+              <label
+                htmlFor="batchDate"
+                style={{
+                  display: "block",
+                  fontSize: "0.8rem",
+                  fontWeight: 600,
+                  marginBottom: "0.25rem",
+                  color: "#555",
+                }}
+              >
+                Date
+              </label>
+              <input
+                id="batchDate"
+                type="date"
+                value={batchDate}
+                onChange={(e) => setBatchDate(e.target.value)}
+                disabled={saving}
+                style={{
+                  width: "100%",
+                  padding: "0.5rem",
+                  border: "1px solid #ccc",
+                  borderRadius: "4px",
+                  fontSize: "1rem",
+                  boxSizing: "border-box",
+                }}
+              />
             </div>
-            <a
-              href="/log-egg"
-              style={{
-                fontSize: "0.8rem",
-                color: "#1565c0",
-                textDecoration: "none",
-              }}
-            >
-              Change
-            </a>
-          </div>
+
+            {hens.length === 0 ? (
+              <p style={{ padding: "1rem", color: "#999", textAlign: "center" }}>
+                No laying hens available
+              </p>
+            ) : (
+              <div
+                style={{
+                  maxHeight: "400px",
+                  overflowY: "auto",
+                  border: "1px solid #e0e0e0",
+                  borderRadius: "4px",
+                  marginBottom: "1rem",
+                }}
+              >
+                {hens.map((hen) => {
+                  const existing = existingEggsMap.get(hen.id);
+                  const isLogged = !!existing;
+                  const warning = rowWarnings[hen.id];
+                  return (
+                    <div
+                      key={hen.id}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.75rem",
+                        padding: "0.6rem 0.75rem",
+                        borderBottom: "1px solid #f0f0f0",
+                        background: isLogged ? "#f5f5f5" : "transparent",
+                      }}
+                    >
+                      {hen.primary_photo_path ? (
+                        <img
+                          src={`/api/photos/${hen.primary_photo_path}`}
+                          alt=""
+                          style={{
+                            width: "32px",
+                            height: "32px",
+                            borderRadius: "50%",
+                            objectFit: "cover",
+                            background: "#f0f0f0",
+                            flexShrink: 0,
+                          }}
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = "none";
+                          }}
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            width: "32px",
+                            height: "32px",
+                            borderRadius: "50%",
+                            background: "#f0f0f0",
+                            flexShrink: 0,
+                          }}
+                        />
+                      )}
+                      <div style={{ flex: "1 1 100px", fontWeight: 500, fontSize: "0.95rem", minWidth: 0 }}>
+                        {hen.name}
+                      </div>
+                      {isLogged ? (
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                          <span style={{ fontSize: "0.85rem", color: "#666" }}>
+                            {existing.weight.toFixed(2)}g
+                          </span>
+                          <span style={{ color: "#2e7d32", fontSize: "1rem" }}>✓</span>
+                        </div>
+                      ) : (
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={weights[hen.id] || ""}
+                          onChange={(e) =>
+                            setWeights((prev) => ({ ...prev, [hen.id]: e.target.value }))
+                          }
+                          placeholder="Weight (g)"
+                          disabled={saving}
+                          style={{
+                            width: "110px",
+                            padding: "0.4rem",
+                            border: "1px solid #ccc",
+                            borderRadius: "4px",
+                            fontSize: "0.9rem",
+                            textAlign: "right",
+                            flexShrink: 0,
+                          }}
+                        />
+                      )}
+                      {warning?.length > 0 && (
+                        <div
+                          style={{
+                            fontSize: "0.75rem",
+                            color: "#f57f17",
+                            maxWidth: "160px",
+                            textAlign: "right",
+                            flexShrink: 0,
+                          }}
+                        >
+                          {warning.map((w, i) => (
+                            <div key={i}>{w.message}</div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </>
         ) : (
           <>
             <div style={{ marginBottom: "0.75rem" }}>
@@ -537,75 +702,77 @@ function LogEggContent() {
             marginBottom: "0.75rem",
           }}
         >
-          <div style={{ flex: "1 1 180px" }}>
-            <label
-              htmlFor="weight"
-              style={{
-                display: "block",
-                fontSize: "0.8rem",
-                fontWeight: 600,
-                marginBottom: "0.25rem",
-                color: "#555",
-              }}
-            >
-              Weight (g)
-            </label>
-            <input
-              id="weight"
-              type="number"
-              step="0.01"
-              min="0"
-              value={weight}
-              onChange={(e) => setWeight(e.target.value)}
-              placeholder="e.g. 58.34"
-              disabled={saving}
-              style={{
-                width: "100%",
-                padding: "0.5rem",
-                border: "1px solid #ccc",
-                borderRadius: "4px",
-                fontSize: "1rem",
-                boxSizing: "border-box",
-              }}
-            />
-            {weight && parseFloat(weight) > 0 && warnings.length === 0 && (
-              <div style={{ fontSize: "0.75rem", color: "#999", marginTop: "0.2rem" }}>
-                {parseFloat(weight) < WEIGHT_MIN || parseFloat(weight) > WEIGHT_MAX
-                  ? "Unusual weight — will warn on save"
-                  : "Within typical range"}
-              </div>
-            )}
-          </div>
           {!quickMode && (
-            <div style={{ flex: "1 1 180px" }}>
-              <label
-                htmlFor="date"
-                style={{
-                  display: "block",
-                  fontSize: "0.8rem",
-                  fontWeight: 600,
-                  marginBottom: "0.25rem",
-                  color: "#555",
-                }}
-              >
-                Date
-              </label>
-              <input
-                id="date"
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                disabled={saving}
-                style={{
-                  width: "100%",
-                  padding: "0.5rem",
-                  border: "1px solid #ccc",
-                  borderRadius: "4px",
-                  fontSize: "1rem",
-                  boxSizing: "border-box",
-                }}
-              />
-            </div>
+            <>
+              <div style={{ flex: "1 1 180px" }}>
+                <label
+                  htmlFor="weight"
+                  style={{
+                    display: "block",
+                    fontSize: "0.8rem",
+                    fontWeight: 600,
+                    marginBottom: "0.25rem",
+                    color: "#555",
+                  }}
+                >
+                  Weight (g)
+                </label>
+                <input
+                  id="weight"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={weight}
+                  onChange={(e) => setWeight(e.target.value)}
+                  placeholder="e.g. 58.34"
+                  disabled={saving}
+                  style={{
+                    width: "100%",
+                    padding: "0.5rem",
+                    border: "1px solid #ccc",
+                    borderRadius: "4px",
+                    fontSize: "1rem",
+                    boxSizing: "border-box",
+                  }}
+                />
+                {weight && parseFloat(weight) > 0 && warnings.length === 0 && (
+                  <div style={{ fontSize: "0.75rem", color: "#999", marginTop: "0.2rem" }}>
+                    {parseFloat(weight) < WEIGHT_MIN || parseFloat(weight) > WEIGHT_MAX
+                      ? "Unusual weight — will warn on save"
+                      : "Within typical range"}
+                  </div>
+                )}
+              </div>
+              <div style={{ flex: "1 1 180px" }}>
+                <label
+                  htmlFor="date"
+                  style={{
+                    display: "block",
+                    fontSize: "0.8rem",
+                    fontWeight: 600,
+                    marginBottom: "0.25rem",
+                    color: "#555",
+                  }}
+                >
+                  Date
+                </label>
+                <input
+                  id="date"
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  disabled={saving}
+                  style={{
+                    width: "100%",
+                    padding: "0.5rem",
+                    border: "1px solid #ccc",
+                    borderRadius: "4px",
+                    fontSize: "1rem",
+                    boxSizing: "border-box",
+                  }}
+                />
+              </div>
+            </>
           )}
         </div>
 
@@ -660,29 +827,49 @@ function LogEggContent() {
         )}
 
         <div style={{ display: "flex", gap: "0.5rem" }}>
-          <button
-            onClick={handleSubmit}
-            disabled={saving || !selectedChickenId || !weight || !date}
-            style={{
-              flex: 1,
-              padding: "0.6rem 1rem",
-              background: "#2e7d32",
-              color: "#fff",
-              border: "none",
-              borderRadius: "4px",
-              fontSize: "1rem",
-              cursor: "pointer",
-              opacity: saving || !selectedChickenId || !weight || !date ? 0.6 : 1,
-            }}
-          >
-            {saving
-              ? "Saving..."
-              : editingEggId
-              ? "Update Egg"
-              : duplicateConfirmId
-              ? "Save Anyway"
-              : "Log Egg"}
-          </button>
+          {quickMode ? (
+            <button
+              onClick={handleBulkSubmit}
+              disabled={saving || hens.length === 0}
+              style={{
+                flex: 1,
+                padding: "0.6rem 1rem",
+                background: "#2e7d32",
+                color: "#fff",
+                border: "none",
+                borderRadius: "4px",
+                fontSize: "1rem",
+                cursor: "pointer",
+                opacity: saving ? 0.6 : 1,
+              }}
+            >
+              {saving ? "Saving..." : "Log All"}
+            </button>
+          ) : (
+            <button
+              onClick={handleSubmit}
+              disabled={saving || !selectedChickenId || !weight || !date}
+              style={{
+                flex: 1,
+                padding: "0.6rem 1rem",
+                background: "#2e7d32",
+                color: "#fff",
+                border: "none",
+                borderRadius: "4px",
+                fontSize: "1rem",
+                cursor: "pointer",
+                opacity: saving || !selectedChickenId || !weight || !date ? 0.6 : 1,
+              }}
+            >
+              {saving
+                ? "Saving..."
+                : editingEggId
+                ? "Update Egg"
+                : duplicateConfirmId
+                ? "Save Anyway"
+                : "Log Egg"}
+            </button>
+          )}
           {editingEggId && (
             <button
               onClick={resetForm}

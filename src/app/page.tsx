@@ -269,7 +269,7 @@ export default function Home() {
                   fontWeight: 600,
                 }}
               >
-                Quick Log
+                Bulk Log
               </a>
               <a
                 href="/log-egg"
