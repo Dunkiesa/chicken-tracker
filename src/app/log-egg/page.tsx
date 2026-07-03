@@ -213,7 +213,7 @@ function LogEggContent() {
         margin: "0 auto",
       }}
     >
-      <h1 style={{ fontSize: "1.5rem" }}>Bulk Log</h1>
+      <h1 style={{ fontSize: "1.5rem" }}>Log</h1>
 
       <div
         style={{
