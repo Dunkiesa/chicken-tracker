@@ -21,6 +21,21 @@ export default function NavMenu() {
       >
         Log
       </a>
+      {isAdmin && (
+        <a
+          href="/"
+          style={{
+            padding: "0.4rem 0.75rem",
+            background: "#f57c00",
+            color: "#fff",
+            borderRadius: "4px",
+            textDecoration: "none",
+            fontSize: "0.875rem",
+          }}
+        >
+          Enroll
+        </a>
+      )}
       <a
         href="/dashboard"
         style={{
