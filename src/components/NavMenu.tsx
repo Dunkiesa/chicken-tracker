@@ -33,7 +33,7 @@ export default function NavMenu() {
             fontSize: "0.875rem",
           }}
         >
-          Enroll
+          Dashboard
         </a>
       )}
       <a
