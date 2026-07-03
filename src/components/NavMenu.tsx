@@ -37,17 +37,17 @@ export default function NavMenu() {
         </a>
       )}
       <a
-        href="/dashboard"
+        href="/roster"
         style={{
           padding: "0.4rem 0.75rem",
-          background: "#6a1b9a",
+          background: "#00897b",
           color: "#fff",
           borderRadius: "4px",
           textDecoration: "none",
           fontSize: "0.875rem",
         }}
       >
-        Dashboard
+        Roster
       </a>
       {isAdmin && (
         <a
