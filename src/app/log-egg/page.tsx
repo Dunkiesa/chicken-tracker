@@ -62,14 +62,23 @@ function LogEggContent() {
   const [editDate, setEditDate] = useState("");
   const [showAll, setShowAll] = useState(false);
 
-  async function refreshEggs() {
-    try {
-      const res = await fetch("/api/eggs");
-      if (res.ok) setEggs(await res.json());
-    } catch {
-      // ignore
+async function refreshEggs(date?: string) {
+  try {
+    const url = date ? `/api/eggs?date=${date}` : "/api/eggs";
+    const res = await fetch(url);
+    if (res.ok) {
+      const data: Egg[] = await res.json();
+      setEggs(data);
+      if (date) {
+        const map = new Map<number, Egg>();
+        data.forEach((egg) => map.set(egg.chicken_id, egg));
+        setExistingEggsMap(map);
+      }
     }
+  } catch {
+    // ignore
   }
+}
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -178,14 +187,7 @@ function LogEggContent() {
       setSuccessMsg(`Logged ${entries.length} egg(s)!`);
       setWeights({});
 
-      const eggsRes = await fetch(`/api/eggs?date=${batchDate}`);
-      if (eggsRes.ok) {
-        const eggsData: Egg[] = await eggsRes.json();
-        const map = new Map<number, Egg>();
-        eggsData.forEach((egg) => map.set(egg.chicken_id, egg));
-        setExistingEggsMap(map);
-      }
-      await refreshEggs();
+      await refreshEggs(batchDate);
     } catch {
       setError("Failed to save eggs");
     } finally {
