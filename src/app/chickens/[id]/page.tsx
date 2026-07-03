@@ -1051,7 +1051,7 @@ export default function ChickenProfilePage() {
                             opacity: saving || !editContent.trim() ? 0.6 : 1,
                           }}
                         >
-                          {savingChicken ? "Saving..." : "Save"}
+                          {saving ? "Saving..." : "Save"}
                         </button>
                         <button
                           onClick={cancelEdit}
