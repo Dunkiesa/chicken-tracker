@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useSession } from "next-auth/react";
+import { useSession, signIn } from "next-auth/react";
 
 type Chicken = {
   id: number;
@@ -193,6 +193,54 @@ export default function Home() {
     } catch {
       setEnrollError("Failed to reinstate");
     }
+  }
+
+  if (status === "loading") {
+    return (
+      <div style={{
+        display: "flex", justifyContent: "center", alignItems: "center",
+        minHeight: "60vh", color: "#999", fontSize: "1rem",
+      }}>
+        Loading...
+      </div>
+    );
+  }
+
+  if (status === "unauthenticated") {
+    return (
+      <div style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        minHeight: "60vh",
+        padding: "2rem",
+        textAlign: "center",
+        gap: "1.5rem",
+      }}>
+        <h1 style={{ fontSize: "2.5rem", fontWeight: 700, color: "#333" }}>
+          ChickenTrack
+        </h1>
+        <p style={{ color: "#666", fontSize: "1.1rem", maxWidth: "400px" }}>
+          Egg-production tracking for your backyard flock
+        </p>
+        <button
+          onClick={() => signIn("google")}
+          style={{
+            padding: "0.6rem 1.5rem",
+            background: "#4285f4",
+            color: "#fff",
+            border: "none",
+            borderRadius: "4px",
+            cursor: "pointer",
+            fontSize: "1rem",
+            fontWeight: 600,
+          }}
+        >
+          Sign in with Google
+        </button>
+      </div>
+    );
   }
 
   return (
