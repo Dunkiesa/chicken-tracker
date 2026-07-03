@@ -584,7 +584,12 @@ export default function RosterPage() {
                             />
                             <select
                               value={departureReason}
-                              onChange={(e) => setDepartureReason(e.target.value)}
+                              onChange={(e) => {
+  setDepartureReason(e.target.value);
+  if (e.target.value !== "Other") {
+    setDepartureOtherReason("");
+  }
+}}
                               disabled={departingSave}
                               style={{
                                 padding: "0.4rem",
@@ -667,13 +672,16 @@ export default function RosterPage() {
                           </button>
                         ) : (
                           <button
-                            onClick={() => {
-                              setDepartingChickenId(chicken.id);
-                              setDepartureDate(todayStr());
-                              setDepartureReason("died/illness");
-                              setDepartureOtherReason("");
-                              setEnrollError(null);
-                            }}
+onClick={() => {
+  if (departingChickenId !== null && departingChickenId !== chicken.id) {
+    if (!confirm("Discard unsaved departure details?")) return;
+  }
+  setDepartingChickenId(chicken.id);
+  setDepartureDate(todayStr());
+  setDepartureReason("died/illness");
+  setDepartureOtherReason("");
+  setEnrollError(null);
+}}
                             style={{
                               padding: "0.25rem 0.5rem",
                               fontSize: "0.75rem",
