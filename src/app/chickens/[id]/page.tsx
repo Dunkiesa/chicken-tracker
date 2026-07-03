@@ -93,8 +93,8 @@ export default function ChickenProfilePage() {
     try {
       const [breedsRes, originsRes, acquisitionsRes] = await Promise.all([
         fetch("/api/dynamic-lists/breeds"),
-        fetch("/api/dynamic-lists/origin_sources"),
-        fetch("/api/dynamic-lists/acquisition_types"),
+        fetch("/api/dynamic-lists/origin-sources"),
+        fetch("/api/dynamic-lists/acquisition-types"),
       ]);
       if (breedsRes.ok) setBreeds(await breedsRes.json());
       if (originsRes.ok) setOriginSources(await originsRes.json());
