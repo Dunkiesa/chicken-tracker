@@ -3,28 +3,90 @@
 import { useEffect, useState, useCallback } from "react";
 import { useSession, signIn } from "next-auth/react";
 
-type Chicken = {
-  id: number;
-  name: string;
-  sex: string;
-  breed_name: string | null;
-  origin_source_name: string | null;
-  acquisition_type_name: string | null;
-  departed: boolean;
-  departure_date: string | null;
-  departure_reason: string | null;
-  primary_photo_id: number | null;
-  primary_photo_path: string | null;
+type AnalyticsSummary = {
+  total_eggs: number;
+  average_weight: number | null;
+  total_laying_chickens: number;
+  active_laying_chickens: number;
 };
 
-type DynamicListEntry = {
-  id: number;
-  value: string;
+type ProductionTimeSeries = {
+  date: string;
+  count: number;
 };
 
-const SEX_OPTIONS = ["Hen", "Rooster", "Unknown"] as const;
+type HenWeight = {
+  chicken_id: number;
+  chicken_name: string;
+  avg_weight: number | null;
+};
 
-const DEPARTURE_REASONS = ["died/illness", "sold", "predator", "gave away", "Other"] as const;
+type HenWeightVariance = {
+  chicken_id: number;
+  chicken_name: string;
+  min_weight: number | null;
+  max_weight: number | null;
+  std_dev: number | null;
+};
+
+type HenProductivity = {
+  chicken_id: number;
+  chicken_name: string;
+  egg_count: number;
+};
+
+type HenConsistency = {
+  chicken_id: number;
+  chicken_name: string;
+  egg_count: number;
+  active_days: number;
+  laying_rate: number;
+};
+
+type HenDryPeriod = {
+  chicken_id: number;
+  chicken_name: string;
+  days_since_last_egg: number | null;
+};
+
+type HenLongestStreak = {
+  chicken_id: number;
+  chicken_name: string;
+  longest_streak_days: number | null;
+};
+
+type SeasonalTrend = {
+  year: number;
+  month: number;
+  season: string;
+  egg_count: number;
+};
+
+type AttritionByReason = {
+  reason: string;
+  count: number;
+};
+
+type AnalyticsData = {
+  summary: AnalyticsSummary;
+  production_daily: ProductionTimeSeries[];
+  production_weekly: ProductionTimeSeries[];
+  production_monthly: ProductionTimeSeries[];
+  average_weight_per_hen: HenWeight[];
+  weight_variance_per_hen: HenWeightVariance[];
+  most_productive: HenProductivity[];
+  production_consistency: HenConsistency[];
+  dry_periods_current: HenDryPeriod[];
+  dry_periods_longest: HenLongestStreak[];
+  dry_periods_alert: HenDryPeriod[];
+  seasonal_trends: SeasonalTrend[];
+  attrition_by_reason: AttritionByReason[];
+  attrition_rate: number | null;
+  date_range: { from: string; to: string };
+  dry_threshold_days: number;
+};
+
+type TimeGranularity = "daily" | "weekly" | "monthly";
 
 function todayStr(): string {
   const d = new Date();
@@ -34,165 +96,51 @@ function todayStr(): string {
   return `${y}-${m}-${day}`;
 }
 
+function oneYearAgoStr(): string {
+  const d = new Date();
+  d.setFullYear(d.getFullYear() - 1);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 export default function Home() {
   const { data: session, status } = useSession();
-  const [chickens, setChickens] = useState<Chicken[]>([]);
-  const [name, setName] = useState("");
-  const [sex, setSex] = useState<string>("Hen");
-  const [breed, setBreed] = useState("");
-  const [originSource, setOriginSource] = useState("");
-  const [acquisitionType, setAcquisitionType] = useState("");
-  const [enrolling, setEnrolling] = useState(false);
-  const [enrollError, setEnrollError] = useState<string | null>(null);
-  const [includeDeparted, setIncludeDeparted] = useState(false);
-  const [departingChickenId, setDepartingChickenId] = useState<number | null>(null);
-  const [departureDate, setDepartureDate] = useState(todayStr());
-  const [departureReason, setDepartureReason] = useState("died/illness");
-  const [departureOtherReason, setDepartureOtherReason] = useState("");
-  const [departingSave, setDepartingSave] = useState(false);
+  const [data, setData] = useState<AnalyticsData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [dateFrom, setDateFrom] = useState(oneYearAgoStr());
+  const [dateTo, setDateTo] = useState(todayStr());
+  const [granularity, setGranularity] = useState<TimeGranularity>("monthly");
 
-  const [breeds, setBreeds] = useState<DynamicListEntry[]>([]);
-  const [originSources, setOriginSources] = useState<DynamicListEntry[]>([]);
-  const [acquisitionTypes, setAcquisitionTypes] = useState<DynamicListEntry[]>([]);
-
-  const isAdmin = session?.user?.role === "Admin";
-
-  const fetchChickens = useCallback(async (showDeparted = false) => {
+  const fetchAnalytics = useCallback(async (from: string, to: string) => {
+    setLoading(true);
+    setError(null);
     try {
-      const url = showDeparted ? "/api/chickens?includeDeparted=true" : "/api/chickens";
-      const res = await fetch(url);
+      const res = await fetch(`/api/analytics?from=${from}&to=${to}`);
       if (!res.ok) {
-        setChickens([]);
+        const body = await res.json();
+        setError(body.message || "Failed to load analytics");
         return;
       }
-      const data = await res.json();
-      setChickens(Array.isArray(data) ? data : []);
+      const json: AnalyticsData = await res.json();
+      setData(json);
     } catch {
-      setChickens([]);
+      setError("Failed to load analytics");
+    } finally {
+      setLoading(false);
     }
   }, []);
 
-  const fetchDynamicList = useCallback(
-    async (
-      type: string,
-      setter: (vals: DynamicListEntry[]) => void
-    ) => {
-      try {
-        const res = await fetch(`/api/dynamic-lists/${type}`);
-        if (res.ok) {
-          const data = await res.json();
-          setter(data);
-        }
-      } catch {
-        // ignore
-      }
-    },
-    []
-  );
-
   useEffect(() => {
-    fetchChickens(includeDeparted);
-    fetchDynamicList("breeds", setBreeds);
-    fetchDynamicList("origin-sources", setOriginSources);
-    fetchDynamicList("acquisition-types", setAcquisitionTypes);
-  }, [fetchChickens, fetchDynamicList, includeDeparted]);
-
-  async function handleEnroll(e: React.FormEvent) {
-    e.preventDefault();
-    setEnrolling(true);
-    setEnrollError(null);
-
-    try {
-      const res = await fetch("/api/chickens", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name,
-          sex,
-          breed: breed || undefined,
-          origin_source: originSource || undefined,
-          acquisition_type: acquisitionType || undefined,
-        }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        setEnrollError(data.message || "Failed to enroll chicken");
-        return;
-      }
-
-      setName("");
-      setSex("Hen");
-      setBreed("");
-      setOriginSource("");
-      setAcquisitionType("");
-      await Promise.all([
-        fetchChickens(includeDeparted),
-        fetchDynamicList("breeds", setBreeds),
-        fetchDynamicList("origin-sources", setOriginSources),
-        fetchDynamicList("acquisition-types", setAcquisitionTypes),
-      ]);
-    } catch {
-      setEnrollError("Failed to enroll chicken");
-    } finally {
-      setEnrolling(false);
+    if (status === "authenticated") {
+      fetchAnalytics(dateFrom, dateTo);
     }
-  }
+  }, [status, fetchAnalytics, dateFrom, dateTo]);
 
-  async function handleMarkDeparted(chicken: Chicken) {
-    setDepartingSave(true);
-    try {
-      const reason = departureReason === "Other" ? departureOtherReason.trim() : departureReason;
-      const res = await fetch(`/api/chickens/${chicken.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          departed: true,
-          departure_date: departureDate,
-          departure_reason: reason || "Other",
-        }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        setEnrollError(data.message || "Failed to mark as departed");
-        return;
-      }
-
-      setDepartingChickenId(null);
-      setDepartureDate(todayStr());
-      setDepartureReason("died/illness");
-      setDepartureOtherReason("");
-      await fetchChickens(includeDeparted);
-    } catch {
-      setEnrollError("Failed to mark as departed");
-    } finally {
-      setDepartingSave(false);
-    }
-  }
-
-  async function handleReinstate(chicken: Chicken) {
-    try {
-      const res = await fetch(`/api/chickens/${chicken.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          departed: false,
-          departure_date: null,
-          departure_reason: null,
-        }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        setEnrollError(data.message || "Failed to reinstate");
-        return;
-      }
-
-      await fetchChickens(includeDeparted);
-    } catch {
-      setEnrollError("Failed to reinstate");
-    }
+  function handleRefresh() {
+    fetchAnalytics(dateFrom, dateTo);
   }
 
   if (status === "loading") {
@@ -243,484 +191,527 @@ export default function Home() {
     );
   }
 
+  const productionData =
+    data &&
+    (granularity === "daily"
+      ? data.production_daily
+      : granularity === "weekly"
+      ? data.production_weekly
+      : data.production_monthly);
+
+  const sectionStyle: React.CSSProperties = {
+    padding: "1.5rem 2rem",
+    borderRadius: "8px",
+    border: "1px solid #ddd",
+    background: "#fff",
+    width: "100%",
+    maxWidth: "900px",
+  };
+
   return (
     <main
       style={{
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        padding: "2rem",
-        gap: "2rem",
+        padding: "1rem",
+        gap: "1.5rem",
       }}
     >
-
+      <h1 style={{ fontSize: "1.5rem" }}>Analytics Dashboard</h1>
 
       <div
         style={{
-          padding: "1.5rem 2rem",
-          borderRadius: "8px",
-          border: "1px solid #ddd",
-          background: "#fff",
-          minWidth: "320px",
-          width: "100%",
-          maxWidth: "700px",
+          ...sectionStyle,
+          display: "flex",
+          alignItems: "center",
+          gap: "1rem",
+          flexWrap: "wrap",
         }}
       >
-        <h2 style={{ fontSize: "1.25rem", marginBottom: "1rem" }}>
-          Enrolled Chickens
-        </h2>
-
-        {session?.user && isAdmin && (
-          <form
-            onSubmit={handleEnroll}
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          <label htmlFor="from" style={{ fontWeight: 600, fontSize: "0.875rem", whiteSpace: "nowrap" }}>
+            From
+          </label>
+          <input
+            id="from"
+            type="date"
+            value={dateFrom}
+            onChange={(e) => setDateFrom(e.target.value)}
             style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: "0.75rem",
-              marginBottom: "1.5rem",
-              padding: "1rem",
-              border: "1px solid #e0e0e0",
-              borderRadius: "6px",
-              background: "#fafafa",
-            }}
-          >
-            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Chicken name"
-                disabled={enrolling}
-                required
-                style={{
-                  flex: "1 1 200px",
-                  padding: "0.5rem",
-                  border: "1px solid #ccc",
-                  borderRadius: "4px",
-                  fontSize: "1rem",
-                }}
-              />
-              <select
-                value={sex}
-                onChange={(e) => setSex(e.target.value)}
-                disabled={enrolling}
-                style={{
-                  padding: "0.5rem",
-                  border: "1px solid #ccc",
-                  borderRadius: "4px",
-                  fontSize: "1rem",
-                }}
-              >
-                {SEX_OPTIONS.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-              <div style={{ flex: "1 1 200px", position: "relative" }}>
-                <input
-                  list="breed-list"
-                  value={breed}
-                  onChange={(e) => setBreed(e.target.value)}
-                  placeholder="Breed (pick or type)"
-                  disabled={enrolling}
-                  style={{
-                    width: "100%",
-                    padding: "0.5rem",
-                    border: "1px solid #ccc",
-                    borderRadius: "4px",
-                    fontSize: "1rem",
-                  }}
-                />
-                <datalist id="breed-list">
-                  {breeds.map((b) => (
-                    <option key={b.id} value={b.value} />
-                  ))}
-                </datalist>
-              </div>
-              <div style={{ flex: "1 1 200px", position: "relative" }}>
-                <input
-                  list="origin-list"
-                  value={originSource}
-                  onChange={(e) => setOriginSource(e.target.value)}
-                  placeholder="Origin source (pick or type)"
-                  disabled={enrolling}
-                  style={{
-                    width: "100%",
-                    padding: "0.5rem",
-                    border: "1px solid #ccc",
-                    borderRadius: "4px",
-                    fontSize: "1rem",
-                  }}
-                />
-                <datalist id="origin-list">
-                  {originSources.map((o) => (
-                    <option key={o.id} value={o.value} />
-                  ))}
-                </datalist>
-              </div>
-            </div>
-            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-              <div style={{ flex: "1 1 200px", position: "relative" }}>
-                <input
-                  list="acq-list"
-                  value={acquisitionType}
-                  onChange={(e) => setAcquisitionType(e.target.value)}
-                  placeholder="Acquisition type (pick or type)"
-                  disabled={enrolling}
-                  style={{
-                    width: "100%",
-                    padding: "0.5rem",
-                    border: "1px solid #ccc",
-                    borderRadius: "4px",
-                    fontSize: "1rem",
-                  }}
-                />
-                <datalist id="acq-list">
-                  {acquisitionTypes.map((a) => (
-                    <option key={a.id} value={a.value} />
-                  ))}
-                </datalist>
-              </div>
-              <button
-                type="submit"
-                disabled={enrolling || !name.trim()}
-                style={{
-                  padding: "0.5rem 1.5rem",
-                  background: "#2e7d32",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: "4px",
-                  fontSize: "1rem",
-                  cursor: "pointer",
-                  opacity: enrolling || !name.trim() ? 0.6 : 1,
-                  alignSelf: "flex-end",
-                }}
-              >
-                {enrolling ? "Adding..." : "Add Chicken"}
-              </button>
-            </div>
-          </form>
-        )}
-
-        {session?.user && !isAdmin && (
-          <p style={{ color: "#666", marginBottom: "1rem", fontSize: "0.875rem" }}>
-            You are signed in as a Viewer. Only admins can add chickens.
-          </p>
-        )}
-
-        {!session?.user && (
-          <p style={{ color: "#999", marginBottom: "1rem", fontSize: "0.875rem" }}>
-            Sign in to manage chickens.
-          </p>
-        )}
-
-        {enrollError && (
-          <p style={{ color: "#d32f2f", marginBottom: "1rem" }}>
-            {enrollError}
-          </p>
-        )}
-
-        {session?.user && (
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.5rem",
-              marginBottom: "1rem",
+              padding: "0.4rem",
+              border: "1px solid #ccc",
+              borderRadius: "4px",
               fontSize: "0.875rem",
             }}
-          >
-            <label style={{ display: "flex", alignItems: "center", gap: "0.3rem", cursor: "pointer" }}>
-              <input
-                type="checkbox"
-                checked={includeDeparted}
-                onChange={(e) => setIncludeDeparted(e.target.checked)}
-              />
-              Show departed
-            </label>
-          </div>
-        )}
+          />
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          <label htmlFor="to" style={{ fontWeight: 600, fontSize: "0.875rem", whiteSpace: "nowrap" }}>
+            To
+          </label>
+          <input
+            id="to"
+            type="date"
+            value={dateTo}
+            onChange={(e) => setDateTo(e.target.value)}
+            style={{
+              padding: "0.4rem",
+              border: "1px solid #ccc",
+              borderRadius: "4px",
+              fontSize: "0.875rem",
+            }}
+          />
+        </div>
+        <button
+          onClick={() => {
+            const url = `/api/analytics?from=${dateFrom}&to=${dateTo}&format=csv`;
+            window.open(url, "_blank");
+          }}
+          style={{
+            padding: "0.4rem 0.75rem",
+            background: "#2e7d32",
+            color: "#fff",
+            border: "none",
+            borderRadius: "4px",
+            cursor: "pointer",
+            fontSize: "0.875rem",
+            whiteSpace: "nowrap",
+          }}
+        >
+          Export CSV
+        </button>
+        <button
+          onClick={handleRefresh}
+          disabled={loading}
+          style={{
+            padding: "0.4rem 1rem",
+            background: "#1565c0",
+            color: "#fff",
+            border: "none",
+            borderRadius: "4px",
+            cursor: "pointer",
+            fontSize: "0.875rem",
+            opacity: loading ? 0.6 : 1,
+          }}
+        >
+          {loading ? "Loading..." : "Refresh"}
+        </button>
+      </div>
 
-        {chickens.length === 0 ? (
-          <p style={{ color: "#999" }}>
-            {includeDeparted ? "No chickens enrolled yet." : "No active chickens enrolled yet."}
-          </p>
-        ) : (
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr style={{ borderBottom: "2px solid #eee" }}>
-                  <th style={{ textAlign: "left", padding: "0.5rem 0.5rem 0.5rem 0", fontWeight: 600, width: "40px" }}></th>
-                  <th style={{ textAlign: "left", padding: "0.5rem", fontWeight: 600 }}>Name</th>
-                  <th style={{ textAlign: "left", padding: "0.5rem", fontWeight: 600 }}>Sex</th>
-                  <th style={{ textAlign: "left", padding: "0.5rem", fontWeight: 600 }}>Breed</th>
-                  <th style={{ textAlign: "left", padding: "0.5rem", fontWeight: 600 }}>Origin</th>
-                  <th style={{ textAlign: "left", padding: "0.5rem", fontWeight: 600 }}>Acquisition</th>
-                  <th style={{ textAlign: "left", padding: "0.5rem", fontWeight: 600 }}>Status</th>
-                  {isAdmin && <th style={{ textAlign: "center", padding: "0.5rem", fontWeight: 600 }}>Actions</th>}
-                </tr>
-              </thead>
-              <tbody>
-                {chickens.map((chicken) => (
-                  <tr
-                    key={chicken.id}
+      {error && (
+        <div
+          style={{
+            ...sectionStyle,
+            color: "#d32f2f",
+            textAlign: "center",
+          }}
+        >
+          {error}
+        </div>
+      )}
+
+      {data && (
+        <>
+          {/* Summary Cards */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+              gap: "1rem",
+              width: "100%",
+              maxWidth: "900px",
+            }}
+          >
+            {[
+              { label: "Total Eggs", value: data.summary.total_eggs, color: "#2e7d32" },
+              {
+                label: "Avg Weight",
+                value: data.summary.average_weight != null ? `${data.summary.average_weight.toFixed(1)}g` : "-",
+                color: "#1565c0",
+              },
+              { label: "Active Hens", value: data.summary.active_laying_chickens, color: "#e65100" },
+              { label: "Total Hens", value: data.summary.total_laying_chickens, color: "#6a1b9a" },
+            ].map((card) => (
+              <div
+                key={card.label}
+                style={{
+                  padding: "1.25rem",
+                  borderRadius: "8px",
+                  border: "1px solid #ddd",
+                  background: "#fff",
+                  textAlign: "center",
+                }}
+              >
+                <div style={{ fontSize: "0.8rem", color: "#666", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                  {card.label}
+                </div>
+                <div style={{ fontSize: "1.75rem", fontWeight: 700, color: card.color, marginTop: "0.25rem" }}>
+                  {card.value}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Production Over Time */}
+          <div style={sectionStyle}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem", flexWrap: "wrap", gap: "0.5rem" }}>
+              <h2 style={{ fontSize: "1.125rem" }}>Production Over Time</h2>
+              <div style={{ display: "flex", gap: "0.25rem" }}>
+                {(["daily", "weekly", "monthly"] as TimeGranularity[]).map((g) => (
+                  <button
+                    key={g}
+                    onClick={() => setGranularity(g)}
                     style={{
-                      borderBottom: "1px solid #eee",
-                      background: chicken.departed ? "#f5f5f5" : "transparent",
+                      padding: "0.25rem 0.6rem",
+                      fontSize: "0.8rem",
+                      border: granularity === g ? "2px solid #1565c0" : "1px solid #ccc",
+                      borderRadius: "4px",
+                      background: granularity === g ? "#e3f2fd" : "#fff",
+                      color: granularity === g ? "#1565c0" : "#333",
+                      fontWeight: granularity === g ? 600 : 400,
+                      cursor: "pointer",
                     }}
                   >
-                    <td style={{ padding: "0.5rem 0.5rem 0.5rem 0", width: "40px" }}>
-                      {chicken.primary_photo_path ? (
-                        <img
-                          src={`/api/photos/${chicken.primary_photo_path}`}
-                          alt=""
-                          style={{
-                            width: "36px",
-                            height: "36px",
-                            borderRadius: "50%",
-                            objectFit: "cover",
-                            background: "#f0f0f0",
-                            display: "block",
-                          }}
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).style.display = "none";
-                          }}
-                        />
-                      ) : (
-                        <div
-                          style={{
-                            width: "36px",
-                            height: "36px",
-                            borderRadius: "50%",
-                            background: "#f0f0f0",
-                          }}
-                        />
-                      )}
-                    </td>
-                    <td style={{ padding: "0.5rem 0.5rem 0.5rem 0", fontWeight: 500 }}>
-                      {session?.user ? (
-                        <a
-                          href={`/chickens/${chicken.id}`}
-                          style={{ color: "#1565c0", textDecoration: "none" }}
-                        >
-                          {chicken.name}
-                        </a>
-                      ) : (
-                        chicken.name
-                      )}
-                    </td>
-                    <td style={{ padding: "0.5rem" }}>
-                      <span
-                        style={{
-                          padding: "0.15rem 0.4rem",
-                          borderRadius: "4px",
-                          fontSize: "0.8rem",
-                          fontWeight: 600,
-                          background:
-                            chicken.sex === "Hen"
-                              ? "#fce4ec"
-                              : chicken.sex === "Rooster"
-                              ? "#e3f2fd"
-                              : "#f3e5f5",
-                          color:
-                            chicken.sex === "Hen"
-                              ? "#c62828"
-                              : chicken.sex === "Rooster"
-                              ? "#1565c0"
-                              : "#7b1fa2",
-                        }}
-                      >
-                        {chicken.sex}
-                      </span>
-                    </td>
-                    <td style={{ padding: "0.5rem", color: "#666", fontSize: "0.9rem" }}>
-                      {chicken.breed_name || "-"}
-                    </td>
-                    <td style={{ padding: "0.5rem", color: "#666", fontSize: "0.9rem" }}>
-                      {chicken.origin_source_name || "-"}
-                    </td>
-                    <td style={{ padding: "0.5rem", color: "#666", fontSize: "0.9rem" }}>
-                      {chicken.acquisition_type_name || "-"}
-                    </td>
-                    <td style={{ padding: "0.5rem" }}>
-                      {chicken.departed ? (
-                        <span
-                          style={{
-                            padding: "0.15rem 0.4rem",
-                            borderRadius: "4px",
-                            fontSize: "0.8rem",
-                            fontWeight: 600,
-                            background: "#ffebee",
-                            color: "#b71c1c",
-                          }}
-                        >
-                          Departed
-                        </span>
-                      ) : (
-                        <span
-                          style={{
-                            padding: "0.15rem 0.4rem",
-                            borderRadius: "4px",
-                            fontSize: "0.8rem",
-                            fontWeight: 600,
-                            background: "#e8f5e9",
-                            color: "#2e7d32",
-                          }}
-                        >
-                          Active
-                        </span>
-                      )}
-                      {chicken.departed && chicken.departure_date && (
-                        <span style={{ display: "block", fontSize: "0.75rem", color: "#888", marginTop: "0.2rem" }}>
-                          {chicken.departure_date}
-                          {chicken.departure_reason && ` · ${chicken.departure_reason}`}
-                        </span>
-                      )}
-                    </td>
-                    {isAdmin && (
-                      <td style={{ padding: "0.5rem", textAlign: "center" }}>
-                        {departingChickenId === chicken.id ? (
-                          <div
-                            style={{
-                              display: "flex",
-                              flexDirection: "column",
-                              gap: "0.5rem",
-                              padding: "0.75rem",
-                              border: "1px solid #e0e0e0",
-                              borderRadius: "6px",
-                              background: "#fafafa",
-                              minWidth: "220px",
-                            }}
-                          >
-                            <input
-                              type="date"
-                              value={departureDate}
-                              onChange={(e) => setDepartureDate(e.target.value)}
-                              disabled={departingSave}
-                              style={{
-                                padding: "0.4rem",
-                                border: "1px solid #ccc",
-                                borderRadius: "4px",
-                                fontSize: "0.85rem",
-                              }}
-                            />
-                            <select
-                              value={departureReason}
-                              onChange={(e) => setDepartureReason(e.target.value)}
-                              disabled={departingSave}
-                              style={{
-                                padding: "0.4rem",
-                                border: "1px solid #ccc",
-                                borderRadius: "4px",
-                                fontSize: "0.85rem",
-                              }}
-                            >
-                              {DEPARTURE_REASONS.map((r) => (
-                                <option key={r} value={r}>{r}</option>
-                              ))}
-                            </select>
-                            {departureReason === "Other" && (
-                              <input
-                                type="text"
-                                value={departureOtherReason}
-                                onChange={(e) => setDepartureOtherReason(e.target.value)}
-                                placeholder="Describe reason..."
-                                disabled={departingSave}
-                                style={{
-                                  padding: "0.4rem",
-                                  border: "1px solid #ccc",
-                                  borderRadius: "4px",
-                                  fontSize: "0.85rem",
-                                }}
-                              />
-                            )}
-                            <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
-                              <button
-                                onClick={() => handleMarkDeparted(chicken)}
-                                disabled={departingSave || (departureReason === "Other" && !departureOtherReason.trim())}
-                                style={{
-                                  padding: "0.3rem 0.5rem",
-                                  fontSize: "0.8rem",
-                                  border: "none",
-                                  borderRadius: "4px",
-                                  background: "#d32f2f",
-                                  color: "#fff",
-                                  cursor: "pointer",
-                                  opacity: departingSave ? 0.6 : 1,
-                                }}
-                              >
-                                {departingSave ? "Saving..." : "Confirm"}
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setDepartingChickenId(null);
-                                  setDepartureDate(todayStr());
-                                  setDepartureReason("died/illness");
-                                  setDepartureOtherReason("");
-                                }}
-                                disabled={departingSave}
-                                style={{
-                                  padding: "0.3rem 0.5rem",
-                                  fontSize: "0.8rem",
-                                  border: "1px solid #ccc",
-                                  borderRadius: "4px",
-                                  background: "#fff",
-                                  cursor: "pointer",
-                                }}
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          </div>
-                        ) : chicken.departed ? (
-                          <button
-                            onClick={() => handleReinstate(chicken)}
-                            style={{
-                              padding: "0.25rem 0.5rem",
-                              fontSize: "0.75rem",
-                              border: "1px solid #a5d6a7",
-                              borderRadius: "4px",
-                              background: "#fff",
-                              color: "#2e7d32",
-                              cursor: "pointer",
-                            }}
-                          >
-                            Reinstate
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => {
-                              setDepartingChickenId(chicken.id);
-                              setDepartureDate(todayStr());
-                              setDepartureReason("died/illness");
-                              setDepartureOtherReason("");
-                              setEnrollError(null);
-                            }}
-                            style={{
-                              padding: "0.25rem 0.5rem",
-                              fontSize: "0.75rem",
-                              border: "1px solid #ef9a9a",
-                              borderRadius: "4px",
-                              background: "#fff",
-                              color: "#c62828",
-                              cursor: "pointer",
-                            }}
-                          >
-                            Mark Departed
-                          </button>
-                        )}
-                      </td>
-                    )}
-                  </tr>
+                    {g.charAt(0).toUpperCase() + g.slice(1)}
+                  </button>
                 ))}
-              </tbody>
-            </table>
+              </div>
+            </div>
+            {productionData && productionData.length === 0 ? (
+              <p style={{ color: "#999", fontSize: "0.9rem" }}>No eggs logged in this period.</p>
+            ) : (
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.9rem" }}>
+                  <thead>
+                    <tr style={{ borderBottom: "2px solid #eee" }}>
+                      <th style={{ textAlign: "left", padding: "0.4rem 0.4rem 0.4rem 0", fontWeight: 600 }}>Period</th>
+                      <th style={{ textAlign: "right", padding: "0.4rem", fontWeight: 600 }}>Eggs</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {productionData!.map((row, i) => (
+                      <tr key={i} style={{ borderBottom: "1px solid #eee" }}>
+                        <td style={{ padding: "0.4rem 0.4rem 0.4rem 0", color: "#555" }}>{row.date}</td>
+                        <td style={{ padding: "0.4rem", textAlign: "right", fontWeight: 600 }}>{row.count}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
-        )}
-      </div>
+
+          {/* Average Weight per Hen */}
+          <div style={sectionStyle}>
+            <h2 style={{ fontSize: "1.125rem", marginBottom: "1rem" }}>Average Egg Weight</h2>
+            {data.average_weight_per_hen.length === 0 ? (
+              <p style={{ color: "#999", fontSize: "0.9rem" }}>No data.</p>
+            ) : (
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.9rem" }}>
+                  <thead>
+                    <tr style={{ borderBottom: "2px solid #eee" }}>
+                      <th style={{ textAlign: "left", padding: "0.4rem 0.4rem 0.4rem 0", fontWeight: 600 }}>Hen</th>
+                      <th style={{ textAlign: "right", padding: "0.4rem", fontWeight: 600 }}>Avg Weight (g)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.average_weight_per_hen.map((h) => (
+                      <tr key={h.chicken_id} style={{ borderBottom: "1px solid #eee" }}>
+                        <td style={{ padding: "0.4rem 0.4rem 0.4rem 0" }}>{h.chicken_name}</td>
+                        <td style={{ padding: "0.4rem", textAlign: "right" }}>
+                          {h.avg_weight != null ? h.avg_weight.toFixed(1) : "-"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Weight Variance */}
+          <div style={sectionStyle}>
+            <h2 style={{ fontSize: "1.125rem", marginBottom: "1rem" }}>Egg Weight Variance</h2>
+            {data.weight_variance_per_hen.length === 0 ? (
+              <p style={{ color: "#999", fontSize: "0.9rem" }}>No data.</p>
+            ) : (
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.9rem" }}>
+                  <thead>
+                    <tr style={{ borderBottom: "2px solid #eee" }}>
+                      <th style={{ textAlign: "left", padding: "0.4rem 0.4rem 0.4rem 0", fontWeight: 600 }}>Hen</th>
+                      <th style={{ textAlign: "right", padding: "0.4rem", fontWeight: 600 }}>Min (g)</th>
+                      <th style={{ textAlign: "right", padding: "0.4rem", fontWeight: 600 }}>Max (g)</th>
+                      <th style={{ textAlign: "right", padding: "0.4rem", fontWeight: 600 }}>Std Dev</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.weight_variance_per_hen.map((h) => (
+                      <tr key={h.chicken_id} style={{ borderBottom: "1px solid #eee" }}>
+                        <td style={{ padding: "0.4rem 0.4rem 0.4rem 0" }}>{h.chicken_name}</td>
+                        <td style={{ padding: "0.4rem", textAlign: "right" }}>
+                          {h.min_weight != null ? h.min_weight.toFixed(1) : "-"}
+                        </td>
+                        <td style={{ padding: "0.4rem", textAlign: "right" }}>
+                          {h.max_weight != null ? h.max_weight.toFixed(1) : "-"}
+                        </td>
+                        <td style={{ padding: "0.4rem", textAlign: "right" }}>
+                          {h.std_dev != null ? h.std_dev.toFixed(2) : "-"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Most Productive */}
+          <div style={sectionStyle}>
+            <h2 style={{ fontSize: "1.125rem", marginBottom: "1rem" }}>Most Productive Chickens</h2>
+            {data.most_productive.length === 0 ? (
+              <p style={{ color: "#999", fontSize: "0.9rem" }}>No eggs logged in this period.</p>
+            ) : (
+              <ol style={{ paddingLeft: "1.25rem", margin: 0 }}>
+                {data.most_productive.map((h, i) => (
+                  <li
+                    key={h.chicken_id}
+                    style={{
+                      padding: "0.3rem 0",
+                      borderBottom: i < data.most_productive.length - 1 ? "1px solid #f0f0f0" : "none",
+                    }}
+                  >
+                    <span style={{ fontWeight: 500 }}>{h.chicken_name}</span>
+                    <span style={{ color: "#666", marginLeft: "0.5rem" }}>
+                      {h.egg_count} egg{h.egg_count !== 1 ? "s" : ""}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </div>
+
+          {/* Production Consistency */}
+          <div style={sectionStyle}>
+            <h2 style={{ fontSize: "1.125rem", marginBottom: "1rem" }}>Production Consistency (Laying Rate)</h2>
+            {data.production_consistency.length === 0 ? (
+              <p style={{ color: "#999", fontSize: "0.9rem" }}>No data.</p>
+            ) : (
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.9rem" }}>
+                  <thead>
+                    <tr style={{ borderBottom: "2px solid #eee" }}>
+                      <th style={{ textAlign: "left", padding: "0.4rem 0.4rem 0.4rem 0", fontWeight: 600 }}>Hen</th>
+                      <th style={{ textAlign: "right", padding: "0.4rem", fontWeight: 600 }}>Eggs</th>
+                      <th style={{ textAlign: "right", padding: "0.4rem", fontWeight: 600 }}>Active Days</th>
+                      <th style={{ textAlign: "right", padding: "0.4rem", fontWeight: 600 }}>Rate</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.production_consistency.map((h) => (
+                      <tr key={h.chicken_id} style={{ borderBottom: "1px solid #eee" }}>
+                        <td style={{ padding: "0.4rem 0.4rem 0.4rem 0" }}>{h.chicken_name}</td>
+                        <td style={{ padding: "0.4rem", textAlign: "right" }}>{h.egg_count}</td>
+                        <td style={{ padding: "0.4rem", textAlign: "right" }}>{h.active_days}</td>
+                        <td style={{ padding: "0.4rem", textAlign: "right", fontWeight: 600 }}>
+                          {h.laying_rate}%
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Dry Periods */}
+          <div style={sectionStyle}>
+            <h2 style={{ fontSize: "1.125rem", marginBottom: "1rem" }}>
+              Dry Periods
+              <span style={{ fontSize: "0.8rem", color: "#666", fontWeight: 400, marginLeft: "0.5rem" }}>
+                (alert after {data.dry_threshold_days} days)
+              </span>
+            </h2>
+
+            {data.dry_periods_alert.length > 0 && (
+              <div
+                style={{
+                  padding: "0.75rem",
+                  background: "#fff3e0",
+                  border: "1px solid #ffcc02",
+                  borderRadius: "6px",
+                  marginBottom: "1rem",
+                }}
+              >
+                <div style={{ fontWeight: 600, color: "#e65100", marginBottom: "0.25rem" }}>
+                  Needs attention
+                </div>
+                {data.dry_periods_alert.map((h) => (
+                  <div key={h.chicken_id} style={{ fontSize: "0.9rem", padding: "0.15rem 0" }}>
+                    {h.chicken_name} — {h.days_since_last_egg} day{h.days_since_last_egg !== 1 ? "s" : ""} since last egg
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {data.dry_periods_current.length === 0 ? (
+              <p style={{ color: "#999", fontSize: "0.9rem" }}>No active laying hens.</p>
+            ) : (
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.9rem" }}>
+                  <thead>
+                    <tr style={{ borderBottom: "2px solid #eee" }}>
+                      <th style={{ textAlign: "left", padding: "0.4rem 0.4rem 0.4rem 0", fontWeight: 600 }}>Hen</th>
+                      <th style={{ textAlign: "right", padding: "0.4rem", fontWeight: 600 }}>Days Since Last Egg</th>
+                      <th style={{ textAlign: "right", padding: "0.4rem", fontWeight: 600 }}>Longest Streak</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.dry_periods_current.map((h) => {
+                      const longest = data.dry_periods_longest.find(
+                        (l) => l.chicken_id === h.chicken_id
+                      );
+                      const alerted =
+                        h.days_since_last_egg != null &&
+                        h.days_since_last_egg >= data.dry_threshold_days;
+                      return (
+                        <tr
+                          key={h.chicken_id}
+                          style={{
+                            borderBottom: "1px solid #eee",
+                            background: alerted ? "#fff3e0" : "transparent",
+                          }}
+                        >
+                          <td style={{ padding: "0.4rem 0.4rem 0.4rem 0", fontWeight: alerted ? 600 : 400 }}>
+                            {h.chicken_name}
+                            {alerted && (
+                              <span
+                                style={{
+                                  marginLeft: "0.4rem",
+                                  fontSize: "0.7rem",
+                                  padding: "0.1rem 0.35rem",
+                                  borderRadius: "3px",
+                                  background: "#ff9800",
+                                  color: "#fff",
+                                  fontWeight: 600,
+                                }}
+                              >
+                                Alert
+                              </span>
+                            )}
+                          </td>
+                          <td style={{ padding: "0.4rem", textAlign: "right" }}>
+                            {h.days_since_last_egg != null ? `${h.days_since_last_egg}d` : "-"}
+                          </td>
+                          <td style={{ padding: "0.4rem", textAlign: "right" }}>
+                            {longest?.longest_streak_days != null ? `${longest.longest_streak_days}d` : "-"}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Seasonal Trends */}
+          <div style={sectionStyle}>
+            <h2 style={{ fontSize: "1.125rem", marginBottom: "1rem" }}>Seasonal Trends</h2>
+            {data.seasonal_trends.length === 0 ? (
+              <p style={{ color: "#999", fontSize: "0.9rem" }}>No data.</p>
+            ) : (
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.9rem" }}>
+                  <thead>
+                    <tr style={{ borderBottom: "2px solid #eee" }}>
+                      <th style={{ textAlign: "left", padding: "0.4rem 0.4rem 0.4rem 0", fontWeight: 600 }}>Period</th>
+                      <th style={{ textAlign: "left", padding: "0.4rem", fontWeight: 600 }}>Season</th>
+                      <th style={{ textAlign: "right", padding: "0.4rem", fontWeight: 600 }}>Eggs</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.seasonal_trends.map((s, i) => (
+                      <tr key={i} style={{ borderBottom: "1px solid #eee" }}>
+                        <td style={{ padding: "0.4rem 0.4rem 0.4rem 0" }}>
+                          {s.year}-{String(s.month).padStart(2, "0")}
+                        </td>
+                        <td style={{ padding: "0.4rem" }}>
+                          <span
+                            style={{
+                              padding: "0.1rem 0.4rem",
+                              borderRadius: "3px",
+                              fontSize: "0.8rem",
+                              fontWeight: 600,
+                              background:
+                                s.season === "Summer"
+                                  ? "#fff3e0"
+                                  : s.season === "Autumn"
+                                  ? "#fce4ec"
+                                  : s.season === "Winter"
+                                  ? "#e3f2fd"
+                                  : "#e8f5e9",
+                              color:
+                                s.season === "Summer"
+                                  ? "#e65100"
+                                  : s.season === "Autumn"
+                                  ? "#c62828"
+                                  : s.season === "Winter"
+                                  ? "#1565c0"
+                                  : "#2e7d32",
+                            }}
+                          >
+                            {s.season}
+                          </span>
+                        </td>
+                        <td style={{ padding: "0.4rem", textAlign: "right", fontWeight: 600 }}>
+                          {s.egg_count}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Attrition */}
+          <div style={sectionStyle}>
+            <h2 style={{ fontSize: "1.125rem", marginBottom: "1rem" }}>
+              Attrition
+              {data.attrition_rate != null && (
+                <span style={{ fontSize: "0.9rem", color: "#666", fontWeight: 400, marginLeft: "0.5rem" }}>
+                  (rate: {data.attrition_rate}%)
+                </span>
+              )}
+            </h2>
+            {data.attrition_by_reason.length === 0 ? (
+              <p style={{ color: "#999", fontSize: "0.9rem" }}>No departures in this period.</p>
+            ) : (
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.9rem" }}>
+                  <thead>
+                    <tr style={{ borderBottom: "2px solid #eee" }}>
+                      <th style={{ textAlign: "left", padding: "0.4rem 0.4rem 0.4rem 0", fontWeight: 600 }}>Reason</th>
+                      <th style={{ textAlign: "right", padding: "0.4rem", fontWeight: 600 }}>Count</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.attrition_by_reason.map((a, i) => (
+                      <tr key={i} style={{ borderBottom: "1px solid #eee" }}>
+                        <td style={{ padding: "0.4rem 0.4rem 0.4rem 0", textTransform: "capitalize" }}>{a.reason}</td>
+                        <td style={{ padding: "0.4rem", textAlign: "right", fontWeight: 600 }}>{a.count}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </>
+      )}
     </main>
   );
 }
