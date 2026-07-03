@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useSession, signIn, signOut } from "next-auth/react";
+import { useSession } from "next-auth/react";
 
 type Chicken = {
   id: number;
@@ -22,13 +22,6 @@ type DynamicListEntry = {
   value: string;
 };
 
-type HealthStatus = {
-  status: string;
-  database: string;
-  timestamp: string;
-  message?: string;
-};
-
 const SEX_OPTIONS = ["Hen", "Rooster", "Unknown"] as const;
 
 const DEPARTURE_REASONS = ["died/illness", "sold", "predator", "gave away", "Other"] as const;
@@ -43,8 +36,6 @@ function todayStr(): string {
 
 export default function Home() {
   const { data: session, status } = useSession();
-  const [health, setHealth] = useState<HealthStatus | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [chickens, setChickens] = useState<Chicken[]>([]);
   const [name, setName] = useState("");
   const [sex, setSex] = useState<string>("Hen");
@@ -100,15 +91,6 @@ export default function Home() {
   );
 
   useEffect(() => {
-    fetch("/api/health")
-      .then(async (res) => {
-        const data: HealthStatus = await res.json();
-        setHealth(data);
-      })
-      .catch((err) => {
-        setError(err instanceof Error ? err.message : "Failed to fetch");
-      });
-
     fetchChickens(includeDeparted);
     fetchDynamicList("breeds", setBreeds);
     fetchDynamicList("origin-sources", setOriginSources);
@@ -223,172 +205,7 @@ export default function Home() {
         gap: "2rem",
       }}
     >
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          width: "100%",
-          maxWidth: "700px",
-        }}
-      >
-        <h1 style={{ fontSize: "2rem" }}>ChickenTrack</h1>
-        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-          {status === "loading" && (
-            <span style={{ color: "#999", fontSize: "0.875rem" }}>
-              Loading...
-            </span>
-          )}
-          {status === "unauthenticated" && (
-            <button
-              onClick={() => signIn("google")}
-              style={{
-                padding: "0.4rem 0.75rem",
-                background: "#4285f4",
-                color: "#fff",
-                border: "none",
-                borderRadius: "4px",
-                cursor: "pointer",
-                fontSize: "0.875rem",
-              }}
-            >
-              Sign in with Google
-            </button>
-          )}
-          {session?.user && (
-            <>
-              <a
-                href="/log-egg"
-                style={{
-                  padding: "0.4rem 0.75rem",
-                  background: "#2e7d32",
-                  color: "#fff",
-                  borderRadius: "4px",
-                  textDecoration: "none",
-                  fontSize: "0.875rem",
-                  fontWeight: 600,
-                }}
-              >
-                Bulk Log
-              </a>
-              <a
-                href="/dashboard"
-                style={{
-                  padding: "0.4rem 0.75rem",
-                  background: "#6a1b9a",
-                  color: "#fff",
-                  borderRadius: "4px",
-                  textDecoration: "none",
-                  fontSize: "0.875rem",
-                }}
-              >
-                Dashboard
-              </a>
-              {isAdmin && (
-                <a
-                  href="/admin"
-                  style={{
-                    padding: "0.4rem 0.75rem",
-                    background: "#1565c0",
-                    color: "#fff",
-                    borderRadius: "4px",
-                    textDecoration: "none",
-                    fontSize: "0.875rem",
-                  }}
-                >
-                  Admin
-                </a>
-              )}
-              <span style={{ color: "#666", fontSize: "0.875rem" }}>
-                {session.user.email}
-                <span
-                  style={{
-                    marginLeft: "0.4rem",
-                    padding: "0.1rem 0.4rem",
-                    borderRadius: "4px",
-                    fontSize: "0.75rem",
-                    fontWeight: 600,
-                    background: isAdmin ? "#e3f2fd" : "#f3e5f5",
-                    color: isAdmin ? "#1565c0" : "#7b1fa2",
-                  }}
-                >
-                  {session.user.role}
-                </span>
-              </span>
-              <button
-                onClick={() => signOut()}
-                style={{
-                  padding: "0.4rem 0.75rem",
-                  background: "#d32f2f",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: "4px",
-                  cursor: "pointer",
-                  fontSize: "0.875rem",
-                }}
-              >
-                Sign Out
-              </button>
-            </>
-          )}
-        </div>
-      </div>
 
-      <p style={{ color: "#666" }}>
-        Egg-production tracking for your backyard flock
-      </p>
-
-      <div
-        style={{
-          padding: "1.5rem 2rem",
-          borderRadius: "8px",
-          border: "1px solid #ddd",
-          background: "#fff",
-          minWidth: "320px",
-          width: "100%",
-          maxWidth: "700px",
-        }}
-      >
-        <h2 style={{ fontSize: "1.25rem", marginBottom: "1rem" }}>
-          System Status
-        </h2>
-        {error && (
-          <p style={{ color: "#d32f2f" }}>Could not reach the API: {error}</p>
-        )}
-        {!health && !error && <p>Checking system health...</p>}
-        {health && (
-          <dl
-            style={{
-              display: "grid",
-              gridTemplateColumns: "auto 1fr",
-              gap: "0.5rem 1rem",
-            }}
-          >
-            <dt style={{ fontWeight: 600 }}>API:</dt>
-            <dd
-              style={{ color: health.status === "ok" ? "#2e7d32" : "#d32f2f" }}
-            >
-              {health.status === "ok" ? "Healthy" : "Unhealthy"}
-            </dd>
-            <dt style={{ fontWeight: 600 }}>Database:</dt>
-            <dd
-              style={{
-                color: health.database === "connected" ? "#2e7d32" : "#d32f2f",
-              }}
-            >
-              {health.database === "connected" ? "Connected" : "Disconnected"}
-            </dd>
-            <dt style={{ fontWeight: 600 }}>As at:</dt>
-            <dd>{new Date(health.timestamp).toLocaleString()}</dd>
-            {health.message && (
-              <>
-                <dt style={{ fontWeight: 600 }}>Details:</dt>
-                <dd style={{ color: "#d32f2f" }}>{health.message}</dd>
-              </>
-            )}
-          </dl>
-        )}
-      </div>
 
       <div
         style={{

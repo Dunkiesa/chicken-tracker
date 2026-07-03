@@ -184,37 +184,7 @@ export default function DashboardPage() {
         gap: "1.5rem",
       }}
     >
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          width: "100%",
-          maxWidth: "900px",
-          flexWrap: "wrap",
-          gap: "0.5rem",
-        }}
-      >
-        <h1 style={{ fontSize: "1.5rem" }}>Analytics Dashboard</h1>
-        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
-          <span style={{ color: "#666", fontSize: "0.875rem" }}>
-            {session?.user?.email}
-          </span>
-          <a
-            href="/"
-            style={{
-              padding: "0.4rem 0.75rem",
-              background: "#e0e0e0",
-              borderRadius: "4px",
-              textDecoration: "none",
-              color: "#333",
-              fontSize: "0.875rem",
-            }}
-          >
-            Home
-          </a>
-        </div>
-      </div>
+      <h1 style={{ fontSize: "1.5rem" }}>Analytics Dashboard</h1>
 
       <div
         style={{

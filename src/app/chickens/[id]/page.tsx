@@ -399,44 +399,7 @@ export default function ChickenProfilePage() {
         margin: "0 auto",
       }}
     >
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          width: "100%",
-        }}
-      >
-        <h1 style={{ fontSize: "1.5rem" }}>{chicken.name}</h1>
-        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-          {isAdmin && !editing && (
-            <button
-              onClick={startEditChicken}
-              style={{
-                padding: "0.3rem 0.75rem",
-                fontSize: "0.8rem",
-                border: "1px solid #1565c0",
-                borderRadius: "4px",
-                background: "#fff",
-                color: "#1565c0",
-                cursor: "pointer",
-              }}
-            >
-              Edit
-            </button>
-          )}
-          <a
-            href="/"
-            style={{
-              color: "#1565c0",
-              textDecoration: "none",
-              fontSize: "0.875rem",
-            }}
-          >
-            &larr; Back
-          </a>
-        </div>
-      </div>
+      <h1 style={{ fontSize: "1.5rem" }}>{chicken.name}</h1>
 
       <div
         style={{

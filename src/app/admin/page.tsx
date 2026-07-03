@@ -1,6 +1,6 @@
 "use client";
 
-import { useSession, signIn, signOut } from "next-auth/react";
+import { useSession, signIn } from "next-auth/react";
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 
@@ -256,49 +256,7 @@ export default function AdminPage() {
         gap: "2rem",
       }}
     >
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          width: "100%",
-          maxWidth: "800px",
-        }}
-      >
-        <h1 style={{ fontSize: "1.5rem" }}>Admin Panel</h1>
-        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-          <span style={{ color: "#666", fontSize: "0.875rem" }}>
-            {session?.user?.email}
-          </span>
-          <a
-            href="/"
-            style={{
-              padding: "0.4rem 0.75rem",
-              background: "#e0e0e0",
-              borderRadius: "4px",
-              textDecoration: "none",
-              color: "#333",
-              fontSize: "0.875rem",
-            }}
-          >
-            Home
-          </a>
-          <button
-            onClick={() => signOut()}
-            style={{
-              padding: "0.4rem 0.75rem",
-              background: "#d32f2f",
-              color: "#fff",
-              border: "none",
-              borderRadius: "4px",
-              cursor: "pointer",
-              fontSize: "0.875rem",
-            }}
-          >
-            Sign Out
-          </button>
-        </div>
-      </div>
+      <h1 style={{ fontSize: "1.5rem" }}>Admin Panel</h1>
 
       {/* User Management */}
       <div

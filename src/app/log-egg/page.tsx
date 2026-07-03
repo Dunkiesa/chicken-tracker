@@ -213,28 +213,7 @@ function LogEggContent() {
         margin: "0 auto",
       }}
     >
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          width: "100%",
-        }}
-      >
-        <h1 style={{ fontSize: "1.5rem" }}>Bulk Log</h1>
-        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-          <a
-            href="/"
-            style={{
-              color: "#1565c0",
-              textDecoration: "none",
-              fontSize: "0.875rem",
-            }}
-          >
-            &larr; Back
-          </a>
-        </div>
-      </div>
+      <h1 style={{ fontSize: "1.5rem" }}>Bulk Log</h1>
 
       <div
         style={{
