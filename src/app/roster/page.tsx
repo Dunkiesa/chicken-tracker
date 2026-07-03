@@ -199,7 +199,7 @@ export default function RosterPage() {
 
   useEffect(() => {
     if (status === "unauthenticated") {
-      router.push("/");
+      router.replace("/");
     }
   }, [status, router]);
 
