@@ -1,5 +1,5 @@
 "use client";
-import { useSession, signIn } from "next-auth/react";
+import { useSession } from "next-auth/react";
 import NavMenu from "./NavMenu";
 import UserMenu from "./UserMenu";
 import SystemStatusFooter from "./SystemStatusFooter";
@@ -31,22 +31,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           ChickenTrack
         </a>
         {status === "authenticated" && <NavMenu />}
-        {status === "unauthenticated" && (
-          <button
-            onClick={() => signIn("google")}
-            style={{
-              padding: "0.4rem 0.75rem",
-              background: "#4285f4",
-              color: "#fff",
-              border: "none",
-              borderRadius: "4px",
-              cursor: "pointer",
-              fontSize: "0.875rem",
-            }}
-          >
-            Sign in with Google
-          </button>
-        )}
         {status === "authenticated" && <UserMenu />}
       </header>
       <main style={{ flex: 1, display: "flex", flexDirection: "column" }}>
