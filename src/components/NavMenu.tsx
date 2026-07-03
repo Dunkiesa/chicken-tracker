@@ -19,7 +19,7 @@ export default function NavMenu() {
           fontWeight: 600,
         }}
       >
-        Bulk Log
+        Log
       </a>
       <a
         href="/dashboard"
