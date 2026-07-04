@@ -122,7 +122,7 @@ export default function ChickenProfilePage() {
 
   useEffect(() => {
     if (status === "unauthenticated") {
-      router.push("/");
+      router.replace("/");
       return;
     }
     if (status === "authenticated" && !isNaN(chickenId)) {

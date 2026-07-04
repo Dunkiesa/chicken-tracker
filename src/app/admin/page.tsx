@@ -1,6 +1,6 @@
 "use client";
 
-import { useSession, signIn } from "next-auth/react";
+import { useSession } from "next-auth/react";
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 
@@ -71,7 +71,7 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (status === "unauthenticated") {
-      signIn("google");
+      router.replace("/");
       return;
     }
     if (status === "authenticated" && !isAdmin) {

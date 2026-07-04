@@ -82,7 +82,7 @@ async function refreshEggs(date?: string) {
 
   useEffect(() => {
     if (status === "unauthenticated") {
-      router.push("/");
+      router.replace("/");
       return;
     }
     if (status !== "authenticated") return;
