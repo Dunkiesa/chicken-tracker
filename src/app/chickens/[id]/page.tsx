@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, memo } from "react";
 import { useSession } from "next-auth/react";
 import { useParams, useRouter } from "next/navigation";
 
@@ -995,152 +995,194 @@ export default function ChickenProfilePage() {
           </p>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-            {notes.map((note) => {
-              const isEditing = editingNoteId === note.id;
-              return (
-                <div
-                  key={note.id}
-                  style={{
-                    padding: "0.75rem 1rem",
-                    border: "1px solid #e0e0e0",
-                    borderRadius: "6px",
-                    background: "#fafafa",
-                  }}
-                >
-                  {isEditing ? (
-                    <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                      <textarea
-                        value={editContent}
-                        onChange={(e) => setEditContent(e.target.value)}
-                        rows={3}
-                        disabled={saving}
-                        style={{
-                          width: "100%",
-                          padding: "0.5rem",
-                          border: "1px solid #1565c0",
-                          borderRadius: "4px",
-                          fontSize: "0.9rem",
-                          resize: "vertical",
-                          boxSizing: "border-box",
-                        }}
-                      />
-                      <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-                        <input
-                          type="date"
-                          value={editDate}
-                          onChange={(e) => setEditDate(e.target.value)}
-                          disabled={saving}
-                          style={{
-                            padding: "0.3rem 0.5rem",
-                            border: "1px solid #ccc",
-                            borderRadius: "4px",
-                            fontSize: "0.85rem",
-                          }}
-                        />
-                        <button
-                          onClick={() => handleUpdateNote(note.id)}
-                          disabled={saving || !editContent.trim()}
-                          style={{
-                            padding: "0.3rem 0.75rem",
-                            background: "#1565c0",
-                            color: "#fff",
-                            border: "none",
-                            borderRadius: "4px",
-                            fontSize: "0.85rem",
-                            cursor: "pointer",
-                            opacity: saving || !editContent.trim() ? 0.6 : 1,
-                          }}
-                        >
-                          {saving ? "Saving..." : "Save"}
-                        </button>
-                        <button
-                          onClick={cancelEdit}
-                          disabled={saving}
-                          style={{
-                            padding: "0.3rem 0.75rem",
-                            background: "#757575",
-                            color: "#fff",
-                            border: "none",
-                            borderRadius: "4px",
-                            fontSize: "0.85rem",
-                            cursor: "pointer",
-                          }}
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <>
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "flex-start",
-                          marginBottom: "0.4rem",
-                        }}
-                      >
-                        <div
-                          style={{
-                            fontSize: "0.8rem",
-                            color: "#666",
-                            display: "flex",
-                            gap: "0.75rem",
-                            alignItems: "center",
-                          }}
-                        >
-                          <span style={{ fontWeight: 600 }}>{note.date}</span>
-                          <span>{note.recorded_by}</span>
-                        </div>
-                        {canModify(note) && (
-                          <div style={{ display: "flex", gap: "0.3rem" }}>
-                            <button
-                              onClick={() => startEdit(note)}
-                              style={{
-                                padding: "0.15rem 0.4rem",
-                                fontSize: "0.7rem",
-                                border: "1px solid #ccc",
-                                borderRadius: "3px",
-                                background: "#fff",
-                                cursor: "pointer",
-                              }}
-                            >
-                              Edit
-                            </button>
-                            <button
-                              onClick={() => handleDeleteNote(note.id)}
-                              style={{
-                                padding: "0.15rem 0.4rem",
-                                fontSize: "0.7rem",
-                                border: "1px solid #ef9a9a",
-                                borderRadius: "3px",
-                                background: "#fff",
-                                color: "#c62828",
-                                cursor: "pointer",
-                              }}
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                      <div
-                        style={{
-                          fontSize: "0.9rem",
-                          whiteSpace: "pre-wrap",
-                          lineHeight: 1.5,
-                        }}
-                      >
-                        {note.content}
-                      </div>
-                    </>
-                  )}
-                </div>
-              );
-            })}
+            {notes.map((note) => (
+              <NoteItem
+                key={note.id}
+                note={note}
+                isEditing={editingNoteId === note.id}
+                editContent={editContent}
+                editDate={editDate}
+                saving={saving}
+                canModify={canModify(note)}
+                onStartEdit={() => startEdit(note)}
+                onSave={() => handleUpdateNote(note.id)}
+                onCancel={cancelEdit}
+                onDelete={() => handleDeleteNote(note.id)}
+                onEditContentChange={(value) => setEditContent(value)}
+                onEditDateChange={(value) => setEditDate(value)}
+              />
+            ))}
           </div>
         )}
       </div>
     </main>
   );
 }
+
+const NoteItem = memo(function NoteItem({
+  note,
+  isEditing,
+  editContent,
+  editDate,
+  saving,
+  canModify,
+  onStartEdit,
+  onSave,
+  onCancel,
+  onDelete,
+  onEditContentChange,
+  onEditDateChange,
+}: {
+  note: Note;
+  isEditing: boolean;
+  editContent: string;
+  editDate: string;
+  saving: boolean;
+  canModify: boolean;
+  onStartEdit: () => void;
+  onSave: () => void;
+  onCancel: () => void;
+  onDelete: () => void;
+  onEditContentChange: (value: string) => void;
+  onEditDateChange: (value: string) => void;
+}) {
+  return (
+    <div
+      style={{
+        padding: "0.75rem 1rem",
+        border: "1px solid #e0e0e0",
+        borderRadius: "6px",
+        background: "#fafafa",
+      }}
+    >
+      {isEditing ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+          <textarea
+            value={editContent}
+            onChange={(e) => onEditContentChange(e.target.value)}
+            rows={3}
+            disabled={saving}
+            style={{
+              width: "100%",
+              padding: "0.5rem",
+              border: "1px solid #1565c0",
+              borderRadius: "4px",
+              fontSize: "0.9rem",
+              resize: "vertical",
+              boxSizing: "border-box",
+            }}
+          />
+          <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+            <input
+              type="date"
+              value={editDate}
+              onChange={(e) => onEditDateChange(e.target.value)}
+              disabled={saving}
+              style={{
+                padding: "0.3rem 0.5rem",
+                border: "1px solid #ccc",
+                borderRadius: "4px",
+                fontSize: "0.85rem",
+              }}
+            />
+            <button
+              onClick={onSave}
+              disabled={saving || !editContent.trim()}
+              style={{
+                padding: "0.3rem 0.75rem",
+                background: "#1565c0",
+                color: "#fff",
+                border: "none",
+                borderRadius: "4px",
+                fontSize: "0.85rem",
+                cursor: "pointer",
+                opacity: saving || !editContent.trim() ? 0.6 : 1,
+              }}
+            >
+              {saving ? "Saving..." : "Save"}
+            </button>
+            <button
+              onClick={onCancel}
+              disabled={saving}
+              style={{
+                padding: "0.3rem 0.75rem",
+                background: "#757575",
+                color: "#fff",
+                border: "none",
+                borderRadius: "4px",
+                fontSize: "0.85rem",
+                cursor: "pointer",
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "flex-start",
+              marginBottom: "0.4rem",
+            }}
+          >
+            <div
+              style={{
+                fontSize: "0.8rem",
+                color: "#666",
+                display: "flex",
+                gap: "0.75rem",
+                alignItems: "center",
+              }}
+            >
+              <span style={{ fontWeight: 600 }}>{note.date}</span>
+              <span>{note.recorded_by}</span>
+            </div>
+            {canModify && (
+              <div style={{ display: "flex", gap: "0.3rem" }}>
+                <button
+                  onClick={onStartEdit}
+                  style={{
+                    padding: "0.15rem 0.4rem",
+                    fontSize: "0.7rem",
+                    border: "1px solid #ccc",
+                    borderRadius: "3px",
+                    background: "#fff",
+                    cursor: "pointer",
+                  }}
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={onDelete}
+                  style={{
+                    padding: "0.15rem 0.4rem",
+                    fontSize: "0.7rem",
+                    border: "1px solid #ef9a9a",
+                    borderRadius: "3px",
+                    background: "#fff",
+                    color: "#c62828",
+                    cursor: "pointer",
+                  }}
+                >
+                  Delete
+                </button>
+              </div>
+            )}
+          </div>
+          <div
+            style={{
+              fontSize: "0.9rem",
+              whiteSpace: "pre-wrap",
+              lineHeight: 1.5,
+            }}
+          >
+            {note.content}
+          </div>
+        </>
+      )}
+    </div>
+  );
+});

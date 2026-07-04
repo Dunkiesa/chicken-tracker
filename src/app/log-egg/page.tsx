@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, Suspense } from "react";
+import { HenRow } from "@/components/HenRow";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 
@@ -282,99 +283,19 @@ async function refreshEggs(date?: string) {
               marginBottom: "1rem",
             }}
           >
-            {hens.map((hen) => {
-              const existing = existingEggsMap.get(hen.id);
-              const isLogged = !!existing;
-              const warning = rowWarnings[hen.id];
-              return (
-                <div
-                  key={hen.id}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.75rem",
-                    padding: "0.6rem 0.75rem",
-                    borderBottom: "1px solid #f0f0f0",
-                    background: isLogged ? "#f5f5f5" : "transparent",
-                  }}
-                >
-                  {hen.primary_photo_path ? (
-                    <img
-                      src={`/api/photos/${hen.primary_photo_path}`}
-                      alt=""
-                      style={{
-                        width: "32px",
-                        height: "32px",
-                        borderRadius: "50%",
-                        objectFit: "cover",
-                        background: "#f0f0f0",
-                        flexShrink: 0,
-                      }}
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = "none";
-                      }}
-                    />
-                  ) : (
-                    <div
-                      style={{
-                        width: "32px",
-                        height: "32px",
-                        borderRadius: "50%",
-                        background: "#f0f0f0",
-                        flexShrink: 0,
-                      }}
-                    />
-                  )}
-                  <div style={{ flex: "1 1 100px", fontWeight: 500, fontSize: "0.95rem", minWidth: 0 }}>
-                    {hen.name}
-                  </div>
-                  {isLogged ? (
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                      <span style={{ fontSize: "0.85rem", color: "#666" }}>
-                        {existing.weight.toFixed(2)}g
-                      </span>
-                      <span style={{ color: "#2e7d32", fontSize: "1rem" }}>✓</span>
-                    </div>
-                  ) : (
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={weights[hen.id] || ""}
-                      onChange={(e) =>
-                        setWeights((prev) => ({ ...prev, [hen.id]: e.target.value }))
-                      }
-                      placeholder="Weight (g)"
-                      disabled={saving}
-                      style={{
-                        width: "110px",
-                        padding: "0.4rem",
-                        border: "1px solid #ccc",
-                        borderRadius: "4px",
-                        fontSize: "0.9rem",
-                        textAlign: "right",
-                        flexShrink: 0,
-                      }}
-                    />
-                  )}
-                  {warning?.length > 0 && (
-                    <div
-                      style={{
-                        fontSize: "0.75rem",
-                        color: "#f57f17",
-                        maxWidth: "160px",
-                        textAlign: "right",
-                        flexShrink: 0,
-                      }}
-                    >
-                      {warning.map((w, i) => (
-                        <div key={i}>{w.message}</div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+            {hens.map((hen) => (
+              <HenRow
+                key={hen.id}
+                hen={hen}
+                weight={weights[hen.id] || ""}
+                existing={existingEggsMap.get(hen.id)}
+                warning={rowWarnings[hen.id]}
+                disabled={saving}
+                onWeightChange={(henId, value) =>
+                  setWeights((prev) => ({ ...prev, [henId]: value }))
+                }
+              />
+            ))}
           </div>
         )}
 
