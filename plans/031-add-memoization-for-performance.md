@@ -7,7 +7,7 @@
 > in `plans/README.md` — unless a reviewer dispatched you and told you they
 > maintain the index.
 >
-> **Drift check (run first)**: `git diff --stat 9f05e7b..HEAD -- src/app/page.tsx src/app/roster/page.tsx src/app/log-egg/page.tsx src/app/chickens/\[id\]/page.tsx src/components/`
+> **Drift check (run first)**: `git diff --stat 5920c0f..HEAD -- src/app/page.tsx src/app/roster/page.tsx src/app/log-egg/page.tsx src/app/chickens/\[id\]/page.tsx src/components/`
 > If any in-scope file changed since this plan was written, compare the
 > "Current state" excerpts against the live code before proceeding; on a
 > mismatch, treat it as a STOP condition.
@@ -19,7 +19,8 @@
 - **Risk**: LOW
 - **Depends on**: none
 - **Category**: perf
-- **Planned at**: commit `9f05e7b`, 2026-07-03
+- **Planned at**: commit `5920c0f`, 2026-07-04
+- **Reconciled**: Line numbers updated for log-egg and roster pages (shifted by Plans 024, 027, 030). Plan 024 changed the departure form state shape — the ChickenTableRow extraction in Step 3 must match the new per-chicken state. `npm run test:all` added to verification commands.
 
 ## Why this matters
 
@@ -29,7 +30,7 @@ This plan extracts frequently-re-rendered list items into `React.memo()` compone
 
 ## Current state
 
-**`src/app/log-egg/page.tsx:283-375`** — Hen rows array inlined inside `LogEggContent`, no memoization. Every state change (including typing a weight) re-renders all rows:
+**`src/app/log-egg/page.tsx:285-377`** — Hen rows array inlined inside `LogEggContent`, no memoization. Every state change (including typing a weight) re-renders all rows:
 
 ```tsx
 {hens.map((hen) => {
@@ -38,7 +39,7 @@ This plan extracts frequently-re-rendered list items into `React.memo()` compone
 })}
 ```
 
-**`src/app/roster/page.tsx:442-693`** — Chicken table rows inlined inside `RosterPage`. Opening/closing the departure form re-renders all rows:
+**`src/app/roster/page.tsx:443-702`** — Chicken table rows inlined inside `RosterPage`. Opening/closing the departure form re-renders all rows. Note: Plan 024 added per-chicken departure state tracking — the departure form now shows a confirm dialog before switching chickens.
 
 ```tsx
 {chickens.map((chicken) => (
@@ -60,7 +61,7 @@ const productionData =
     : data.production_monthly);
 ```
 
-**`src/app/chickens/[id]/page.tsx:998-1140`** — Notes list and photos gallery inlined with no memoization.
+**`src/app/chickens/[id]/page.tsx:998-1140`** — Notes list inlined with no memoization. Note: the notes change infrequently (on add/edit/delete), so the memoization gain here is modest. This is the lowest-priority extraction within this plan.
 
 All components use inline styles throughout — extracted sub-components should continue this convention.
 
@@ -70,6 +71,7 @@ All components use inline styles throughout — extracted sub-components should 
 |-----------|--------------------------|---------------------|
 | Build     | `npm run build`          | exit 0              |
 | Typecheck | `npx tsc --noEmit`       | exit 0              |
+| All tests | `npm run test:all`       | all pass            |
 
 ## Scope
 
@@ -214,7 +216,7 @@ In `src/app/log-egg/page.tsx`, add the import at the top:
 import { HenRow } from "../components/HenRow";
 ```
 
-Replace the inline hen row JSX (lines 283-375) with:
+Replace the inline hen row JSX (lines 285-377) with:
 
 ```tsx
 {hens.map((hen) => (
@@ -232,11 +234,11 @@ Replace the inline hen row JSX (lines 283-375) with:
 ))}
 ```
 
-**Verify**: `npm run build` exits 0. The log-egg page renders identically.
+**Verify**: `npm run build` exits 0. `npm run test:all` exits 0. The log-egg page renders identically.
 
 ### Step 3: Create `ChickenTableRow` component
 
-Create `src/components/ChickenTableRow.tsx` with the same memo pattern. Extract a single table row from the roster page's chicken list (the `<tr>` element at lines 443-692). This is a larger component — keep all the departure form, reinstate button, and action column logic inside it.
+Create `src/components/ChickenTableRow.tsx` with the same memo pattern. Extract a single table row from the roster page's chicken list (the `<tr>` element at lines 444-701). This is a larger component — keep all the departure form, reinstate button, and action column logic inside it.
 
 The props needed:
 - `chicken` — the chicken data object
@@ -246,9 +248,24 @@ The props needed:
 - `departingSave` — boolean
 - `onMarkDeparted`, `onReinstate`, `onStartDepart` — event handlers
 
+Note: Plan 024 added per-chicken departure tracking with a confirm-dialog before switching chickens. The `onStartDepart` callback needs to handle this logic — pass the full click handler from the parent:
+
+```tsx
+onStartDepart={() => {
+  if (departingChickenId !== null && departingChickenId !== chicken.id) {
+    if (!confirm("Discard unsaved departure details?")) return;
+  }
+  setDepartingChickenId(chicken.id);
+  setDepartureDate(todayStr());
+  setDepartureReason("died/illness");
+  setDepartureOtherReason("");
+  setEnrollError(null);
+}}
+```
+
 Since the departure form state is tightly coupled, one approach is to pass individual props. A cleaner alternative (deferred): extract the departure form into its own sub-component. For this plan, pass all state and handlers as props.
 
-**Verify**: `npm run build` exits 0. The roster page renders identically.
+**Verify**: `npm run build` exits 0. `npm run test:all` exits 0. The roster page renders identically.
 
 ### Step 4: Add `useMemo` to analytics dashboard
 
@@ -297,11 +314,11 @@ const NoteItem = memo(function NoteItem({
 });
 ```
 
-**Verify**: `npm run build` exits 0. The chicken profile page renders identically.
+**Verify**: `npm run build` exits 0. `npm run test:all` exits 0. The chicken profile page renders identically.
 
 ## Test plan
 
-Run the build and verify no TypeScript errors. All existing behavior is preserved — the memoization only affects re-render behavior, not visible output. Verify by interacting with each page and confirming no visual regressions:
+Run `npm run test:all` — both the unit/integration tests and the Plan 025 component tests must pass. The memoization only affects re-render behavior, not visible output. Verify by interacting with each page and confirming no visual regressions:
 
 1. Log page: type weights for multiple hens, verify input responsiveness and correct display
 2. Roster page: open departure forms, verify chicken list still renders correctly
@@ -312,6 +329,7 @@ Run the build and verify no TypeScript errors. All existing behavior is preserve
 
 - [ ] `npm run build` exits 0
 - [ ] `npx tsc --noEmit` exits 0
+- [ ] `npm run test:all` exits 0
 - [ ] `HenRow` component extracted and used in log-egg page
 - [ ] `ChickenTableRow` component extracted and used in roster page
 - [ ] `productionData` and summary cards in dashboard wrapped in `useMemo`
@@ -330,3 +348,4 @@ Run the build and verify no TypeScript errors. All existing behavior is preserve
 - The `HenRow` and `ChickenTableRow` components are in `src/components/` for reuse. If a future page needs to display a similar list, these components can be reused.
 - `NoteItem` is defined in the same file as `ChickenProfilePage` because it has tight coupling to the page's data shape. Extract to `src/components/` only if a second page needs it.
 - This is the lowest-priority plan — the performance wins only matter at scale (>20 birds). Skip or defer if higher-priority work needs the time.
+- **Verification commands**: After Plans 025a-025g and 4c80f40, use `npm run test:all` to run both unit and component tests. `npm test` only runs unit tests (excludes component tests).

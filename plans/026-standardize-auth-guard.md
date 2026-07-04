@@ -7,7 +7,7 @@
 > in `plans/README.md` — unless a reviewer dispatched you and told you they
 > maintain the index.
 >
-> **Drift check (run first)**: `git diff --stat 9f05e7b..HEAD -- src/app/roster/page.tsx src/app/chickens/\[id\]/page.tsx src/app/admin/page.tsx src/app/page.tsx`
+> **Drift check (run first)**: `git diff --stat 5920c0f..HEAD -- src/app/chickens/\[id\]/page.tsx src/app/admin/page.tsx src/app/log-egg/page.tsx`
 > If any in-scope file changed since this plan was written, compare the
 > "Current state" excerpts against the live code before proceeding; on a
 > mismatch, treat it as a STOP condition.
@@ -19,31 +19,25 @@
 - **Risk**: LOW
 - **Depends on**: 025 (component tests provide safety net)
 - **Category**: tech-debt
-- **Planned at**: commit `9f05e7b`, 2026-07-03
+- **Planned at**: commit `5920c0f`, 2026-07-04
+- **Reconciled**: Plan 027 already fixed the roster page (router.push → router.replace). Roster page removed from scope below. Line numbers updated for log-egg page.
 
 ## Why this matters
 
-Four different auth-guard patterns exist across the app's pages, creating inconsistent user experience and making it harder to reason about auth behavior:
+Three different auth-guard patterns remain across the app's pages (the roster page was already fixed by Plan 027), creating inconsistent user experience:
 
 1. Home page (`page.tsx`): conditional render of splash vs dashboard
-2. Roster page: `router.push("/")` which pollutes browser history
-3. Admin page: calls `signIn("google")` directly, skipping the splash entirely
-4. Chicken profile: `router.push("/")`
+2. Admin page: calls `signIn("google")` directly, skipping the splash entirely
+3. Chicken profile (`chickens/[id]`): `router.push("/")` which pollutes browser history
+4. Log-egg page: `router.push("/")` which pollutes browser history
 
 Standardizing on `router.replace("/")` everywhere ensures unauthenticated users always end up at the splash page with a clean history stack.
 
 ## Current state
 
-**`src/app/roster/page.tsx:200-204`** — Uses `router.push`:
-```tsx
-useEffect(() => {
-  if (status === "unauthenticated") {
-    router.push("/");
-  }
-}, [status, router]);
-```
+**Roster page (already fixed by Plan 027)** — Now uses `router.replace("/")` at line 203. No change needed.
 
-**`src/app/chickens/[id]/page.tsx:124-127`** — Uses `router.push`:
+**`src/app/chickens/[id]/page.tsx:124-126`** — Uses `router.push`:
 ```tsx
 if (status === "unauthenticated") {
   router.push("/");
@@ -66,12 +60,14 @@ if (status === "unauthenticated") {
 }
 ```
 
-**`src/app/log-egg/page.tsx:75-77`** — Uses `router.push`:
+**`src/app/log-egg/page.tsx:84-86`** — Uses `router.push`:
 ```tsx
-if (status === "unauthenticated") {
-  router.push("/");
-  return;
-}
+useEffect(() => {
+  if (status === "unauthenticated") {
+    router.push("/");
+    return;
+  }
+}, [status, router]);
 ```
 
 All pages follow the inline-style convention — no changes to styling needed.
@@ -82,20 +78,20 @@ All pages follow the inline-style convention — no changes to styling needed.
 |-----------|--------------------------|---------------------|
 | Build     | `npm run build`          | exit 0              |
 | Typecheck | `npx tsc --noEmit`       | exit 0              |
-| Component tests | `npx jest --config jest.component.config.ts` | all pass |
+| All tests | `npm run test:all`       | all pass |
+| Component tests | `npm run test:components` | all pass |
 
 ## Scope
 
 **In scope**:
-- `src/app/roster/page.tsx` — `router.push` → `router.replace`
 - `src/app/chickens/[id]/page.tsx` — `router.push` → `router.replace`
 - `src/app/admin/page.tsx` — `signIn("google")` → `router.replace("/")`
 - `src/app/log-egg/page.tsx` — `router.push` → `router.replace`
 
 **Out of scope**:
+- `src/app/roster/page.tsx` — already fixed by Plan 027, no change needed
 - `src/app/page.tsx` — its conditional render is the correct pattern (it IS the splash)
 - Any other page, component, or test file
-- Removing `signIn` import from admin page (might still be used elsewhere? Check — it's only used in the guard at `admin/page.tsx:74`)
 
 ## Git workflow
 
@@ -106,25 +102,19 @@ All pages follow the inline-style convention — no changes to styling needed.
 
 ## Steps
 
-### Step 1: Fix roster page guard
-
-In `src/app/roster/page.tsx:201`, change `router.push("/")` to `router.replace("/")`.
-
-**Verify**: `npm run build` exits 0. The page redirects to `/` without adding to history.
-
-### Step 2: Fix chicken profile page guard
+### Step 1: Fix chicken profile page guard
 
 In `src/app/chickens/[id]/page.tsx:125`, change `router.push("/")` to `router.replace("/")`.
 
 **Verify**: `npm run build` exits 0.
 
-### Step 3: Fix log-egg page guard
+### Step 2: Fix log-egg page guard
 
-In `src/app/log-egg/page.tsx:76`, change `router.push("/")` to `router.replace("/")`.
+In `src/app/log-egg/page.tsx:85`, change `router.push("/")` to `router.replace("/")`.
 
 **Verify**: `npm run build` exits 0.
 
-### Step 4: Fix admin page guard
+### Step 3: Fix admin page guard
 
 In `src/app/admin/page.tsx:74`, change `signIn("google")` to `router.replace("/")`.
 
@@ -140,31 +130,35 @@ import { useSession } from "next-auth/react";
 
 **Verify**: `npm run build` exits 0. `grep "signIn" src/app/admin/page.tsx` returns no matches.
 
-### Step 5: Run component tests
+### Step 4: Run all tests
 
-**Verify**: `npx jest --config jest.component.config.ts` exits 0 (Plan 025's tests should still pass — the guard changes don't affect the component interfaces, only the redirect behavior).
+**Verify**: `npm run test:all` exits 0 (Plan 025's component tests should still pass — the guard changes don't affect component interfaces, only redirect behavior).
 
 ## Test plan
 
 Each page's behavior change:
-- Roster, chicken profile, log-egg: `router.push` → `router.replace` — no functional change visible to the user, only history stack behavior
+- Chicken profile, log-egg: `router.push` → `router.replace` — no functional change visible to the user, only history stack behavior
 - Admin: no longer calls `signIn("google")` directly — unauthenticated users see the splash page instead of being forcibly redirected to Google. This is more consistent with other pages.
+- Roster page: already fixed by Plan 027; no change needed here.
 
-The existing component tests (Plan 025) cover the RosterPage's unauthenticated guard path — verify they still pass.
+The existing component tests (Plan 025) cover the RosterPage's unauthenticated guard path — verify they still pass via `npm run test:components`.
 
 ## Done criteria
 
 - [ ] `npm run build` exits 0
 - [ ] `npx tsc --noEmit` exits 0
-- [ ] All four pages use `router.replace("/")` for unauthenticated guards
+- [ ] `src/app/chickens/[id]/page.tsx` uses `router.replace("/")` for unauthenticated guard
+- [ ] `src/app/log-egg/page.tsx` uses `router.replace("/")` for unauthenticated guard
+- [ ] `src/app/admin/page.tsx` uses `router.replace("/")` for unauthenticated guard (not `signIn("google")`)
 - [ ] `grep "signIn" src/app/admin/page.tsx` returns no matches (import removed)
-- [ ] Component tests pass: `npx jest --config jest.component.config.ts` exits 0
+- [ ] `npm run test:all` exits 0
 
 ## STOP conditions
 
 - If any page has been rewritten to not use `useSession` / `useRouter`, stop and report.
 - If `signIn` is used elsewhere in `admin/page.tsx` (beyond the guard), keep the import and only replace the guard call.
 - If a page's auth guard has been removed entirely (not guarded by status check), stop — the page may rely on AppShell or middleware for auth which doesn't exist yet.
+- If the roster page somehow reverted to `router.push` (it should already use `router.replace` from Plan 027), stop and report — do not change it.
 
 ## Maintenance notes
 
