@@ -5,13 +5,19 @@ const config: Config = {
   testEnvironment: "jsdom",
   roots: ["<rootDir>/tests/components"],
   setupFiles: ["<rootDir>/tests/setup.ts"],
-  setupFilesAfterEnv: ["@testing-library/jest-dom"],
+  setupFilesAfterEnv: [
+    "<rootDir>/tests/components/setup.ts",
+    "@testing-library/jest-dom",
+  ],
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/src/$1",
   },
   transform: {
-    "^.+\\.tsx?$": ["ts-jest", { tsconfig: "tsconfig.jest.json" }],
+    "^.+\\.[jt]sx?$": ["ts-jest", { tsconfig: "tsconfig.jest.json" }],
   },
+  transformIgnorePatterns: [
+    "node_modules/(?!@material/material-color-utilities)",
+  ],
 };
 
 export default config;

@@ -1,69 +1,137 @@
 "use client";
-import { useSession } from "next-auth/react";
 
-export default function NavMenu() {
+import { useSession } from "next-auth/react";
+import { usePathname } from "next/navigation";
+import Link from "next/link";
+import DashboardIcon from "@mui/icons-material/Dashboard";
+import ListAltIcon from "@mui/icons-material/ListAlt";
+import EggIcon from "@mui/icons-material/Egg";
+import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
+import {
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  Tooltip,
+} from "@mui/material";
+
+interface NavItem {
+  label: string;
+  href: string;
+  icon: React.ComponentType;
+  adminOnly?: boolean;
+  matchPrefix: string[];
+}
+
+const navItems: NavItem[] = [
+  {
+    label: "Dashboard",
+    href: "/",
+    icon: DashboardIcon,
+    matchPrefix: ["/"],
+  },
+  {
+    label: "Roster",
+    href: "/roster",
+    icon: ListAltIcon,
+    matchPrefix: ["/roster", "/chickens"],
+  },
+  {
+    label: "Log Egg",
+    href: "/log-egg",
+    icon: EggIcon,
+    matchPrefix: ["/log-egg"],
+  },
+  {
+    label: "Admin",
+    href: "/admin",
+    icon: AdminPanelSettingsIcon,
+    adminOnly: true,
+    matchPrefix: ["/admin"],
+  },
+];
+
+function isActive(pathname: string, prefixes: string[]): boolean {
+  if (pathname === "/") return prefixes.includes("/");
+  return prefixes.some((p) => p !== "/" && pathname.startsWith(p));
+}
+
+interface NavMenuProps {
+  expanded?: boolean;
+  onItemClick?: () => void;
+}
+
+export default function NavMenu({ expanded = false, onItemClick }: NavMenuProps) {
   const { data: session } = useSession();
+  const pathname = usePathname();
   const isAdmin = session?.user?.role === "Admin";
 
+  const visibleItems = navItems.filter((item) => !item.adminOnly || isAdmin);
+
   return (
-    <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-      <a
-        href="/log-egg"
-        style={{
-          padding: "0.4rem 0.75rem",
-          background: "#2e7d32",
-          color: "#fff",
-          borderRadius: "4px",
-          textDecoration: "none",
-          fontSize: "0.875rem",
-          fontWeight: 600,
-        }}
-      >
-        Log
-      </a>
-      {isAdmin && (
-        <a
-          href="/"
-          style={{
-            padding: "0.4rem 0.75rem",
-            background: "#f57c00",
-            color: "#fff",
-            borderRadius: "4px",
-            textDecoration: "none",
-            fontSize: "0.875rem",
-          }}
-        >
-          Dashboard
-        </a>
-      )}
-      <a
-        href="/roster"
-        style={{
-          padding: "0.4rem 0.75rem",
-          background: "#00897b",
-          color: "#fff",
-          borderRadius: "4px",
-          textDecoration: "none",
-          fontSize: "0.875rem",
-        }}
-      >
-        Roster
-      </a>
-      {isAdmin && (
-        <a
-          href="/admin"
-          style={{
-            padding: "0.4rem 0.75rem",
-            background: "#1565c0",
-            color: "#fff",
-            borderRadius: "4px",
-            textDecoration: "none",
-            fontSize: "0.875rem",
-          }}
-        >
-          Admin
-        </a>
-      )}
-    </div>
+    <List component="nav" sx={{ pt: 1 }}>
+      {visibleItems.map((item) => {
+        const active = isActive(pathname, item.matchPrefix);
+        const Icon = item.icon;
+        const button = (
+          <ListItemButton
+            component={Link}
+            href={item.href}
+            selected={active}
+            onClick={onItemClick}
+            sx={{
+              mx: 1,
+              borderRadius: 2,
+              mb: 0.5,
+              minHeight: 48,
+              justifyContent: expanded ? "initial" : "center",
+              px: expanded ? 2 : 0,
+              "&.Mui-selected": {
+                bgcolor: "primary.container",
+                color: "onPrimaryContainer",
+                "&:hover": {
+                  bgcolor: "primary.container",
+                },
+                "& .MuiListItemIcon-root": {
+                  color: "onPrimaryContainer",
+                },
+              },
+            }}
+          >
+            <ListItemIcon
+              sx={{
+                minWidth: 0,
+                justifyContent: "center",
+                mr: expanded ? 2 : 0,
+                color: active ? "inherit" : "text.secondary",
+              }}
+            >
+              <Icon />
+            </ListItemIcon>
+            <ListItemText
+              primary={item.label}
+              sx={{ opacity: expanded ? 1 : 0 }}
+            />
+          </ListItemButton>
+        );
+
+        if (!expanded) {
+          return (
+            <ListItem key={item.href} disablePadding>
+              <Tooltip title={item.label} placement="right" arrow>
+                {button}
+              </Tooltip>
+            </ListItem>
+          );
+        }
+
+        return (
+          <ListItem key={item.href} disablePadding>
+            {button}
+          </ListItem>
+        );
+      })}
+    </List>
   );
 }

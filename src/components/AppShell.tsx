@@ -1,42 +1,151 @@
 "use client";
+
+import { useState } from "react";
 import { useSession } from "next-auth/react";
+import { useTheme } from "@mui/material/styles";
+import useMediaQuery from "@mui/material/useMediaQuery";
+import MenuIcon from "@mui/icons-material/Menu";
+import {
+  AppBar,
+  Box,
+  Drawer,
+  IconButton,
+  Toolbar,
+  Typography,
+} from "@mui/material";
 import NavMenu from "./NavMenu";
 import UserMenu from "./UserMenu";
-import SystemStatusFooter from "./SystemStatusFooter";
+import HealthIndicator from "./HealthIndicator";
+import ThemeToggle from "./ThemeToggle";
+
+const DRAWER_COLLAPSED = 80;
+const DRAWER_EXPANDED = 240;
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession();
+  const theme = useTheme();
+  const isDesktop = useMediaQuery(theme.breakpoints.up("md"));
+  const [drawerHovered, setDrawerHovered] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  const isAuthenticated = status === "authenticated";
+  const drawerWidth = drawerHovered ? DRAWER_EXPANDED : DRAWER_COLLAPSED;
+
+  const handleMobileToggle = () => {
+    setMobileOpen((prev) => !prev);
+  };
+
+  const handleMobileClose = () => {
+    setMobileOpen(false);
+  };
+
+  const drawerContent = (
+    <>
+      <Toolbar />
+      <NavMenu />
+    </>
+  );
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
-      <header
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          padding: "0.75rem 1.5rem",
-          background: "#fff",
-          borderBottom: "1px solid #e0e0e0",
+    <Box sx={{ display: "flex" }}>
+      <AppBar
+        position="fixed"
+        sx={{
+          zIndex: theme.zIndex.drawer + 1,
+          bgcolor: "surface",
+          color: "onSurface",
+          boxShadow: 1,
         }}
       >
-        <a
-          href="/"
-          style={{
-            fontSize: "1.25rem",
-            fontWeight: 700,
-            color: "#333",
-            textDecoration: "none",
+        <Toolbar>
+          {isAuthenticated && !isDesktop && (
+            <IconButton
+              edge="start"
+              color="inherit"
+              aria-label="open navigation menu"
+              onClick={handleMobileToggle}
+              sx={{ mr: 1 }}
+            >
+              <MenuIcon />
+            </IconButton>
+          )}
+          <Typography
+            variant="h6"
+            noWrap
+            sx={{ fontWeight: 700, color: "primary" }}
+          >
+            ChickenTrack
+          </Typography>
+          <Box sx={{ flexGrow: 1 }} />
+          {isAuthenticated && (
+            <>
+              <HealthIndicator />
+              <ThemeToggle />
+              <UserMenu />
+            </>
+          )}
+        </Toolbar>
+      </AppBar>
+
+      {isAuthenticated && isDesktop && (
+        <Box
+          component="nav"
+          onMouseEnter={() => setDrawerHovered(true)}
+          onMouseLeave={() => setDrawerHovered(false)}
+          sx={{
+            width: drawerWidth,
+            flexShrink: 0,
+            transition: theme.transitions.create("width"),
+            overflow: "visible",
           }}
         >
-          ChickenTrack
-        </a>
-        {status === "authenticated" && <NavMenu />}
-        {status === "authenticated" && <UserMenu />}
-      </header>
-      <main style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+          <Drawer
+            variant="permanent"
+            sx={{
+              width: "100%",
+              "& .MuiDrawer-paper": {
+                width: "100%",
+                overflowX: "hidden",
+                borderRight: `1px solid ${theme.palette.divider}`,
+                bgcolor: "background.paper",
+              },
+            }}
+          >
+            <Toolbar />
+            <NavMenu expanded={drawerHovered} />
+          </Drawer>
+        </Box>
+      )}
+
+      {isAuthenticated && !isDesktop && (
+        <Drawer
+          variant="temporary"
+          open={mobileOpen}
+          onClose={handleMobileClose}
+          ModalProps={{ keepMounted: true }}
+          sx={{
+            "& .MuiDrawer-paper": {
+              width: DRAWER_EXPANDED,
+              bgcolor: "background.paper",
+            },
+          }}
+        >
+          <Toolbar />
+          <NavMenu expanded onItemClick={handleMobileClose} />
+        </Drawer>
+      )}
+
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          minHeight: "100vh",
+          bgcolor: "background.default",
+        }}
+      >
+        <Toolbar />
         {children}
-      </main>
-      <SystemStatusFooter />
-    </div>
+      </Box>
+    </Box>
   );
 }

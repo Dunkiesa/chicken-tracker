@@ -13,13 +13,21 @@ jest.mock("next/navigation", () => ({
   usePathname: jest.fn(() => "/"),
 }));
 
+jest.mock("@mui/material/useMediaQuery", () => ({
+  __esModule: true,
+  default: jest.fn(() => true),
+}));
+
 import { useSession } from "next-auth/react";
-import { render, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
+import { renderWithProviders } from "./test-utils";
 import AppShell from "@/components/AppShell";
+import useMediaQuery from "@mui/material/useMediaQuery";
 
 beforeEach(() => {
   jest.clearAllMocks();
   global.fetch = jest.fn(() => new Promise(() => {})) as jest.Mock;
+  (useMediaQuery as jest.Mock).mockReturnValue(true);
 });
 
 describe("AppShell", () => {
@@ -28,33 +36,11 @@ describe("AppShell", () => {
       data: null,
       status: "unauthenticated",
     });
-    render(<AppShell>child</AppShell>);
+    renderWithProviders(<AppShell>child</AppShell>);
     expect(screen.getByText("ChickenTrack")).toBeInTheDocument();
   });
 
-  it("shows NavMenu and UserMenu when authenticated", () => {
-    (useSession as jest.Mock).mockReturnValue({
-      data: { user: { email: "admin@test.com", role: "Admin" } },
-      status: "authenticated",
-    });
-    render(<AppShell>child</AppShell>);
-    expect(screen.getByText("Log")).toBeInTheDocument();
-    expect(screen.getByText("Roster")).toBeInTheDocument();
-    expect(screen.getByText("admin@test.com")).toBeInTheDocument();
-  });
-
-  it("does not show NavMenu or UserMenu when unauthenticated", () => {
-    (useSession as jest.Mock).mockReturnValue({
-      data: null,
-      status: "unauthenticated",
-    });
-    render(<AppShell>child</AppShell>);
-    expect(screen.queryByText("Log")).not.toBeInTheDocument();
-    expect(screen.queryByText("Roster")).not.toBeInTheDocument();
-    expect(screen.queryByText("admin@test.com")).not.toBeInTheDocument();
-  });
-
-  it("renders SystemStatusFooter when authenticated", async () => {
+  it("shows nav items and user menu when authenticated", async () => {
     (useSession as jest.Mock).mockReturnValue({
       data: { user: { email: "admin@test.com", role: "Admin" } },
       status: "authenticated",
@@ -68,9 +54,53 @@ describe("AppShell", () => {
           timestamp: new Date().toISOString(),
         }),
     });
-    render(<AppShell>child</AppShell>);
+    renderWithProviders(<AppShell>child</AppShell>);
     await waitFor(() => {
-      expect(screen.getByText("Healthy")).toBeInTheDocument();
+      expect(screen.getByText("Dashboard")).toBeInTheDocument();
+      expect(screen.getByText("Roster")).toBeInTheDocument();
+      expect(screen.getByText("Log Egg")).toBeInTheDocument();
+      expect(screen.getByText("Admin")).toBeInTheDocument();
     });
+    expect(screen.getByLabelText("user menu")).toBeInTheDocument();
+  });
+
+  it("does not show nav items or user menu when unauthenticated", () => {
+    (useSession as jest.Mock).mockReturnValue({
+      data: null,
+      status: "unauthenticated",
+    });
+    renderWithProviders(<AppShell>child</AppShell>);
+    expect(screen.queryByText("Dashboard")).not.toBeInTheDocument();
+    expect(screen.queryByText("Roster")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("user menu")).not.toBeInTheDocument();
+  });
+
+  it("shows health indicator when authenticated", async () => {
+    (useSession as jest.Mock).mockReturnValue({
+      data: { user: { email: "admin@test.com", role: "Admin" } },
+      status: "authenticated",
+    });
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          status: "ok",
+          database: "connected",
+          timestamp: new Date().toISOString(),
+        }),
+    });
+    renderWithProviders(<AppShell>child</AppShell>);
+    await waitFor(() => {
+      expect(screen.getByLabelText("system health")).toBeInTheDocument();
+    });
+  });
+
+  it("shows theme toggle when authenticated", () => {
+    (useSession as jest.Mock).mockReturnValue({
+      data: { user: { email: "admin@test.com", role: "Admin" } },
+      status: "authenticated",
+    });
+    renderWithProviders(<AppShell>child</AppShell>);
+    expect(screen.getByLabelText("theme toggle")).toBeInTheDocument();
   });
 });

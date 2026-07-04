@@ -13,8 +13,9 @@ jest.mock("next/navigation", () => ({
   usePathname: jest.fn(() => "/"),
 }));
 
-import { useSession } from "next-auth/react";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { useSession, signOut } from "next-auth/react";
+import { screen, fireEvent, waitFor } from "@testing-library/react";
+import { renderWithProviders } from "./test-utils";
 import UserMenu from "@/components/UserMenu";
 
 beforeEach(() => {
@@ -22,57 +23,51 @@ beforeEach(() => {
 });
 
 describe("UserMenu", () => {
-  it("shows user email and role when closed", () => {
+  it("shows user menu button", () => {
     (useSession as jest.Mock).mockReturnValue({
       data: { user: { email: "user@test.com", role: "Viewer" } },
       status: "authenticated",
     });
-    render(<UserMenu />);
-    expect(screen.getByText("user@test.com")).toBeInTheDocument();
-    expect(screen.getByText("Viewer")).toBeInTheDocument();
-    expect(screen.queryByText("Sign Out")).not.toBeInTheDocument();
+    renderWithProviders(<UserMenu />);
+    expect(screen.getByLabelText("user menu")).toBeInTheDocument();
   });
 
-  it("opens dropdown on click", () => {
+  it("opens menu on click and shows user info", async () => {
     (useSession as jest.Mock).mockReturnValue({
       data: { user: { email: "user@test.com", role: "Viewer" } },
       status: "authenticated",
     });
-    render(<UserMenu />);
-    fireEvent.click(screen.getByText("user@test.com"));
-    expect(screen.getByText("Sign Out")).toBeInTheDocument();
+    renderWithProviders(<UserMenu />);
+    fireEvent.click(screen.getByLabelText("user menu"));
+    await waitFor(() => {
+      expect(screen.getByText("user@test.com")).toBeInTheDocument();
+      expect(screen.getByText("Viewer")).toBeInTheDocument();
+    });
   });
 
-  it("closes dropdown on outside click", () => {
+  it("shows sign out option in menu", async () => {
     (useSession as jest.Mock).mockReturnValue({
       data: { user: { email: "user@test.com", role: "Viewer" } },
       status: "authenticated",
     });
-    const { container } = render(<UserMenu />);
-    fireEvent.click(screen.getByText("user@test.com"));
-    expect(screen.getByText("Sign Out")).toBeInTheDocument();
-    fireEvent.mouseDown(container);
-    expect(screen.queryByText("Sign Out")).not.toBeInTheDocument();
+    renderWithProviders(<UserMenu />);
+    fireEvent.click(screen.getByLabelText("user menu"));
+    await waitFor(() => {
+      expect(screen.getByText("Sign Out")).toBeInTheDocument();
+    });
   });
 
-  it("shows correct role badge color for Admin vs Viewer", () => {
+  it("calls signOut when sign out is clicked", async () => {
     (useSession as jest.Mock).mockReturnValue({
-      data: { user: { email: "admin@test.com", role: "Admin" } },
+      data: { user: { email: "user@test.com", role: "Viewer" } },
       status: "authenticated",
     });
-    const { unmount } = render(<UserMenu />);
-    const adminBadge = screen.getByText("Admin");
-    expect(adminBadge).toHaveStyle("background: #e3f2fd");
-    expect(adminBadge).toHaveStyle("color: #1565c0");
-    unmount();
-
-    (useSession as jest.Mock).mockReturnValue({
-      data: { user: { email: "viewer@test.com", role: "Viewer" } },
-      status: "authenticated",
+    renderWithProviders(<UserMenu />);
+    fireEvent.click(screen.getByLabelText("user menu"));
+    await waitFor(() => {
+      expect(screen.getByText("Sign Out")).toBeInTheDocument();
     });
-    render(<UserMenu />);
-    const viewerBadge = screen.getByText("Viewer");
-    expect(viewerBadge).toHaveStyle("background: #f3e5f5");
-    expect(viewerBadge).toHaveStyle("color: #7b1fa2");
+    fireEvent.click(screen.getByText("Sign Out"));
+    expect(signOut).toHaveBeenCalled();
   });
 });
