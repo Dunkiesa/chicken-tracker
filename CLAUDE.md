@@ -19,3 +19,16 @@ When using the `improve` skill's `execute` variant, use a **named branch + workt
 4. Leave both the branch and worktree in place for the user to inspect and merge
 
 Do NOT use a detached HEAD worktree, and do NOT remove the worktree after review. The user reviews the diff at their convenience and merges when ready.
+
+## Tests
+
+The project has two Jest configs with separate runners:
+
+| Command | Config | Tests | Suites |
+|---------|--------|-------|--------|
+| `npm test` | `jest.config.ts` | Unit/integration (node env) | 7 |
+| `npm run test:components` | `jest.component.config.ts` | Component (jsdom, JSX) | 5 |
+| `npm run test:all` | both | All of the above | 12 |
+| `npm run test:integration` | `jest.integration.config.ts` | Integration | — |
+
+`jest.config.ts` excludes `tests/components/` via `testPathIgnorePatterns` — component tests require `jsdom` and a JSX-aware `tsconfig.jest.json`.
