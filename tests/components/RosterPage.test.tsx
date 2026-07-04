@@ -34,12 +34,7 @@ const mockChicken = {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  global.fetch = jest.fn(() =>
-    Promise.resolve({
-      ok: true,
-      json: () => Promise.resolve([]),
-    })
-  ) as jest.Mock;
+  global.fetch = jest.fn(() => new Promise(() => {})) as jest.Mock;
 });
 
 describe("RosterPage", () => {
@@ -98,10 +93,7 @@ describe("RosterPage", () => {
           json: () => Promise.resolve([mockChicken]),
         });
       }
-      return Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve([]),
-      });
+      return new Promise(() => {});
     });
     render(<RosterPage />);
     await waitFor(() => {

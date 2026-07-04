@@ -19,20 +19,7 @@ import AppShell from "@/components/AppShell";
 
 beforeEach(() => {
   jest.clearAllMocks();
-});
-
-beforeAll(() => {
-  global.fetch = jest.fn(() =>
-    Promise.resolve({
-      ok: true,
-      json: () =>
-        Promise.resolve({
-          status: "ok",
-          database: "connected",
-          timestamp: new Date().toISOString(),
-        }),
-    }),
-  ) as jest.Mock;
+  global.fetch = jest.fn(() => new Promise(() => {})) as jest.Mock;
 });
 
 describe("AppShell", () => {
@@ -71,6 +58,15 @@ describe("AppShell", () => {
     (useSession as jest.Mock).mockReturnValue({
       data: { user: { email: "admin@test.com", role: "Admin" } },
       status: "authenticated",
+    });
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          status: "ok",
+          database: "connected",
+          timestamp: new Date().toISOString(),
+        }),
     });
     render(<AppShell>child</AppShell>);
     await waitFor(() => {

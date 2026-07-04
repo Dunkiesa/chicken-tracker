@@ -93,11 +93,12 @@ export default function RosterPage() {
   );
 
   useEffect(() => {
+    if (status !== "authenticated") return;
     fetchChickens(includeDeparted);
     fetchDynamicList("breeds", setBreeds);
     fetchDynamicList("origin-sources", setOriginSources);
     fetchDynamicList("acquisition-types", setAcquisitionTypes);
-  }, [fetchChickens, fetchDynamicList, includeDeparted]);
+  }, [fetchChickens, fetchDynamicList, includeDeparted, status]);
 
   async function handleEnroll(e: React.FormEvent) {
     e.preventDefault();
