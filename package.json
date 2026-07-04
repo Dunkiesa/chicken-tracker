@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "test": "jest --runInBand",
-    "test:integration": "jest --config jest.integration.config.ts"
+    "test:integration": "jest --config jest.integration.config.ts",
+    "test:components": "jest --config jest.component.config.ts"
   },
   "dependencies": {
     "mssql": "^11.0.1",
