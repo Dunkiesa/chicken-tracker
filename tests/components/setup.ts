@@ -20,9 +20,9 @@ jest.mock("next/navigation", () => ({
 // Mock window.matchMedia for jsdom
 Object.defineProperty(window, "matchMedia", {
   writable: true,
-  value: jest.fn().mockImplementation((query: string) => ({
+  value: jest.fn().mockImplementation((query: unknown) => ({
     matches: false,
-    media: query,
+    media: query as string,
     onchange: null,
     addListener: jest.fn(),
     removeListener: jest.fn(),

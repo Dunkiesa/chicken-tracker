@@ -1,9 +1,46 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { ChickenTableRow } from "@/components/ChickenTableRow";
+import { useState, Suspense, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import {
+  useReactTable,
+  getCoreRowModel,
+  getSortedRowModel,
+  getFilteredRowModel,
+  createColumnHelper,
+  flexRender,
+  type SortingState,
+} from "@tanstack/react-table";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import {
+  Box,
+  Card,
+  Typography,
+  Button,
+  Alert,
+  CircularProgress,
+  FormControlLabel,
+  Checkbox,
+  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TextField,
+  Autocomplete,
+  TableSortLabel,
+  Skeleton,
+  MenuItem,
+} from "@mui/material";
+import SearchIcon from "@mui/icons-material/Search";
+import { ChickenTableRow } from "@/components/ChickenTableRow";
 
 type Chicken = {
   id: number;
@@ -26,8 +63,6 @@ type DynamicListEntry = {
 
 const SEX_OPTIONS = ["Hen", "Rooster", "Unknown"] as const;
 
-const DEPARTURE_REASONS = ["died/illness", "sold", "predator", "gave away", "Other"] as const;
-
 function todayStr(): string {
   const d = new Date();
   const y = d.getFullYear();
@@ -36,454 +71,670 @@ function todayStr(): string {
   return `${y}-${m}-${day}`;
 }
 
+function formatDateForPicker(dateStr: string): Date {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function formatDateForApi(date: Date | null): string {
+  if (!date) return "";
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+async function fetchChickensApi(includeDeparted: boolean): Promise<Chicken[]> {
+  const url = includeDeparted ? "/api/chickens?includeDeparted=true" : "/api/chickens";
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("Failed to fetch chickens");
+  const data = await res.json();
+  return Array.isArray(data) ? data : [];
+}
+
+async function fetchDynamicListApi(type: string): Promise<DynamicListEntry[]> {
+  const res = await fetch(`/api/dynamic-lists/${type}`);
+  if (!res.ok) throw new Error(`Failed to fetch ${type}`);
+  return res.json();
+}
+
+async function enrollChickenApi(data: {
+  name: string;
+  sex: string;
+  breed?: string;
+  origin_source?: string;
+  acquisition_type?: string;
+  acquisition_date?: string;
+}): Promise<Chicken> {
+  const res = await fetch("/api/chickens", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const result = await res.json();
+    throw new Error(result.message || "Failed to enroll chicken");
+  }
+  return res.json();
+}
+
+async function updateChickenApi(
+  id: number,
+  data: Record<string, unknown>
+): Promise<Chicken> {
+  const res = await fetch(`/api/chickens/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const result = await res.json();
+    throw new Error(result.message || "Failed to update chicken");
+  }
+  return res.json();
+}
+
+const enrollSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  sex: z.enum(["Hen", "Rooster", "Unknown"]),
+  breed: z.string(),
+  origin_source: z.string(),
+  acquisition_type: z.string(),
+  acquisition_date: z.string(),
+});
+
+type EnrollFormValues = z.infer<typeof enrollSchema>;
+
+const columnHelper = createColumnHelper<Chicken>();
+
+const columns = [
+  columnHelper.display({
+    id: "photo",
+    header: "",
+    size: 56,
+  }),
+  columnHelper.accessor("name", {
+    header: "Name",
+  }),
+  columnHelper.accessor("sex", {
+    header: "Sex",
+  }),
+  columnHelper.accessor("breed_name", {
+    header: "Breed",
+  }),
+  columnHelper.accessor("origin_source_name", {
+    header: "Origin",
+  }),
+  columnHelper.accessor("acquisition_type_name", {
+    header: "Acquisition",
+  }),
+  columnHelper.accessor((row) => (row.departed ? "Departed" : "Active"), {
+    id: "status",
+    header: "Status",
+  }),
+];
+
 export default function RosterPage() {
+  return (
+    <Suspense
+      fallback={
+        <Box sx={{ p: 2, display: "flex", justifyContent: "center" }}>
+          <CircularProgress />
+        </Box>
+      }
+    >
+      <RosterContent />
+    </Suspense>
+  );
+}
+
+function RosterContent() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const [chickens, setChickens] = useState<Chicken[]>([]);
-  const [name, setName] = useState("");
-  const [sex, setSex] = useState<string>("Hen");
-  const [breed, setBreed] = useState("");
-  const [originSource, setOriginSource] = useState("");
-  const [acquisitionType, setAcquisitionType] = useState("");
-  const [enrolling, setEnrolling] = useState(false);
-  const [enrollError, setEnrollError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const isAdmin = session?.user?.role === "Admin";
+
   const [includeDeparted, setIncludeDeparted] = useState(false);
-  const [departingChickenId, setDepartingChickenId] = useState<number | null>(null);
+  const [search, setSearch] = useState("");
+  const [sorting, setSorting] = useState<SortingState>([]);
+
+  const [departingChickenId, setDepartingChickenId] = useState<number | null>(
+    null
+  );
   const [departureDate, setDepartureDate] = useState(todayStr());
   const [departureReason, setDepartureReason] = useState("died/illness");
   const [departureOtherReason, setDepartureOtherReason] = useState("");
-  const [departingSave, setDepartingSave] = useState(false);
 
-  const [breeds, setBreeds] = useState<DynamicListEntry[]>([]);
-  const [originSources, setOriginSources] = useState<DynamicListEntry[]>([]);
-  const [acquisitionTypes, setAcquisitionTypes] = useState<DynamicListEntry[]>([]);
+  const {
+    data: chickens,
+    isLoading: chickensLoading,
+    error: chickensError,
+  } = useQuery({
+    queryKey: ["chickens", includeDeparted],
+    queryFn: () => fetchChickensApi(includeDeparted),
+    enabled: status === "authenticated",
+  });
 
-  const isAdmin = session?.user?.role === "Admin";
+  const { data: breeds } = useQuery({
+    queryKey: ["dynamic-lists", "breeds"],
+    queryFn: () => fetchDynamicListApi("breeds"),
+    enabled: status === "authenticated",
+  });
 
-  const fetchChickens = useCallback(async (showDeparted = false) => {
-    try {
-      const url = showDeparted ? "/api/chickens?includeDeparted=true" : "/api/chickens";
-      const res = await fetch(url);
-      if (!res.ok) {
-        setChickens([]);
-        return;
-      }
-      const data = await res.json();
-      setChickens(Array.isArray(data) ? data : []);
-    } catch {
-      setChickens([]);
-    }
-  }, []);
+  const { data: originSources } = useQuery({
+    queryKey: ["dynamic-lists", "origin-sources"],
+    queryFn: () => fetchDynamicListApi("origin-sources"),
+    enabled: status === "authenticated",
+  });
 
-  const fetchDynamicList = useCallback(
-    async (
-      type: string,
-      setter: (vals: DynamicListEntry[]) => void
-    ) => {
-      try {
-        const res = await fetch(`/api/dynamic-lists/${type}`);
-        if (res.ok) {
-          const data = await res.json();
-          setter(data);
-        }
-      } catch {
-        // ignore
-      }
+  const { data: acquisitionTypes } = useQuery({
+    queryKey: ["dynamic-lists", "acquisition-types"],
+    queryFn: () => fetchDynamicListApi("acquisition-types"),
+    enabled: status === "authenticated",
+  });
+
+  const enrollMutation = useMutation({
+    mutationFn: enrollChickenApi,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["chickens"] });
+      queryClient.invalidateQueries({ queryKey: ["dynamic-lists"] });
+      reset();
     },
-    []
-  );
+  });
 
-  useEffect(() => {
-    if (status !== "authenticated") return;
-    fetchChickens(includeDeparted);
-    fetchDynamicList("breeds", setBreeds);
-    fetchDynamicList("origin-sources", setOriginSources);
-    fetchDynamicList("acquisition-types", setAcquisitionTypes);
-  }, [fetchChickens, fetchDynamicList, includeDeparted, status]);
-
-  async function handleEnroll(e: React.FormEvent) {
-    e.preventDefault();
-    setEnrolling(true);
-    setEnrollError(null);
-
-    try {
-      const res = await fetch("/api/chickens", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name,
-          sex,
-          breed: breed || undefined,
-          origin_source: originSource || undefined,
-          acquisition_type: acquisitionType || undefined,
-        }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        setEnrollError(data.message || "Failed to enroll chicken");
-        return;
-      }
-
-      setName("");
-      setSex("Hen");
-      setBreed("");
-      setOriginSource("");
-      setAcquisitionType("");
-      await Promise.all([
-        fetchChickens(includeDeparted),
-        fetchDynamicList("breeds", setBreeds),
-        fetchDynamicList("origin-sources", setOriginSources),
-        fetchDynamicList("acquisition-types", setAcquisitionTypes),
-      ]);
-    } catch {
-      setEnrollError("Failed to enroll chicken");
-    } finally {
-      setEnrolling(false);
-    }
-  }
-
-  async function handleMarkDeparted(chicken: Chicken) {
-    setDepartingSave(true);
-    try {
-      const reason = departureReason === "Other" ? departureOtherReason.trim() : departureReason;
-      const res = await fetch(`/api/chickens/${chicken.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          departed: true,
-          departure_date: departureDate,
-          departure_reason: reason || "Other",
-        }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        setEnrollError(data.message || "Failed to mark as departed");
-        return;
-      }
-
+  const departMutation = useMutation({
+    mutationFn: ({
+      id,
+      data,
+    }: {
+      id: number;
+      data: Record<string, unknown>;
+    }) => updateChickenApi(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["chickens"] });
       setDepartingChickenId(null);
       setDepartureDate(todayStr());
       setDepartureReason("died/illness");
       setDepartureOtherReason("");
-      await fetchChickens(includeDeparted);
-    } catch {
-      setEnrollError("Failed to mark as departed");
-    } finally {
-      setDepartingSave(false);
+    },
+  });
+
+  const reinstateMutation = useMutation({
+    mutationFn: (id: number) =>
+      updateChickenApi(id, {
+        departed: false,
+        departure_date: null,
+        departure_reason: null,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["chickens"] });
+    },
+  });
+
+  const {
+    control,
+    handleSubmit,
+    reset,
+    formState: { errors: formErrors },
+  } = useForm<EnrollFormValues>({
+    resolver: zodResolver(enrollSchema),
+    mode: "onBlur",
+    defaultValues: {
+      name: "",
+      sex: "Hen",
+      breed: "",
+      origin_source: "",
+      acquisition_type: "",
+      acquisition_date: "",
+    },
+  });
+
+  const breedOptions = useMemo(
+    () => breeds?.map((b) => b.value) ?? [],
+    [breeds]
+  );
+  const originOptions = useMemo(
+    () => originSources?.map((o) => o.value) ?? [],
+    [originSources]
+  );
+  const acqOptions = useMemo(
+    () => acquisitionTypes?.map((a) => a.value) ?? [],
+    [acquisitionTypes]
+  );
+
+  const table = useReactTable({
+    data: chickens ?? [],
+    columns,
+    state: { sorting, globalFilter: search },
+    onSortingChange: setSorting,
+    onGlobalFilterChange: setSearch,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+  });
+
+  const onEnrollSubmit = (data: EnrollFormValues) => {
+    enrollMutation.mutate({
+      name: data.name,
+      sex: data.sex,
+      breed: data.breed || undefined,
+      origin_source: data.origin_source || undefined,
+      acquisition_type: data.acquisition_type || undefined,
+      acquisition_date: data.acquisition_date || undefined,
+    });
+  };
+
+  const handleMarkDeparted = (chicken: Chicken) => {
+    const reason =
+      departureReason === "Other"
+        ? departureOtherReason.trim()
+        : departureReason;
+    departMutation.mutate({
+      id: chicken.id,
+      data: {
+        departed: true,
+        departure_date: departureDate,
+        departure_reason: reason || "Other",
+      },
+    });
+  };
+
+  const handleReinstate = (chicken: Chicken) => {
+    reinstateMutation.mutate(chicken.id);
+  };
+
+  const handleStartDepart = (chicken: Chicken) => {
+    if (
+      departingChickenId !== null &&
+      departingChickenId !== chicken.id
+    ) {
+      if (!confirm("Discard unsaved departure details?")) return;
     }
-  }
+    setDepartingChickenId(chicken.id);
+    setDepartureDate(todayStr());
+    setDepartureReason("died/illness");
+    setDepartureOtherReason("");
+  };
 
-  async function handleReinstate(chicken: Chicken) {
-    try {
-      const res = await fetch(`/api/chickens/${chicken.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          departed: false,
-          departure_date: null,
-          departure_reason: null,
-        }),
-      });
+  const handleCancelDepart = () => {
+    setDepartingChickenId(null);
+    setDepartureDate(todayStr());
+    setDepartureReason("died/illness");
+    setDepartureOtherReason("");
+  };
 
-      if (!res.ok) {
-        const data = await res.json();
-        setEnrollError(data.message || "Failed to reinstate");
-        return;
-      }
-
-      await fetchChickens(includeDeparted);
-    } catch {
-      setEnrollError("Failed to reinstate");
+  const handleDepartureReasonChange = (value: string) => {
+    setDepartureReason(value);
+    if (value !== "Other") {
+      setDepartureOtherReason("");
     }
-  }
-
-  useEffect(() => {
-    if (status === "unauthenticated") {
-      router.replace("/");
-    }
-  }, [status, router]);
+  };
 
   if (status === "loading") {
     return (
-      <div style={{
-        display: "flex", justifyContent: "center", alignItems: "center",
-        minHeight: "60vh", color: "#999", fontSize: "1rem",
-      }}>
-        Loading...
-      </div>
+      <Box sx={{ p: 2, display: "flex", justifyContent: "center" }}>
+        <CircularProgress />
+      </Box>
     );
   }
 
   if (status === "unauthenticated") {
+    router.replace("/");
     return null;
   }
 
+  const departingSave =
+    departMutation.isPending || reinstateMutation.isPending;
+
   return (
-    <main
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        padding: "2rem",
-        gap: "2rem",
-      }}
-    >
+    <Box sx={{ maxWidth: 900, mx: "auto", p: 2 }}>
+      <Typography variant="h5" gutterBottom>
+        Roster
+      </Typography>
 
+      <Card sx={{ p: 2, mb: 2 }}>
+        <Stack spacing={2}>
+          {isAdmin && (
+            <Box
+              component="form"
+              onSubmit={handleSubmit(onEnrollSubmit)}
+              sx={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 2,
+                p: 2,
+                border: 1,
+                borderColor: "divider",
+                borderRadius: 2,
+              }}
+            >
+              <Typography variant="subtitle1" fontWeight={600}>
+                Enroll New Chicken
+              </Typography>
 
-      <div
-        style={{
-          padding: "1.5rem 2rem",
-          borderRadius: "8px",
-          border: "1px solid #ddd",
-          background: "#fff",
-          minWidth: "320px",
-          width: "100%",
-          maxWidth: "700px",
-        }}
-      >
-        <h2 style={{ fontSize: "1.25rem", marginBottom: "1rem" }}>
-          Enrolled Chickens
-        </h2>
-
-        {session?.user && isAdmin && (
-          <form
-            onSubmit={handleEnroll}
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: "0.75rem",
-              marginBottom: "1.5rem",
-              padding: "1rem",
-              border: "1px solid #e0e0e0",
-              borderRadius: "6px",
-              background: "#fafafa",
-            }}
-          >
-            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Chicken name"
-                disabled={enrolling}
-                required
-                style={{
-                  flex: "1 1 200px",
-                  padding: "0.5rem",
-                  border: "1px solid #ccc",
-                  borderRadius: "4px",
-                  fontSize: "1rem",
-                }}
-              />
-              <select
-                value={sex}
-                onChange={(e) => setSex(e.target.value)}
-                disabled={enrolling}
-                style={{
-                  padding: "0.5rem",
-                  border: "1px solid #ccc",
-                  borderRadius: "4px",
-                  fontSize: "1rem",
-                }}
-              >
-                {SEX_OPTIONS.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-              <div style={{ flex: "1 1 200px", position: "relative" }}>
-                <input
-                  list="breed-list"
-                  value={breed}
-                  onChange={(e) => setBreed(e.target.value)}
-                  placeholder="Breed (pick or type)"
-                  disabled={enrolling}
-                  style={{
-                    width: "100%",
-                    padding: "0.5rem",
-                    border: "1px solid #ccc",
-                    borderRadius: "4px",
-                    fontSize: "1rem",
-                  }}
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+                <Controller
+                  name="name"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      label="Chicken name"
+                      error={!!formErrors.name}
+                      helperText={formErrors.name?.message}
+                      fullWidth
+                      size="small"
+                    />
+                  )}
                 />
-                <datalist id="breed-list">
-                  {breeds.map((b) => (
-                    <option key={b.id} value={b.value} />
-                  ))}
-                </datalist>
-              </div>
-              <div style={{ flex: "1 1 200px", position: "relative" }}>
-                <input
-                  list="origin-list"
-                  value={originSource}
-                  onChange={(e) => setOriginSource(e.target.value)}
-                  placeholder="Origin source (pick or type)"
-                  disabled={enrolling}
-                  style={{
-                    width: "100%",
-                    padding: "0.5rem",
-                    border: "1px solid #ccc",
-                    borderRadius: "4px",
-                    fontSize: "1rem",
-                  }}
+                <Controller
+                  name="sex"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      select
+                      label="Sex"
+                      error={!!formErrors.sex}
+                      helperText={formErrors.sex?.message}
+                      sx={{ minWidth: 140 }}
+                      size="small"
+                    >
+                      {SEX_OPTIONS.map((s) => (
+                        <MenuItem key={s} value={s}>
+                          {s}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  )}
                 />
-                <datalist id="origin-list">
-                  {originSources.map((o) => (
-                    <option key={o.id} value={o.value} />
-                  ))}
-                </datalist>
-              </div>
-            </div>
-            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-              <div style={{ flex: "1 1 200px", position: "relative" }}>
-                <input
-                  list="acq-list"
-                  value={acquisitionType}
-                  onChange={(e) => setAcquisitionType(e.target.value)}
-                  placeholder="Acquisition type (pick or type)"
-                  disabled={enrolling}
-                  style={{
-                    width: "100%",
-                    padding: "0.5rem",
-                    border: "1px solid #ccc",
-                    borderRadius: "4px",
-                    fontSize: "1rem",
-                  }}
-                />
-                <datalist id="acq-list">
-                  {acquisitionTypes.map((a) => (
-                    <option key={a.id} value={a.value} />
-                  ))}
-                </datalist>
-              </div>
-              <button
-                type="submit"
-                disabled={enrolling || !name.trim()}
-                style={{
-                  padding: "0.5rem 1.5rem",
-                  background: "#2e7d32",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: "4px",
-                  fontSize: "1rem",
-                  cursor: "pointer",
-                  opacity: enrolling || !name.trim() ? 0.6 : 1,
-                  alignSelf: "flex-end",
-                }}
-              >
-                {enrolling ? "Adding..." : "Add Chicken"}
-              </button>
-            </div>
-          </form>
-        )}
+              </Stack>
 
-        {session?.user && !isAdmin && (
-          <p style={{ color: "#666", marginBottom: "1rem", fontSize: "0.875rem" }}>
-            You are signed in as a Viewer. Only admins can add chickens.
-          </p>
-        )}
-
-        {!session?.user && (
-          <p style={{ color: "#999", marginBottom: "1rem", fontSize: "0.875rem" }}>
-            Sign in to manage chickens.
-          </p>
-        )}
-
-        {enrollError && (
-          <p style={{ color: "#d32f2f", marginBottom: "1rem" }}>
-            {enrollError}
-          </p>
-        )}
-
-        {session?.user && (
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.5rem",
-              marginBottom: "1rem",
-              fontSize: "0.875rem",
-            }}
-          >
-            <label style={{ display: "flex", alignItems: "center", gap: "0.3rem", cursor: "pointer" }}>
-              <input
-                type="checkbox"
-                checked={includeDeparted}
-                onChange={(e) => setIncludeDeparted(e.target.checked)}
-              />
-              Show departed
-            </label>
-          </div>
-        )}
-
-        {chickens.length === 0 ? (
-          <p style={{ color: "#999" }}>
-            {includeDeparted ? "No chickens enrolled yet." : "No active chickens enrolled yet."}
-          </p>
-        ) : (
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr style={{ borderBottom: "2px solid #eee" }}>
-                  <th style={{ textAlign: "left", padding: "0.5rem 0.5rem 0.5rem 0", fontWeight: 600, width: "40px" }}></th>
-                  <th style={{ textAlign: "left", padding: "0.5rem", fontWeight: 600 }}>Name</th>
-                  <th style={{ textAlign: "left", padding: "0.5rem", fontWeight: 600 }}>Sex</th>
-                  <th style={{ textAlign: "left", padding: "0.5rem", fontWeight: 600 }}>Breed</th>
-                  <th style={{ textAlign: "left", padding: "0.5rem", fontWeight: 600 }}>Origin</th>
-                  <th style={{ textAlign: "left", padding: "0.5rem", fontWeight: 600 }}>Acquisition</th>
-                  <th style={{ textAlign: "left", padding: "0.5rem", fontWeight: 600 }}>Status</th>
-                  {isAdmin && <th style={{ textAlign: "center", padding: "0.5rem", fontWeight: 600 }}>Actions</th>}
-                </tr>
-              </thead>
-              <tbody>
-                {chickens.map((chicken) => (
-                  <ChickenTableRow
-                    key={chicken.id}
-                    chicken={chicken}
-                    isAdmin={isAdmin}
-                    departingChickenId={departingChickenId}
-                    departureDate={departureDate}
-                    departureReason={departureReason}
-                    departureOtherReason={departureOtherReason}
-                    departingSave={departingSave}
-                    onMarkDeparted={() => handleMarkDeparted(chicken)}
-                    onReinstate={() => handleReinstate(chicken)}
-                    onStartDepart={() => {
-                      if (departingChickenId !== null && departingChickenId !== chicken.id) {
-                        if (!confirm("Discard unsaved departure details?")) return;
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+                <Controller
+                  name="breed"
+                  control={control}
+                  render={({ field }) => (
+                    <Autocomplete
+                      freeSolo
+                      options={breedOptions}
+                      value={field.value || ""}
+                      onChange={(_, newValue) =>
+                        field.onChange(newValue || "")
                       }
-                      setDepartingChickenId(chicken.id);
-                      setDepartureDate(todayStr());
-                      setDepartureReason("died/illness");
-                      setDepartureOtherReason("");
-                      setEnrollError(null);
-                    }}
-                    onCancelDepart={() => {
-                      setDepartingChickenId(null);
-                      setDepartureDate(todayStr());
-                      setDepartureReason("died/illness");
-                      setDepartureOtherReason("");
-                    }}
-                    onDepartureDateChange={(value) => setDepartureDate(value)}
-                    onDepartureReasonChange={(value) => {
-                      setDepartureReason(value);
-                      if (value !== "Other") {
-                        setDepartureOtherReason("");
+                      onInputChange={(_, newValue, reason) => {
+                        if (reason === "input") {
+                          field.onChange(newValue);
+                        }
+                      }}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          label="Breed (pick or type new)"
+                          error={!!formErrors.breed}
+                          helperText={formErrors.breed?.message}
+                          size="small"
+                        />
+                      )}
+                    />
+                  )}
+                />
+                <Controller
+                  name="origin_source"
+                  control={control}
+                  render={({ field }) => (
+                    <Autocomplete
+                      freeSolo
+                      options={originOptions}
+                      value={field.value || ""}
+                      onChange={(_, newValue) =>
+                        field.onChange(newValue || "")
                       }
-                    }}
-                    onDepartureOtherReasonChange={(value) => setDepartureOtherReason(value)}
-                  />
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-    </main>
+                      onInputChange={(_, newValue, reason) => {
+                        if (reason === "input") {
+                          field.onChange(newValue);
+                        }
+                      }}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          label="Origin source (pick or type new)"
+                          error={!!formErrors.origin_source}
+                          helperText={formErrors.origin_source?.message}
+                          size="small"
+                        />
+                      )}
+                    />
+                  )}
+                />
+              </Stack>
+
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+                <Controller
+                  name="acquisition_type"
+                  control={control}
+                  render={({ field }) => (
+                    <Autocomplete
+                      freeSolo
+                      options={acqOptions}
+                      value={field.value || ""}
+                      onChange={(_, newValue) =>
+                        field.onChange(newValue || "")
+                      }
+                      onInputChange={(_, newValue, reason) => {
+                        if (reason === "input") {
+                          field.onChange(newValue);
+                        }
+                      }}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          label="Acquisition type (pick or type new)"
+                          error={!!formErrors.acquisition_type}
+                          helperText={
+                            formErrors.acquisition_type?.message
+                          }
+                          size="small"
+                        />
+                      )}
+                    />
+                  )}
+                />
+                <Controller
+                  name="acquisition_date"
+                  control={control}
+                  render={({ field }) => (
+                    <DatePicker
+                      label="Acquisition date"
+                      value={
+                        field.value
+                          ? formatDateForPicker(field.value)
+                          : null
+                      }
+                      onChange={(date) =>
+                        field.onChange(formatDateForApi(date))
+                      }
+                      slotProps={{
+                        textField: {
+                          error: !!formErrors.acquisition_date,
+                          helperText:
+                            formErrors.acquisition_date?.message,
+                          size: "small",
+                          fullWidth: true,
+                        },
+                      }}
+                    />
+                  )}
+                />
+              </Stack>
+
+              <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+                <Button
+                  type="submit"
+                  variant="contained"
+                  disabled={enrollMutation.isPending}
+                  sx={{ minWidth: 140 }}
+                >
+                  {enrollMutation.isPending
+                    ? "Adding..."
+                    : "Add Chicken"}
+                </Button>
+              </Box>
+            </Box>
+          )}
+
+          {isAdmin && enrollMutation.isError && (
+            <Alert severity="error">{enrollMutation.error.message}</Alert>
+          )}
+
+          {isAdmin && enrollMutation.isSuccess && (
+            <Alert severity="success">Chicken enrolled successfully!</Alert>
+          )}
+
+          {!isAdmin && session?.user && (
+            <Typography color="text.secondary" variant="body2">
+              You are signed in as a Viewer. Only admins can add chickens.
+            </Typography>
+          )}
+
+          <Stack
+            direction="row"
+            spacing={2}
+            alignItems="center"
+            flexWrap="wrap"
+          >
+            <TextField
+              placeholder="Search chickens..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              size="small"
+              sx={{ minWidth: 220 }}
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <SearchIcon
+                      sx={{ mr: 1, color: "text.secondary", fontSize: 20 }}
+                    />
+                  ),
+                },
+              }}
+            />
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={includeDeparted}
+                  onChange={(e) => setIncludeDeparted(e.target.checked)}
+                  size="small"
+                />
+              }
+              label="Show departed"
+            />
+          </Stack>
+
+          {chickensLoading ? (
+            <Stack spacing={1}>
+              {[1, 2, 3, 4].map((i) => (
+                <Skeleton key={i} variant="rectangular" height={48} />
+              ))}
+            </Stack>
+          ) : chickensError ? (
+            <Alert severity="error">Failed to load chickens</Alert>
+          ) : table.getRowModel().rows.length === 0 ? (
+            <Typography color="text.secondary" textAlign="center" py={3}>
+              {includeDeparted
+                ? "No chickens enrolled yet."
+                : "No active chickens enrolled yet."}
+            </Typography>
+          ) : (
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  {table.getHeaderGroups().map((headerGroup) => (
+                    <TableRow key={headerGroup.id}>
+                      {headerGroup.headers.map((header) => (
+                        <TableCell key={header.id}>
+                          {header.isPlaceholder ? null : (
+                            <TableSortLabel
+                              active={header.column.getIsSorted() !== false}
+                              direction={
+                                header.column.getIsSorted() === "asc"
+                                  ? "asc"
+                                  : header.column.getIsSorted() === "desc"
+                                    ? "desc"
+                                    : undefined
+                              }
+                              onClick={header.column.getToggleSortingHandler()}
+                              sx={{
+                                fontWeight: 600,
+                                fontSize: "0.875rem",
+                              }}
+                            >
+                              {flexRender(
+                                header.column.columnDef.header,
+                                header.getContext()
+                              )}
+                            </TableSortLabel>
+                          )}
+                        </TableCell>
+                      ))}
+                      {isAdmin && (
+                        <TableCell
+                          sx={{
+                            fontWeight: 600,
+                            fontSize: "0.875rem",
+                            textAlign: "center",
+                          }}
+                        >
+                          Actions
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  ))}
+                </TableHead>
+                <TableBody>
+                  {table.getRowModel().rows.map((row) => (
+                    <ChickenTableRow
+                      key={row.original.id}
+                      chicken={row.original}
+                      isAdmin={isAdmin}
+                      departingChickenId={departingChickenId}
+                      departureDate={departureDate}
+                      departureReason={departureReason}
+                      departureOtherReason={departureOtherReason}
+                      departingSave={departingSave}
+                      onMarkDeparted={() =>
+                        handleMarkDeparted(row.original)
+                      }
+                      onReinstate={() => handleReinstate(row.original)}
+                      onStartDepart={() =>
+                        handleStartDepart(row.original)
+                      }
+                      onCancelDepart={handleCancelDepart}
+                      onDepartureDateChange={setDepartureDate}
+                      onDepartureReasonChange={handleDepartureReasonChange}
+                      onDepartureOtherReasonChange={
+                        setDepartureOtherReason
+                      }
+                    />
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+
+          {departMutation.isError && (
+            <Alert severity="error" sx={{ mt: 1 }}>
+              {departMutation.error.message}
+            </Alert>
+          )}
+
+          {reinstateMutation.isError && (
+            <Alert severity="error" sx={{ mt: 1 }}>
+              {reinstateMutation.error.message}
+            </Alert>
+          )}
+        </Stack>
+      </Card>
+    </Box>
   );
 }

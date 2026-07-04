@@ -15,7 +15,8 @@ jest.mock("next/navigation", () => ({
 
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { render, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
+import { renderWithProviders } from "./test-utils";
 import RosterPage from "@/app/roster/page";
 
 const mockChicken = {
@@ -43,8 +44,8 @@ describe("RosterPage", () => {
       data: null,
       status: "loading",
     });
-    render(<RosterPage />);
-    expect(screen.getByText("Loading...")).toBeInTheDocument();
+    renderWithProviders(<RosterPage />);
+    expect(screen.getByRole("progressbar")).toBeInTheDocument();
   });
 
   it("redirects to / when unauthenticated", () => {
@@ -54,7 +55,7 @@ describe("RosterPage", () => {
       data: null,
       status: "unauthenticated",
     });
-    render(<RosterPage />);
+    renderWithProviders(<RosterPage />);
     expect(mockReplace).toHaveBeenCalledWith("/");
   });
 
@@ -63,7 +64,7 @@ describe("RosterPage", () => {
       data: { user: { email: "admin@test.com", role: "Admin" } },
       status: "authenticated",
     });
-    render(<RosterPage />);
+    renderWithProviders(<RosterPage />);
     await waitFor(() => {
       expect(screen.getByText("Add Chicken")).toBeInTheDocument();
     });
@@ -74,7 +75,7 @@ describe("RosterPage", () => {
       data: { user: { email: "viewer@test.com", role: "Viewer" } },
       status: "authenticated",
     });
-    render(<RosterPage />);
+    renderWithProviders(<RosterPage />);
     await waitFor(() => {
       expect(screen.queryByText("Add Chicken")).not.toBeInTheDocument();
     });
@@ -93,9 +94,15 @@ describe("RosterPage", () => {
           json: () => Promise.resolve([mockChicken]),
         });
       }
+      if (typeof url === "string" && url.startsWith("/api/dynamic-lists/")) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve([]),
+        });
+      }
       return new Promise(() => {});
     });
-    render(<RosterPage />);
+    renderWithProviders(<RosterPage />);
     await waitFor(() => {
       expect(screen.getByText("Test Hen")).toBeInTheDocument();
     });
