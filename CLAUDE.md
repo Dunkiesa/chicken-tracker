@@ -15,6 +15,7 @@ When using the `improve` skill's `execute` variant, use a **named branch + workt
 
 1. Create a branch from `HEAD`: `git branch improve/<plan-number>-<slug> HEAD`
 2. Create a worktree from that branch: `git worktree add <worktree-path> improve/<plan-number>-<slug>`
+2a. Make the main repo's `.env` available: `$env:DOTENV_PATH = "$(git rev-parse --show-toplevel)\.env"`
 3. Dispatch the executor to work in the worktree and commit to the branch
 4. Leave both the branch and worktree in place for the user to inspect and merge
 
