@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useSession, signIn } from "next-auth/react";
 
 type AnalyticsSummary = {
@@ -143,6 +143,34 @@ export default function Home() {
     fetchAnalytics(dateFrom, dateTo);
   }
 
+  const productionData = useMemo(
+    () =>
+      data &&
+      (granularity === "daily"
+        ? data.production_daily
+        : granularity === "weekly"
+        ? data.production_weekly
+        : data.production_monthly),
+    [data, granularity]
+  );
+
+  const summaryCards = useMemo(
+    () =>
+      data
+        ? [
+            { label: "Total Eggs", value: data.summary.total_eggs, color: "#2e7d32" },
+            {
+              label: "Avg Weight",
+              value: data.summary.average_weight != null ? `${data.summary.average_weight.toFixed(1)}g` : "-",
+              color: "#1565c0",
+            },
+            { label: "Active Hens", value: data.summary.active_laying_chickens, color: "#e65100" },
+            { label: "Total Hens", value: data.summary.total_laying_chickens, color: "#6a1b9a" },
+          ]
+        : [],
+    [data]
+  );
+
   if (status === "loading") {
     return (
       <div style={{
@@ -190,14 +218,6 @@ export default function Home() {
       </div>
     );
   }
-
-  const productionData =
-    data &&
-    (granularity === "daily"
-      ? data.production_daily
-      : granularity === "weekly"
-      ? data.production_weekly
-      : data.production_monthly);
 
   const sectionStyle: React.CSSProperties = {
     padding: "1.5rem 2rem",
@@ -323,16 +343,7 @@ export default function Home() {
               maxWidth: "900px",
             }}
           >
-            {[
-              { label: "Total Eggs", value: data.summary.total_eggs, color: "#2e7d32" },
-              {
-                label: "Avg Weight",
-                value: data.summary.average_weight != null ? `${data.summary.average_weight.toFixed(1)}g` : "-",
-                color: "#1565c0",
-              },
-              { label: "Active Hens", value: data.summary.active_laying_chickens, color: "#e65100" },
-              { label: "Total Hens", value: data.summary.total_laying_chickens, color: "#6a1b9a" },
-            ].map((card) => (
+            {summaryCards.map((card) => (
               <div
                 key={card.label}
                 style={{
