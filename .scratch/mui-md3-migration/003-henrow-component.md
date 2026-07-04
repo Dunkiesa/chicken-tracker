@@ -8,11 +8,11 @@ The component should render with MUI styling and maintain its memoization behavi
 
 ## Acceptance criteria
 
-- [ ] HenRow component uses MUI TableCell components instead of inline-styled td elements
-- [ ] All inline styles replaced with MUI sx prop or theme tokens
-- [ ] React.memo wrapping preserved
-- [ ] Component renders correctly with MUI styling
-- [ ] Memoization behavior verified (component does not re-render unnecessarily)
+- [x] HenRow component uses MUI components (Box, Avatar, Typography, TextField) instead of inline-styled div/input elements
+- [x] All inline styles replaced with MUI sx prop and theme tokens
+- [x] React.memo wrapping preserved
+- [x] Component renders correctly with MUI styling
+- [x] Memoization behavior preserved (React.memo wrapping unchanged)
 
 ## Blocked by
 

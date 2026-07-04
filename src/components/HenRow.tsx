@@ -1,5 +1,10 @@
 "use client";
 import { memo } from "react";
+import Box from "@mui/material/Box";
+import Avatar from "@mui/material/Avatar";
+import Typography from "@mui/material/Typography";
+import TextField from "@mui/material/TextField";
+import CheckIcon from "@mui/icons-material/Check";
 
 type HenRowProps = {
   hen: { id: number; name: string; primary_photo_path: string | null };
@@ -12,89 +17,86 @@ type HenRowProps = {
 
 function HenRowInner({ hen, weight, existing, warning, disabled, onWeightChange }: HenRowProps) {
   return (
-    <div
-      style={{
+    <Box
+      sx={{
         display: "flex",
         alignItems: "center",
-        gap: "0.75rem",
-        padding: "0.6rem 0.75rem",
-        borderBottom: "1px solid #f0f0f0",
-        background: existing ? "#f5f5f5" : "transparent",
+        gap: 1.5,
+        px: 1.5,
+        py: 0.75,
+        borderBottom: 1,
+        borderColor: "divider",
+        bgcolor: existing ? "action.hover" : "transparent",
       }}
     >
-      {hen.primary_photo_path ? (
-        <img
-          src={`/api/photos/${hen.primary_photo_path}`}
-          alt=""
-          style={{
-            width: "32px",
-            height: "32px",
-            borderRadius: "50%",
-            objectFit: "cover",
-            background: "#f0f0f0",
-            flexShrink: 0,
-          }}
-          onError={(e) => {
-            (e.target as HTMLImageElement).style.display = "none";
-          }}
-        />
-      ) : (
-        <div
-          style={{
-            width: "32px",
-            height: "32px",
-            borderRadius: "50%",
-            background: "#f0f0f0",
-            flexShrink: 0,
-          }}
-        />
-      )}
-      <div style={{ flex: "1 1 100px", fontWeight: 500, fontSize: "0.95rem", minWidth: 0 }}>
+      <Avatar
+        src={hen.primary_photo_path ? `/api/photos/${hen.primary_photo_path}` : undefined}
+        alt=""
+        sx={{
+          width: 32,
+          height: 32,
+          bgcolor: "action.disabledBackground",
+          flexShrink: 0,
+        }}
+      />
+      <Typography
+        variant="body1"
+        sx={{
+          flex: "1 1 100px",
+          fontWeight: 500,
+          minWidth: 0,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+        }}
+      >
         {hen.name}
-      </div>
+      </Typography>
       {existing ? (
-        <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
-          <span style={{ fontSize: "0.85rem", color: "#666" }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+          <Typography variant="body2" color="text.secondary">
             {existing.weight.toFixed(2)}g
-          </span>
-          <span style={{ color: "#2e7d32", fontSize: "1rem" }}>✓</span>
-        </div>
+          </Typography>
+          <CheckIcon sx={{ color: "success.main", fontSize: 20 }} />
+        </Box>
       ) : (
-        <input
+        <TextField
           type="number"
-          step="0.01"
-          min="0"
+          size="small"
           value={weight}
           onChange={(e) => onWeightChange(hen.id, e.target.value)}
           placeholder="Weight (g)"
           disabled={disabled}
-          style={{
-            width: "110px",
-            padding: "0.4rem",
-            border: "1px solid #ccc",
-            borderRadius: "4px",
-            fontSize: "0.9rem",
-            textAlign: "right",
+          inputProps={{
+            step: 0.01,
+            min: 0,
+            style: { textAlign: "right" },
+          }}
+          sx={{
+            width: 110,
             flexShrink: 0,
+            "& .MuiOutlinedInput-root": {
+              fontSize: "0.9rem",
+            },
           }}
         />
       )}
       {warning != null && warning.length > 0 && (
-        <div
-          style={{
-            fontSize: "0.75rem",
-            color: "#f57f17",
-            maxWidth: "160px",
+        <Box
+          sx={{
+            maxWidth: 160,
             textAlign: "right",
             flexShrink: 0,
           }}
         >
           {warning.map((w, i) => (
-            <div key={i}>{w.message}</div>
+            <Typography key={i} variant="caption" color="warning.main" display="block">
+              {w.message}
+            </Typography>
           ))}
-        </div>
+        </Box>
       )}
-    </div>
+    </Box>
   );
 }
 
