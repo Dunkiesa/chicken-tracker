@@ -11,11 +11,12 @@ type HenRowProps = {
   weight: string;
   existing: { id: number; weight: number } | undefined;
   warning: { type: string; message: string }[] | undefined;
+  error: string | undefined;
   disabled: boolean;
   onWeightChange: (henId: number, value: string) => void;
 };
 
-function HenRowInner({ hen, weight, existing, warning, disabled, onWeightChange }: HenRowProps) {
+function HenRowInner({ hen, weight, existing, warning, error, disabled, onWeightChange }: HenRowProps) {
   return (
     <Box
       sx={{
@@ -67,6 +68,8 @@ function HenRowInner({ hen, weight, existing, warning, disabled, onWeightChange 
           onChange={(e) => onWeightChange(hen.id, e.target.value)}
           placeholder="Weight (g)"
           disabled={disabled}
+          error={!!error}
+          helperText={error}
           inputProps={{
             step: 0.01,
             min: 0,

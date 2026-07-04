@@ -1,9 +1,39 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
-import { HenRow } from "@/components/HenRow";
+import { useState, Suspense, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import {
+  Box,
+  Card,
+  Typography,
+  Button,
+  Alert,
+  CircularProgress,
+  FormControlLabel,
+  Checkbox,
+  Grid,
+  Skeleton,
+  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TextField,
+  IconButton,
+} from "@mui/material";
+import EditIcon from "@mui/icons-material/Edit";
+import DeleteIcon from "@mui/icons-material/Delete";
+import CheckIcon from "@mui/icons-material/Check";
+import CloseIcon from "@mui/icons-material/Close";
+import { HenRow } from "@/components/HenRow";
 
 type Chicken = {
   id: number;
@@ -28,6 +58,23 @@ type Warning = {
   message: string;
 };
 
+type BatchEntry = {
+  chicken_id: number;
+  weight: number;
+  date: string;
+};
+
+type BatchResult = {
+  eggs: Egg[];
+  warnings: Warning[][];
+};
+
+const formSchema = z.object({
+  date: z.string().min(1, "Date is required"),
+});
+
+type FormValues = z.infer<typeof formSchema>;
+
 function todayStr(): string {
   const d = new Date();
   const y = d.getFullYear();
@@ -36,9 +83,91 @@ function todayStr(): string {
   return `${y}-${m}-${day}`;
 }
 
+function formatDateForPicker(dateStr: string): Date {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function formatDateForApi(date: Date | null): string {
+  if (!date) return "";
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+async function fetchChickens(): Promise<Chicken[]> {
+  const res = await fetch("/api/chickens");
+  if (!res.ok) throw new Error("Failed to fetch chickens");
+  return res.json();
+}
+
+async function fetchEggsByDate(date: string): Promise<Egg[]> {
+  const res = await fetch(`/api/eggs?date=${date}`);
+  if (!res.ok) throw new Error("Failed to fetch eggs");
+  return res.json();
+}
+
+async function fetchAllEggs(): Promise<Egg[]> {
+  const res = await fetch("/api/eggs");
+  if (!res.ok) throw new Error("Failed to fetch eggs");
+  return res.json();
+}
+
+async function submitEggsBatch(entries: BatchEntry[]): Promise<BatchResult> {
+  const res = await fetch("/api/eggs", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(entries),
+  });
+  if (!res.ok) {
+    const data = await res.json();
+    throw new Error(data.message || "Failed to save eggs");
+  }
+  return res.json();
+}
+
+async function updateEggApi(
+  id: number,
+  data: { weight: number; date: string }
+): Promise<Egg> {
+  const res = await fetch(`/api/eggs/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const result = await res.json();
+    throw new Error(result.message || "Failed to update egg");
+  }
+  return res.json();
+}
+
+async function deleteEggApi(id: number): Promise<void> {
+  const res = await fetch(`/api/eggs/${id}`, { method: "DELETE" });
+  if (!res.ok) {
+    const data = await res.json();
+    throw new Error(data.message || "Failed to delete egg");
+  }
+}
+
+function validateWeight(value: string): string | undefined {
+  if (!value) return undefined;
+  const num = parseFloat(value);
+  if (isNaN(num)) return "Must be a number";
+  if (num < 20 || num > 200) return "Weight must be 20-200g";
+  return undefined;
+}
+
 export default function LogEggPage() {
   return (
-    <Suspense fallback={<main style={{ padding: "2rem", textAlign: "center", color: "#999" }}>Loading...</main>}>
+    <Suspense
+      fallback={
+        <Box sx={{ p: 2, display: "flex", justifyContent: "center" }}>
+          <CircularProgress />
+        </Box>
+      }
+    >
       <LogEggContent />
     </Suspense>
   );
@@ -47,110 +176,142 @@ export default function LogEggPage() {
 function LogEggContent() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const isAdmin = session?.user?.role === "Admin";
 
-  const [eggs, setEggs] = useState<Egg[]>([]);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
-  const [batchDate, setBatchDate] = useState(todayStr());
-  const [hens, setHens] = useState<Chicken[]>([]);
-  const [existingEggsMap, setExistingEggsMap] = useState<Map<number, Egg>>(new Map());
+  const [showAll, setShowAll] = useState(false);
   const [weights, setWeights] = useState<Record<number, string>>({});
-  const [rowWarnings, setRowWarnings] = useState<Record<number, Warning[]>>({});
+  const [weightErrors, setWeightErrors] = useState<Record<number, string>>({});
   const [editingEggId, setEditingEggId] = useState<number | null>(null);
   const [editWeight, setEditWeight] = useState("");
   const [editDate, setEditDate] = useState("");
-  const [showAll, setShowAll] = useState(false);
 
-async function refreshEggs(date?: string) {
-  try {
-    const url = date ? `/api/eggs?date=${date}` : "/api/eggs";
-    const res = await fetch(url);
-    if (res.ok) {
-      const data: Egg[] = await res.json();
-      setEggs(data);
-      if (date) {
-        const map = new Map<number, Egg>();
-        data.forEach((egg) => map.set(egg.chicken_id, egg));
-        setExistingEggsMap(map);
+  const {
+    control,
+    watch,
+    formState: { errors: formErrors },
+  } = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
+    mode: "onBlur",
+    defaultValues: { date: todayStr() },
+  });
+
+  const batchDate = watch("date");
+
+  const {
+    data: allChickens,
+    isLoading: hensLoading,
+    error: hensError,
+  } = useQuery({
+    queryKey: ["chickens"],
+    queryFn: fetchChickens,
+    enabled: status === "authenticated",
+  });
+
+  const {
+    data: eggs,
+    isLoading: eggsLoading,
+    error: eggsError,
+  } = useQuery({
+    queryKey: ["eggs", batchDate],
+    queryFn: () => fetchEggsByDate(batchDate),
+    enabled: status === "authenticated" && !!batchDate,
+  });
+
+  const { data: allEggs } = useQuery({
+    queryKey: ["eggs", "all"],
+    queryFn: fetchAllEggs,
+    enabled: status === "authenticated",
+  });
+
+  const submitMutation = useMutation({
+    mutationFn: submitEggsBatch,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["eggs"] });
+      setWeights({});
+      setWeightErrors({});
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: { weight: number; date: string } }) =>
+      updateEggApi(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["eggs"] });
+      setEditingEggId(null);
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: deleteEggApi,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["eggs"] });
+    },
+  });
+
+  const hens = useMemo(() => {
+    if (!allChickens) return [];
+    return allChickens.filter(
+      (c) => !c.departed && (showAll || c.sex !== "Rooster")
+    );
+  }, [allChickens, showAll]);
+
+  const existingEggsMap = useMemo(() => {
+    const map = new Map<number, Egg>();
+    if (eggs) {
+      eggs.forEach((egg) => map.set(egg.chicken_id, egg));
+    }
+    return map;
+  }, [eggs]);
+
+  const rowWarnings = useMemo(() => {
+    if (!submitMutation.data?.warnings) return {};
+    const warningMap: Record<number, Warning[]> = {};
+    submitMutation.data.warnings.forEach((warns, idx) => {
+      if (warns.length > 0 && submitMutation.data?.eggs[idx]) {
+        const chickenId = submitMutation.data.eggs[idx].chicken_id;
+        warningMap[chickenId] = warns;
+      }
+    });
+    return warningMap;
+  }, [submitMutation.data]);
+
+  const handleWeightChange = (henId: number, value: string) => {
+    setWeights((prev) => ({ ...prev, [henId]: value }));
+    if (weightErrors[henId]) {
+      setWeightErrors((prev) => {
+        const next = { ...prev };
+        delete next[henId];
+        return next;
+      });
+    }
+  };
+
+  const handleWeightBlur = (henId: number) => {
+    const value = weights[henId];
+    if (value) {
+      const error = validateWeight(value);
+      if (error) {
+        setWeightErrors((prev) => ({ ...prev, [henId]: error }));
+      } else {
+        setWeightErrors((prev) => {
+          const next = { ...prev };
+          delete next[henId];
+          return next;
+        });
       }
     }
-  } catch {
-    // ignore
-  }
-}
+  };
 
-  useEffect(() => {
-    if (status === "unauthenticated") {
-      router.replace("/");
-      return;
-    }
-    if (status !== "authenticated") return;
-    (async () => {
-      await refreshEggs();
-    })();
-  }, [status, router]);
-
-  useEffect(() => {
-    if (status !== "authenticated") return;
-    fetch("/api/chickens")
-      .then((res) => res.ok ? res.json() : [])
-      .then((data) => {
-        const all = data as Chicken[];
-        setHens(all.filter((c) => !c.departed && (showAll || c.sex !== "Rooster")));
-      })
-      .catch(() => {});
-  }, [status, showAll]);
-
-  useEffect(() => {
-    if (status !== "authenticated") return;
-    (async () => {
-      try {
-        const res = await fetch(`/api/eggs?date=${batchDate}`);
-        if (!res.ok) return;
-        const data: Egg[] = await res.json();
-        const map = new Map<number, Egg>();
-        data.forEach((egg) => map.set(egg.chicken_id, egg));
-        setExistingEggsMap(map);
-      } catch {
-        // ignore
-      }
-    })();
-  }, [status, batchDate]);
-
-  async function handleEdit(egg: Egg) {
-    setEditingEggId(egg.id);
-    setEditWeight(egg.weight.toString());
-    setEditDate(egg.date);
-    setError(null);
-    setSuccessMsg(null);
-  }
-
-  async function handleDelete(egg: Egg) {
-    if (!confirm(`Delete egg for ${egg.chicken_name} on ${egg.date}?`)) return;
-    try {
-      const res = await fetch(`/api/eggs/${egg.id}`, { method: "DELETE" });
-      if (!res.ok) {
-        const data = await res.json();
-        setError(data.message || "Failed to delete egg");
-        return;
-      }
-      const eggsRes = await fetch("/api/eggs");
-      if (eggsRes.ok) setEggs(await eggsRes.json());
-      setSuccessMsg("Egg deleted");
-    } catch {
-      setError("Failed to delete egg");
-    }
-  }
-
-  async function handleBulkSubmit() {
-    setError(null);
-    setSuccessMsg(null);
-    setRowWarnings({});
-
+  const handleBulkSubmit = () => {
     const entries = hens
-      .filter((h) => !existingEggsMap.has(h.id) && weights[h.id] && parseFloat(weights[h.id]) > 0)
+      .filter((h) => {
+        if (existingEggsMap.has(h.id)) return false;
+        const w = weights[h.id];
+        if (!w) return false;
+        const num = parseFloat(w);
+        return !isNaN(num) && num > 0;
+      })
       .map((h) => ({
         chicken_id: h.id,
         weight: Math.round(parseFloat(weights[h.id]) * 100) / 100,
@@ -158,365 +319,304 @@ async function refreshEggs(date?: string) {
       }));
 
     if (entries.length === 0) {
-      setError("No eggs to log — fill in weights or all hens already logged for this date");
+      submitMutation.reset();
       return;
     }
 
-    setSaving(true);
-    try {
-      const res = await fetch("/api/eggs", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(entries),
-      });
+    const hasErrors = Object.keys(weightErrors).length > 0;
+    if (hasErrors) return;
 
-      if (!res.ok) {
-        const data = await res.json();
-        setError(data.message || "Failed to save eggs");
-        return;
-      }
+    submitMutation.mutate(entries);
+  };
 
-      const result = await res.json();
-      const warningMap: Record<number, Warning[]> = {};
-      entries.forEach((entry, idx) => {
-        if (result.warnings[idx]?.length > 0) {
-          warningMap[entry.chicken_id] = result.warnings[idx];
-        }
-      });
-      setRowWarnings(warningMap);
+  const handleEdit = (egg: Egg) => {
+    setEditingEggId(egg.id);
+    setEditWeight(egg.weight.toString());
+    setEditDate(egg.date);
+    updateMutation.reset();
+    deleteMutation.reset();
+  };
 
-      setSuccessMsg(`Logged ${entries.length} egg(s)!`);
-      setWeights({});
+  const handleUpdate = () => {
+    if (!editingEggId) return;
+    const weight = parseFloat(editWeight);
+    if (isNaN(weight) || weight <= 0) return;
+    updateMutation.mutate({
+      id: editingEggId,
+      data: { weight: Math.round(weight * 100) / 100, date: editDate },
+    });
+  };
 
-      await refreshEggs(batchDate);
-    } catch {
-      setError("Failed to save eggs");
-    } finally {
-      setSaving(false);
-    }
-  }
+  const handleDelete = (egg: Egg) => {
+    if (!confirm(`Delete egg for ${egg.chicken_name} on ${egg.date}?`)) return;
+    deleteMutation.mutate(egg.id);
+  };
 
   if (status === "loading") {
     return (
-      <main style={{ padding: "2rem", textAlign: "center", color: "#999" }}>
-        Loading...
-      </main>
+      <Box sx={{ p: 2, display: "flex", justifyContent: "center" }}>
+        <CircularProgress />
+      </Box>
     );
   }
 
+  if (status === "unauthenticated") {
+    router.replace("/");
+    return null;
+  }
+
+  const displayEggs = allEggs ?? [];
+  const hasWeightErrors = Object.keys(weightErrors).length > 0;
+
   return (
-    <main
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        padding: "1rem",
-        gap: "1rem",
-        maxWidth: "700px",
-        margin: "0 auto",
-      }}
-    >
-      <h1 style={{ fontSize: "1.5rem" }}>Log</h1>
+    <Box sx={{ maxWidth: 700, mx: "auto", p: 2 }}>
+      <Typography variant="h5" gutterBottom>
+        Log
+      </Typography>
 
-      <div
-        style={{
-          width: "100%",
-          padding: "1rem",
-          borderRadius: "8px",
-          border: "1px solid #ddd",
-          background: "#fff",
-        }}
-      >
-        <div style={{ marginBottom: "0.75rem" }}>
-          <label
-            htmlFor="batchDate"
-            style={{
-              display: "block",
-              fontSize: "0.8rem",
-              fontWeight: 600,
-              marginBottom: "0.25rem",
-              color: "#555",
-            }}
-          >
-            Date
-          </label>
-          <input
-            id="batchDate"
-            type="date"
-            value={batchDate}
-            onChange={(e) => setBatchDate(e.target.value)}
-            disabled={saving}
-            style={{
-              width: "100%",
-              padding: "0.5rem",
-              border: "1px solid #ccc",
-              borderRadius: "4px",
-              fontSize: "1rem",
-              boxSizing: "border-box",
-            }}
-          />
-        </div>
-
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem", fontSize: "0.875rem" }}>
-          <label style={{ display: "flex", alignItems: "center", gap: "0.3rem", cursor: "pointer" }}>
-            <input
-              type="checkbox"
-              checked={showAll}
-              onChange={(e) => setShowAll(e.target.checked)}
-            />
-            Show all chickens (including roosters)
-          </label>
-          <span style={{ color: "#999" }}>{hens.length} available</span>
-        </div>
-
-        {hens.length === 0 ? (
-          <p style={{ padding: "1rem", color: "#999", textAlign: "center" }}>
-            No laying hens available
-          </p>
-        ) : (
-          <div
-            style={{
-              maxHeight: "400px",
-              overflowY: "auto",
-              border: "1px solid #e0e0e0",
-              borderRadius: "4px",
-              marginBottom: "1rem",
-            }}
-          >
-            {hens.map((hen) => (
-              <HenRow
-                key={hen.id}
-                hen={hen}
-                weight={weights[hen.id] || ""}
-                existing={existingEggsMap.get(hen.id)}
-                warning={rowWarnings[hen.id]}
-                disabled={saving}
-                onWeightChange={(henId, value) =>
-                  setWeights((prev) => ({ ...prev, [henId]: value }))
-                }
+      <Card sx={{ p: 2, mb: 2 }}>
+        <Stack spacing={2}>
+          <Controller
+            name="date"
+            control={control}
+            render={({ field }) => (
+              <DatePicker
+                label="Date"
+                value={field.value ? formatDateForPicker(field.value) : null}
+                onChange={(date) => field.onChange(formatDateForApi(date))}
+                slotProps={{
+                  textField: {
+                    error: !!formErrors.date,
+                    helperText: formErrors.date?.message,
+                    fullWidth: true,
+                  },
+                }}
               />
-            ))}
-          </div>
-        )}
+            )}
+          />
 
-        {error && (
-          <div
-            style={{
-              padding: "0.5rem 0.75rem",
-              background: "#fff3e0",
-              border: "1px solid #ffcc02",
-              borderRadius: "4px",
-              fontSize: "0.85rem",
-              color: "#e65100",
-              marginBottom: "0.75rem",
-            }}
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={showAll}
+                onChange={(e) => setShowAll(e.target.checked)}
+              />
+            }
+            label={`Show all chickens (including roosters) — ${hens.length} available`}
+          />
+
+          {hensLoading ? (
+            <Stack spacing={1}>
+              {[1, 2, 3].map((i) => (
+                <Skeleton key={i} variant="rectangular" height={56} />
+              ))}
+            </Stack>
+          ) : hensError ? (
+            <Alert severity="error">Failed to load hens</Alert>
+          ) : hens.length === 0 ? (
+            <Typography color="text.secondary" textAlign="center" py={2}>
+              No laying hens available
+            </Typography>
+          ) : (
+            <Grid container spacing={1.5}>
+              {hens.map((hen) => (
+                <Grid item xs={12} sm={6} key={hen.id}>
+                  <Card variant="outlined">
+                    <Box
+                      onBlur={() => handleWeightBlur(hen.id)}
+                      sx={{ "&:focus-within": {} }}
+                    >
+                      <HenRow
+                        hen={hen}
+                        weight={weights[hen.id] || ""}
+                        existing={existingEggsMap.get(hen.id)}
+                        warning={rowWarnings[hen.id]}
+                        error={weightErrors[hen.id]}
+                        disabled={submitMutation.isPending}
+                        onWeightChange={handleWeightChange}
+                      />
+                    </Box>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+          )}
+
+          {submitMutation.isError && (
+            <Alert severity="error">{submitMutation.error.message}</Alert>
+          )}
+
+          {submitMutation.isSuccess && (
+            <Alert severity="success">
+              Logged {submitMutation.data.eggs.length} egg(s)!
+            </Alert>
+          )}
+
+          {Object.keys(rowWarnings).length > 0 && (
+            <Alert severity="warning">
+              {Object.entries(rowWarnings).map(([chickenId, warns]) =>
+                warns
+                  .filter((w) => w.type === "duplicate_date")
+                  .map((w, i) => <div key={`${chickenId}-${i}`}>{w.message}</div>)
+              )}
+            </Alert>
+          )}
+
+          <Button
+            variant="contained"
+            onClick={handleBulkSubmit}
+            disabled={
+              submitMutation.isPending ||
+              hens.length === 0 ||
+              hasWeightErrors
+            }
+            fullWidth
+            size="large"
           >
-            {error}
-          </div>
-        )}
+            {submitMutation.isPending ? (
+              <>
+                <CircularProgress size={20} sx={{ mr: 1 }} />
+                Saving...
+              </>
+            ) : (
+              "Log All"
+            )}
+          </Button>
+        </Stack>
+      </Card>
 
-        {successMsg && (
-          <div
-            style={{
-              padding: "0.5rem 0.75rem",
-              background: "#e8f5e9",
-              border: "1px solid #a5d6a7",
-              borderRadius: "4px",
-              fontSize: "0.85rem",
-              color: "#2e7d32",
-              marginBottom: "0.75rem",
-            }}
-          >
-            {successMsg}
-          </div>
-        )}
-
-        {Object.entries(rowWarnings).length > 0 && (
-          <div style={{
-            padding: "0.5rem 0.75rem",
-            background: "#fff8e1",
-            border: "1px solid #ffd54f",
-            borderRadius: "4px",
-            fontSize: "0.85rem",
-            color: "#f57f17",
-            marginBottom: "0.75rem",
-          }}>
-            {Object.entries(rowWarnings).map(([chickenId, warns]) => (
-              warns.filter(w => w.type === "duplicate_date").map((w, i) => (
-                <div key={`${chickenId}-${i}`}>{w.message}</div>
-              ))
-            ))}
-          </div>
-        )}
-
-        <button
-          onClick={handleBulkSubmit}
-          disabled={saving || hens.length === 0}
-          style={{
-            width: "100%",
-            padding: "0.6rem 1rem",
-            background: "#2e7d32",
-            color: "#fff",
-            border: "none",
-            borderRadius: "4px",
-            fontSize: "1rem",
-            cursor: "pointer",
-            opacity: saving ? 0.6 : 1,
-          }}
-        >
-          {saving ? "Saving..." : "Log All"}
-        </button>
-      </div>
-
-      <div
-        style={{
-          width: "100%",
-          padding: "1rem",
-          borderRadius: "8px",
-          border: "1px solid #ddd",
-          background: "#fff",
-        }}
-      >
-        <h2 style={{ fontSize: "1.1rem", marginBottom: "0.75rem" }}>
+      <Card sx={{ p: 2 }}>
+        <Typography variant="h6" gutterBottom>
           Recent Eggs
-        </h2>
-        {eggs.length === 0 ? (
-          <p style={{ color: "#999", fontSize: "0.9rem" }}>No eggs logged yet.</p>
+        </Typography>
+
+        {eggsLoading ? (
+          <Stack spacing={1}>
+            {[1, 2, 3].map((i) => (
+              <Skeleton key={i} variant="rectangular" height={40} />
+            ))}
+          </Stack>
+        ) : eggsError ? (
+          <Alert severity="error">Failed to load eggs</Alert>
+        ) : displayEggs.length === 0 ? (
+          <Typography color="text.secondary">No eggs logged yet.</Typography>
         ) : (
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.9rem" }}>
-              <thead>
-                <tr style={{ borderBottom: "2px solid #eee" }}>
-                  <th style={{ textAlign: "left", padding: "0.4rem 0.4rem 0.4rem 0", fontWeight: 600 }}>Date</th>
-                  <th style={{ textAlign: "left", padding: "0.4rem", fontWeight: 600 }}>Chicken</th>
-                  <th style={{ textAlign: "right", padding: "0.4rem", fontWeight: 600 }}>Weight</th>
-                  <th style={{ textAlign: "center", padding: "0.4rem", fontWeight: 600 }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {eggs.map((egg) => (
-                  <tr key={egg.id} style={{ borderBottom: "1px solid #eee" }}>
-                    <td style={{ padding: "0.4rem 0.4rem 0.4rem 0", color: "#555" }}>
-                      {egg.date}
-                    </td>
-                    <td style={{ padding: "0.4rem", fontWeight: 500 }}>
-                      {egg.chicken_name}
-                    </td>
-                    <td style={{ padding: "0.4rem", textAlign: "right" }}>
+          <TableContainer>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Date</TableCell>
+                  <TableCell>Chicken</TableCell>
+                  <TableCell align="right">Weight</TableCell>
+                  <TableCell align="center">Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {displayEggs.map((egg) => (
+                  <TableRow key={egg.id}>
+                    <TableCell>{egg.date}</TableCell>
+                    <TableCell>{egg.chicken_name}</TableCell>
+                    <TableCell align="right">
                       {egg.weight.toFixed(2)}g
-                    </td>
-                    <td style={{ padding: "0.4rem", textAlign: "center" }}>
+                    </TableCell>
+                    <TableCell align="center">
                       {editingEggId === egg.id ? (
-                        <div style={{ display: "flex", gap: "0.4rem", alignItems: "center", justifyContent: "center" }}>
-                          <input
+                        <Stack
+                          direction="row"
+                          spacing={1}
+                          alignItems="center"
+                          justifyContent="center"
+                        >
+                          <TextField
                             type="number"
-                            step="0.01"
-                            min="0"
+                            size="small"
                             value={editWeight}
                             onChange={(e) => setEditWeight(e.target.value)}
-                            style={{ width: "80px", padding: "0.3rem 0.4rem", border: "1px solid #ccc", borderRadius: "4px", fontSize: "0.85rem", textAlign: "right" }}
+                            inputProps={{
+                              step: 0.01,
+                              min: 0,
+                              style: { width: 70, textAlign: "right" },
+                            }}
                           />
-                          <input
+                          <TextField
                             type="date"
+                            size="small"
                             value={editDate}
                             onChange={(e) => setEditDate(e.target.value)}
-                            style={{ width: "130px", padding: "0.3rem 0.4rem", border: "1px solid #ccc", borderRadius: "4px", fontSize: "0.85rem" }}
+                            inputProps={{ style: { width: 130 } }}
                           />
-                          <button
-                            onClick={async () => {
-                              setError(null);
-                              setSuccessMsg(null);
-                              try {
-                                const res = await fetch(`/api/eggs/${editingEggId}`, {
-                                  method: "PUT",
-                                  headers: { "Content-Type": "application/json" },
-                                  body: JSON.stringify({ weight: parseFloat(editWeight), date: editDate }),
-                                });
-                                if (res.status === 409) {
-                                  const data = await res.json();
-                                  setError(data.message);
-                                  return;
-                                }
-                                if (!res.ok) {
-                                  const data = await res.json();
-                                  setError(data.message || "Failed to update egg");
-                                  return;
-                                }
-                                setEditingEggId(null);
-                                const eggsRes = await fetch("/api/eggs");
-                                if (eggsRes.ok) setEggs(await eggsRes.json());
-                                setSuccessMsg("Egg updated");
-                              } catch {
-                                setError("Failed to update egg");
-                              }
-                            }}
-                            style={{
-                              padding: "0.3rem 0.5rem",
-                              fontSize: "0.8rem",
-                              border: "none",
-                              borderRadius: "4px",
-                              background: "#2e7d32",
-                              color: "#fff",
-                              cursor: "pointer",
-                            }}
+                          <IconButton
+                            size="small"
+                            color="success"
+                            onClick={handleUpdate}
+                            disabled={updateMutation.isPending}
                           >
-                            Save
-                          </button>
-                          <button
+                            <CheckIcon />
+                          </IconButton>
+                          <IconButton
+                            size="small"
                             onClick={() => setEditingEggId(null)}
-                            style={{
-                              padding: "0.3rem 0.5rem",
-                              fontSize: "0.8rem",
-                              border: "1px solid #ccc",
-                              borderRadius: "4px",
-                              background: "#fff",
-                              cursor: "pointer",
-                            }}
                           >
-                            Cancel
-                          </button>
-                        </div>
+                            <CloseIcon />
+                          </IconButton>
+                        </Stack>
                       ) : (
-                        isAdmin || egg.recorded_by === session?.user?.email ? (
-                          <div style={{ display: "flex", gap: "0.4rem", justifyContent: "center" }}>
-                            <button
+                        (isAdmin ||
+                          egg.recorded_by === session?.user?.email) && (
+                          <Stack
+                            direction="row"
+                            spacing={0.5}
+                            justifyContent="center"
+                          >
+                            <IconButton
+                              size="small"
                               onClick={() => handleEdit(egg)}
-                              style={{
-                                padding: "0.3rem 0.5rem",
-                                fontSize: "0.8rem",
-                                border: "1px solid #ccc",
-                                borderRadius: "4px",
-                                background: "#fff",
-                                cursor: "pointer",
-                              }}
                             >
-                              Edit
-                            </button>
-                            <button
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                            <IconButton
+                              size="small"
+                              color="error"
                               onClick={() => handleDelete(egg)}
-                              style={{
-                                padding: "0.3rem 0.5rem",
-                                fontSize: "0.8rem",
-                                border: "none",
-                                borderRadius: "4px",
-                                background: "#d32f2f",
-                                color: "#fff",
-                                cursor: "pointer",
-                              }}
+                              disabled={deleteMutation.isPending}
                             >
-                              Delete
-                            </button>
-                          </div>
-                        ) : null
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Stack>
+                        )
                       )}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </TableBody>
+            </Table>
+          </TableContainer>
         )}
-      </div>
-    </main>
+
+        {updateMutation.isError && (
+          <Alert severity="error" sx={{ mt: 1 }}>
+            {updateMutation.error.message}
+          </Alert>
+        )}
+
+        {deleteMutation.isError && (
+          <Alert severity="error" sx={{ mt: 1 }}>
+            {deleteMutation.error.message}
+          </Alert>
+        )}
+
+        {updateMutation.isSuccess && (
+          <Alert severity="success" sx={{ mt: 1 }}>
+            Egg updated
+          </Alert>
+        )}
+
+        {deleteMutation.isSuccess && (
+          <Alert severity="success" sx={{ mt: 1 }}>
+            Egg deleted
+          </Alert>
+        )}
+      </Card>
+    </Box>
   );
 }

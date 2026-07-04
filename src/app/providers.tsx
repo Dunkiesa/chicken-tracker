@@ -5,6 +5,8 @@ import { ThemeModeProvider } from "@/theme";
 import CssBaseline from "@mui/material/CssBaseline";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -23,7 +25,9 @@ export default function Providers({ children }: { children: React.ReactNode }) {
     <SessionProvider>
       <ThemeModeProvider>
         <CssBaseline />
-        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+        <LocalizationProvider dateAdapter={AdapterDateFns}>
+          <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+        </LocalizationProvider>
       </ThemeModeProvider>
     </SessionProvider>
   );
