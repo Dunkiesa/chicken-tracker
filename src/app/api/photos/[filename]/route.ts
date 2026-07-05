@@ -34,11 +34,10 @@ export async function GET(
     const ext = filename.split(".").pop()?.toLowerCase() || "";
     const contentType = MIME_TYPES[ext] || "application/octet-stream";
 
-    const imageDir = getImageDirectory();
+    const imageDir = resolve(getImageDirectory());
     const filePath = join(imageDir, filename);
 
-    // Ensure resolved path stays inside image directory
-    if (!filePath.startsWith(resolve(imageDir))) {
+    if (!filePath.startsWith(imageDir)) {
       return NextResponse.json({ message: "Invalid filename" }, { status: 400 });
     }
 
