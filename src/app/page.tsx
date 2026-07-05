@@ -12,7 +12,7 @@ import {
   Button,
   Alert,
   CircularProgress,
-  Grid,
+  Grid2 as Grid,
   Stack,
   Table,
   TableBody,
@@ -218,7 +218,7 @@ function DashboardContent() {
                 { label: "Active Hens", value: data.summary.active_laying_chickens, color: "warning.main" },
                 { label: "Total Hens", value: data.summary.total_laying_chickens, color: "secondary.main" },
               ].map((card) => (
-                <Grid item xs={6} sm={3} key={card.label}>
+                <Grid size={{ xs: 6, sm: 3 }} key={card.label}>
                   <Card>
                     <CardContent sx={{ textAlign: "center" }}>
                       <Typography
