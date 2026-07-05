@@ -39,13 +39,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     setMobileOpen(false);
   };
 
-  const drawerContent = (
-    <>
-      <Toolbar />
-      <NavMenu />
-    </>
-  );
-
   return (
     <Box sx={{ display: "flex" }}>
       <AppBar
@@ -88,33 +81,26 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       </AppBar>
 
       {isAuthenticated && isDesktop && (
-        <Box
-          component="nav"
+        <Drawer
+          variant="permanent"
           onMouseEnter={() => setDrawerHovered(true)}
           onMouseLeave={() => setDrawerHovered(false)}
           sx={{
             width: drawerWidth,
             flexShrink: 0,
             transition: theme.transitions.create("width"),
-            overflow: "visible",
+            "& .MuiDrawer-paper": {
+              width: drawerWidth,
+              overflowX: "hidden",
+              borderRight: `1px solid ${theme.palette.divider}`,
+              bgcolor: "background.paper",
+              transition: theme.transitions.create("width"),
+            },
           }}
         >
-          <Drawer
-            variant="permanent"
-            sx={{
-              width: "100%",
-              "& .MuiDrawer-paper": {
-                width: "100%",
-                overflowX: "hidden",
-                borderRight: `1px solid ${theme.palette.divider}`,
-                bgcolor: "background.paper",
-              },
-            }}
-          >
-            <Toolbar />
-            <NavMenu expanded={drawerHovered} />
-          </Drawer>
-        </Box>
+          <Toolbar />
+          <NavMenu expanded={drawerHovered} />
+        </Drawer>
       )}
 
       {isAuthenticated && !isDesktop && (

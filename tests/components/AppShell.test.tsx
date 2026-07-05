@@ -56,10 +56,10 @@ describe("AppShell", () => {
     });
     renderWithProviders(<AppShell>child</AppShell>);
     await waitFor(() => {
-      expect(screen.getByText("Dashboard")).toBeInTheDocument();
-      expect(screen.getByText("Roster")).toBeInTheDocument();
-      expect(screen.getByText("Log Egg")).toBeInTheDocument();
-      expect(screen.getByText("Admin")).toBeInTheDocument();
+      expect(screen.getByLabelText("Dashboard")).toBeInTheDocument();
+      expect(screen.getByLabelText("Roster")).toBeInTheDocument();
+      expect(screen.getByLabelText("Log Egg")).toBeInTheDocument();
+      expect(screen.getByLabelText("Admin")).toBeInTheDocument();
     });
     expect(screen.getByLabelText("user menu")).toBeInTheDocument();
   });

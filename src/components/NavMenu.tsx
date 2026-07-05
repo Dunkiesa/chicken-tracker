@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
@@ -66,6 +67,16 @@ export default function NavMenu({ expanded = false, onItemClick }: NavMenuProps)
   const { data: session } = useSession();
   const pathname = usePathname();
   const isAdmin = session?.user?.role === "Admin";
+  const [layoutExpanded, setLayoutExpanded] = useState(expanded);
+
+  useEffect(() => {
+    if (expanded) {
+      setLayoutExpanded(true);
+    } else {
+      const timer = setTimeout(() => setLayoutExpanded(false), 225);
+      return () => clearTimeout(timer);
+    }
+  }, [expanded]);
 
   const visibleItems = navItems.filter((item) => !item.adminOnly || isAdmin);
 
@@ -84,9 +95,12 @@ export default function NavMenu({ expanded = false, onItemClick }: NavMenuProps)
               mx: 1,
               borderRadius: 2,
               mb: 0.5,
-              minHeight: 48,
-              justifyContent: expanded ? "initial" : "center",
-              px: expanded ? 2 : 0,
+              height: 48,
+              justifyContent: layoutExpanded ? "initial" : "center",
+              px: layoutExpanded ? 2 : 0,
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              position: "relative",
               "&.Mui-selected": {
                 bgcolor: "primary.container",
                 color: "onPrimaryContainer",
@@ -101,9 +115,9 @@ export default function NavMenu({ expanded = false, onItemClick }: NavMenuProps)
           >
             <ListItemIcon
               sx={{
-                minWidth: 0,
+                ...(layoutExpanded && { minWidth: 0 }),
                 justifyContent: "center",
-                mr: expanded ? 2 : 0,
+                mr: layoutExpanded ? 2 : 0,
                 color: active ? "inherit" : "text.secondary",
               }}
             >
@@ -111,12 +125,18 @@ export default function NavMenu({ expanded = false, onItemClick }: NavMenuProps)
             </ListItemIcon>
             <ListItemText
               primary={item.label}
-              sx={{ opacity: expanded ? 1 : 0 }}
+              sx={{
+                opacity: expanded ? 1 : 0,
+                transition: "opacity 0.225s ease",
+                ...(!layoutExpanded && {
+                  position: "absolute",
+                }),
+              }}
             />
           </ListItemButton>
         );
 
-        if (!expanded) {
+        if (!layoutExpanded) {
           return (
             <ListItem key={item.href} disablePadding>
               <Tooltip title={item.label} placement="right" arrow>
