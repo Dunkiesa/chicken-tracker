@@ -1,35 +1,31 @@
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Container from "@mui/material/Container";
+import Typography from "@mui/material/Typography";
+
 export default function AuthErrorPage() {
   return (
-    <main
-      style={{
+    <Box
+      sx={{
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        minHeight: "100vh",
-        padding: "2rem",
-        textAlign: "center",
+        minHeight: "80vh",
+        p: 2,
       }}
     >
-      <h1 style={{ fontSize: "2rem", marginBottom: "1rem" }}>
-        Authentication Error
-      </h1>
-      <p style={{ color: "#666", maxWidth: "480px" }}>
-        Something went wrong during sign-in. Please try again.
-      </p>
-      <a
-        href="/"
-        style={{
-          marginTop: "1.5rem",
-          padding: "0.5rem 1rem",
-          background: "#2e7d32",
-          color: "#fff",
-          textDecoration: "none",
-          borderRadius: "4px",
-        }}
-      >
-        Back to Home
-      </a>
-    </main>
+      <Container maxWidth="sm" sx={{ textAlign: "center" }}>
+        <Typography variant="h4" gutterBottom>
+          Authentication Error
+        </Typography>
+        <Typography color="text.secondary" paragraph>
+          Something went wrong during sign-in. Please try again.
+        </Typography>
+        <Button variant="contained" href="/" sx={{ mt: 2 }}>
+          Back to Home
+        </Button>
+      </Container>
+    </Box>
   );
 }

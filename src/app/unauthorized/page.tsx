@@ -1,36 +1,37 @@
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Container from "@mui/material/Container";
+import Typography from "@mui/material/Typography";
+
 export default function UnauthorizedPage() {
   return (
-    <main
-      style={{
+    <Box
+      sx={{
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        minHeight: "100vh",
-        padding: "2rem",
-        textAlign: "center",
+        minHeight: "80vh",
+        p: 2,
       }}
     >
-      <h1 style={{ fontSize: "2rem", marginBottom: "1rem" }}>
-        Not Authorized
-      </h1>
-      <p style={{ color: "#666", maxWidth: "480px" }}>
-        Your Google account was authenticated, but your email is not in the
-        allowlist for this app. Contact an admin to gain access.
-      </p>
-      <a
-        href="/api/auth/signout"
-        style={{
-          marginTop: "1.5rem",
-          padding: "0.5rem 1rem",
-          background: "#d32f2f",
-          color: "#fff",
-          textDecoration: "none",
-          borderRadius: "4px",
-        }}
-      >
-        Sign Out
-      </a>
-    </main>
+      <Container maxWidth="sm" sx={{ textAlign: "center" }}>
+        <Typography variant="h4" gutterBottom>
+          Not Authorized
+        </Typography>
+        <Typography color="text.secondary" paragraph>
+          Your Google account was authenticated, but your email is not in the
+          allowlist for this app. Contact an admin to gain access.
+        </Typography>
+        <Button
+          variant="contained"
+          color="error"
+          href="/api/auth/signout"
+          sx={{ mt: 2 }}
+        >
+          Sign Out
+        </Button>
+      </Container>
+    </Box>
   );
 }
