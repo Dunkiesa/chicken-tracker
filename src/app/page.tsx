@@ -434,19 +434,6 @@ function DashboardContent() {
                   </Typography>
                 </Stack>
 
-                {data.dry_periods_alert.length > 0 && (
-                  <Alert severity="warning" sx={{ mb: 2 }}>
-                    <Typography variant="subtitle2" fontWeight={600} gutterBottom>
-                      Needs attention
-                    </Typography>
-                    {data.dry_periods_alert.map((h) => (
-                      <Typography key={h.chicken_id} variant="body2">
-                        {h.chicken_name} — {h.days_since_last_egg} day{h.days_since_last_egg !== 1 ? "s" : ""} since last egg
-                      </Typography>
-                    ))}
-                  </Alert>
-                )}
-
                 {data.dry_periods_current.length === 0 ? (
                   <Typography variant="body2" color="text.secondary">
                     No active laying hens.
@@ -457,12 +444,14 @@ function DashboardContent() {
                       <TableHead>
                         <TableRow>
                           <TableCell>Hen</TableCell>
-                          <TableCell align="right">Days Since Last Egg</TableCell>
+                          <TableCell align="right">Last Egg</TableCell>
                           <TableCell align="right">Longest Streak</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
-                        {data.dry_periods_current.map((h) => {
+                        {[...data.dry_periods_current]
+                          .sort((a, b) => (b.days_since_last_egg ?? 0) - (a.days_since_last_egg ?? 0))
+                          .map((h) => {
                           const longest = data.dry_periods_longest.find(
                             (l) => l.chicken_id === h.chicken_id
                           );
