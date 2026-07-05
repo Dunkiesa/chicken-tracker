@@ -1,8 +1,48 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef, memo } from "react";
+import { useState, useMemo, Suspense, memo } from "react";
 import { useSession } from "next-auth/react";
 import { useParams, useRouter } from "next/navigation";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import {
+  Box,
+  Card,
+  CardContent,
+  CardMedia,
+  Typography,
+  Button,
+  Alert,
+  CircularProgress,
+  Stack,
+  TextField,
+  Autocomplete,
+  Skeleton,
+  MenuItem,
+  Chip,
+  Avatar,
+  IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  ImageList,
+  ImageListItem,
+  List,
+  ListItem,
+  ListItemText,
+  Grid,
+  FormControlLabel,
+  Checkbox,
+} from "@mui/material";
+import EditIcon from "@mui/icons-material/Edit";
+import DeleteIcon from "@mui/icons-material/Delete";
+import AddIcon from "@mui/icons-material/Add";
+import PhotoCameraIcon from "@mui/icons-material/PhotoCamera";
+import StarIcon from "@mui/icons-material/Star";
 
 type Chicken = {
   id: number;
@@ -17,6 +57,7 @@ type Chicken = {
   departure_reason: string | null;
   created_at: string;
   primary_photo_id: number | null;
+  primary_photo_path: string | null;
 };
 
 type Note = {
@@ -39,6 +80,19 @@ type Photo = {
   created_at: string;
 };
 
+type DynamicListEntry = {
+  id: number;
+  value: string;
+};
+
+const SEX_OPTIONS = ["Hen", "Rooster", "Unknown"] as const;
+
+const sexBadgeColors: Record<string, { bg: string; color: string }> = {
+  Hen: { bg: "#fce4ec", color: "#c62828" },
+  Rooster: { bg: "#e3f2fd", color: "#1565c0" },
+};
+const defaultSexBadgeColors = { bg: "#f3e5f5", color: "#7b1fa2" };
+
 function todayStr(): string {
   const d = new Date();
   const y = d.getFullYear();
@@ -47,1142 +101,1269 @@ function todayStr(): string {
   return `${y}-${m}-${day}`;
 }
 
+function formatDateForPicker(dateStr: string): Date {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function formatDateForApi(date: Date | null): string {
+  if (!date) return "";
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+async function fetchChickenApi(id: number): Promise<Chicken> {
+  const res = await fetch(`/api/chickens/${id}`);
+  if (!res.ok) throw new Error("Failed to fetch chicken");
+  return res.json();
+}
+
+async function fetchNotesApi(chickenId: number): Promise<Note[]> {
+  const res = await fetch(`/api/chickens/${chickenId}/notes`);
+  if (!res.ok) throw new Error("Failed to fetch notes");
+  return res.json();
+}
+
+async function fetchPhotosApi(chickenId: number): Promise<Photo[]> {
+  const res = await fetch(`/api/chickens/${chickenId}/photos`);
+  if (!res.ok) throw new Error("Failed to fetch photos");
+  return res.json();
+}
+
+async function fetchDynamicListApi(type: string): Promise<DynamicListEntry[]> {
+  const res = await fetch(`/api/dynamic-lists/${type}`);
+  if (!res.ok) throw new Error(`Failed to fetch ${type}`);
+  return res.json();
+}
+
+async function createNoteApi(data: {
+  chickenId: number;
+  content: string;
+  date: string;
+}): Promise<Note> {
+  const res = await fetch(`/api/chickens/${data.chickenId}/notes`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content: data.content, date: data.date }),
+  });
+  if (!res.ok) {
+    const result = await res.json();
+    throw new Error(result.message || "Failed to add note");
+  }
+  return res.json();
+}
+
+async function updateNoteApi(data: {
+  chickenId: number;
+  noteId: number;
+  content: string;
+  date: string;
+}): Promise<Note> {
+  const res = await fetch(`/api/chickens/${data.chickenId}/notes/${data.noteId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content: data.content, date: data.date }),
+  });
+  if (!res.ok) {
+    const result = await res.json();
+    throw new Error(result.message || "Failed to update note");
+  }
+  return res.json();
+}
+
+async function deleteNoteApi(data: {
+  chickenId: number;
+  noteId: number;
+}): Promise<void> {
+  const res = await fetch(`/api/chickens/${data.chickenId}/notes/${data.noteId}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) {
+    const result = await res.json();
+    throw new Error(result.message || "Failed to delete note");
+  }
+}
+
+async function uploadPhotoApi(data: {
+  chickenId: number;
+  file: File;
+  description?: string;
+}): Promise<Photo> {
+  const formData = new FormData();
+  formData.append("file", data.file);
+  if (data.description) {
+    formData.append("description", data.description);
+  }
+  const res = await fetch(`/api/chickens/${data.chickenId}/photos`, {
+    method: "POST",
+    body: formData,
+  });
+  if (!res.ok) {
+    const result = await res.json();
+    throw new Error(result.message || "Failed to upload photo");
+  }
+  return res.json();
+}
+
+async function deletePhotoApi(data: {
+  chickenId: number;
+  photoId: number;
+}): Promise<void> {
+  const res = await fetch(`/api/chickens/${data.chickenId}/photos/${data.photoId}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) {
+    const result = await res.json();
+    throw new Error(result.message || "Failed to delete photo");
+  }
+}
+
+async function setPrimaryPhotoApi(data: {
+  chickenId: number;
+  photoId: number;
+}): Promise<void> {
+  const res = await fetch(
+    `/api/chickens/${data.chickenId}/photos/${data.photoId}/primary`,
+    { method: "PUT" }
+  );
+  if (!res.ok) {
+    const result = await res.json();
+    throw new Error(result.message || "Failed to set primary photo");
+  }
+}
+
+async function updateChickenApi(
+  id: number,
+  data: Record<string, unknown>
+): Promise<Chicken> {
+  const res = await fetch(`/api/chickens/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const result = await res.json();
+    throw new Error(result.message || "Failed to update chicken");
+  }
+  return res.json();
+}
+
+const addNoteSchema = z.object({
+  content: z.string().min(1, "Content is required"),
+  date: z.string().min(1, "Date is required"),
+});
+
+type AddNoteFormValues = z.infer<typeof addNoteSchema>;
+
+const editNoteSchema = z.object({
+  content: z.string().min(1, "Content is required"),
+  date: z.string().min(1, "Date is required"),
+});
+
+type EditNoteFormValues = z.infer<typeof editNoteSchema>;
+
+const uploadPhotoSchema = z.object({
+  description: z.string(),
+});
+
+type UploadPhotoFormValues = z.infer<typeof uploadPhotoSchema>;
+
+const editChickenSchema = z
+  .object({
+    name: z.string().min(1, "Name is required"),
+    sex: z.enum(["Hen", "Rooster", "Unknown"]),
+    breed: z.string(),
+    origin_source: z.string(),
+    acquisition_type: z.string(),
+    acquisition_date: z.string(),
+    departed: z.boolean(),
+    departure_date: z.string(),
+    departure_reason: z.string(),
+  })
+  .refine(
+    (data) => {
+      if (data.departed && !data.departure_date) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: "Departure date is required when marking as departed",
+      path: ["departure_date"],
+    }
+  );
+
+type EditChickenFormValues = z.infer<typeof editChickenSchema>;
+
 export default function ChickenProfilePage() {
+  return (
+    <Suspense
+      fallback={
+        <Box sx={{ p: 2, display: "flex", justifyContent: "center" }}>
+          <CircularProgress />
+        </Box>
+      }
+    >
+      <ProfileContent />
+    </Suspense>
+  );
+}
+
+function ProfileContent() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const params = useParams();
+  const queryClient = useQueryClient();
   const chickenId = parseInt(params.id as string, 10);
-
-  const [chicken, setChicken] = useState<Chicken | null>(null);
-  const [notes, setNotes] = useState<Note[]>([]);
-  const [photos, setPhotos] = useState<Photo[]>([]);
-
-  const [newContent, setNewContent] = useState("");
-  const [newDate, setNewDate] = useState(todayStr());
-  const [adding, setAdding] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
-  const [editContent, setEditContent] = useState("");
-  const [editDate, setEditDate] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  const [uploadDescription, setUploadDescription] = useState("");
-  const [uploading, setUploading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const [editing, setEditing] = useState(false);
-  const [savingChicken, setSavingChicken] = useState(false);
-  const [editName, setEditName] = useState("");
-  const [editSex, setEditSex] = useState<"Hen" | "Rooster" | "Unknown">("Unknown");
-  const [editBreed, setEditBreed] = useState("");
-  const [editOrigin, setEditOrigin] = useState("");
-  const [editAcquisition, setEditAcquisition] = useState("");
-  const [editAcquisitionDate, setEditAcquisitionDate] = useState("");
-  const [editDeparted, setEditDeparted] = useState(false);
-  const [editDepartureDate, setEditDepartureDate] = useState("");
-  const [editDepartureReason, setEditDepartureReason] = useState("");
-
-  const [breeds, setBreeds] = useState<{ id: number; value: string }[]>([]);
-  const [originSources, setOriginSources] = useState<{ id: number; value: string }[]>([]);
-  const [acquisitionTypes, setAcquisitionTypes] = useState<{ id: number; value: string }[]>([]);
-
   const isAdmin = session?.user?.role === "Admin";
 
-  const fetchDynamicLists = useCallback(async () => {
-    try {
-      const [breedsRes, originsRes, acquisitionsRes] = await Promise.all([
-        fetch("/api/dynamic-lists/breeds"),
-        fetch("/api/dynamic-lists/origin-sources"),
-        fetch("/api/dynamic-lists/acquisition-types"),
-      ]);
-      if (breedsRes.ok) setBreeds(await breedsRes.json());
-      if (originsRes.ok) setOriginSources(await originsRes.json());
-      if (acquisitionsRes.ok) setAcquisitionTypes(await acquisitionsRes.json());
-    } catch {
-      // ignore
-    }
-  }, []);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [addNoteDialogOpen, setAddNoteDialogOpen] = useState(false);
+  const [lightboxPhoto, setLightboxPhoto] = useState<Photo | null>(null);
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [fileInputKey, setFileInputKey] = useState(0);
 
-  const fetchData = useCallback(async () => {
-    if (isNaN(chickenId)) return;
-    try {
-      const [chickenRes, notesRes, photosRes] = await Promise.all([
-        fetch(`/api/chickens/${chickenId}`),
-        fetch(`/api/chickens/${chickenId}/notes`),
-        fetch(`/api/chickens/${chickenId}/photos`),
-      ]);
-      if (chickenRes.ok) setChicken(await chickenRes.json());
-      if (notesRes.ok) setNotes(await notesRes.json());
-      if (photosRes.ok) setPhotos(await photosRes.json());
-    } catch {
-      // ignore
-    }
-  }, [chickenId]);
+  const {
+    data: chicken,
+    isLoading: chickenLoading,
+    error: chickenError,
+  } = useQuery({
+    queryKey: ["chicken", chickenId],
+    queryFn: () => fetchChickenApi(chickenId),
+    enabled: status === "authenticated" && !isNaN(chickenId),
+  });
 
-  useEffect(() => {
-    if (status === "unauthenticated") {
-      router.replace("/");
-      return;
-    }
-    if (status === "authenticated" && !isNaN(chickenId)) {
-      fetchData();
-      fetchDynamicLists();
-    }
-  }, [status, chickenId, fetchData, router, fetchDynamicLists]);
+  const { data: notes } = useQuery({
+    queryKey: ["chicken-notes", chickenId],
+    queryFn: () => fetchNotesApi(chickenId),
+    enabled: status === "authenticated" && !isNaN(chickenId),
+  });
 
-  async function handleAddNote(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    if (!newContent.trim()) return;
+  const { data: photos } = useQuery({
+    queryKey: ["chicken-photos", chickenId],
+    queryFn: () => fetchPhotosApi(chickenId),
+    enabled: status === "authenticated" && !isNaN(chickenId),
+  });
 
-    setAdding(true);
-    try {
-      const res = await fetch(`/api/chickens/${chickenId}/notes`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: newContent.trim(), date: newDate }),
-      });
+  const { data: breeds } = useQuery({
+    queryKey: ["dynamic-lists", "breeds"],
+    queryFn: () => fetchDynamicListApi("breeds"),
+    enabled: status === "authenticated",
+  });
 
-      if (!res.ok) {
-        const data = await res.json();
-        setError(data.message || "Failed to add note");
-        return;
-      }
+  const { data: originSources } = useQuery({
+    queryKey: ["dynamic-lists", "origin-sources"],
+    queryFn: () => fetchDynamicListApi("origin-sources"),
+    enabled: status === "authenticated",
+  });
 
-      setNewContent("");
-      setNewDate(todayStr());
-      await fetchData();
-    } catch {
-      setError("Failed to add note");
-    } finally {
-      setAdding(false);
-    }
-  }
+  const { data: acquisitionTypes } = useQuery({
+    queryKey: ["dynamic-lists", "acquisition-types"],
+    queryFn: () => fetchDynamicListApi("acquisition-types"),
+    enabled: status === "authenticated",
+  });
 
-  async function handleUpdateNote(noteId: number) {
-    setError(null);
-    if (!editContent.trim()) return;
+  const editChickenMutation = useMutation({
+    mutationFn: (data: Record<string, unknown>) =>
+      updateChickenApi(chickenId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["chicken", chickenId] });
+      setEditDialogOpen(false);
+    },
+  });
 
-    setSaving(true);
-    try {
-      const res = await fetch(
-        `/api/chickens/${chickenId}/notes/${noteId}`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            content: editContent.trim(),
-            date: editDate,
-          }),
-        }
-      );
+  const addNoteMutation = useMutation({
+    mutationFn: (data: { content: string; date: string }) =>
+      createNoteApi({ chickenId, ...data }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["chicken-notes", chickenId] });
+      setAddNoteDialogOpen(false);
+    },
+  });
 
-      if (!res.ok) {
-        const data = await res.json();
-        setError(data.message || "Failed to update note");
-        return;
-      }
+  const updateNoteMutation = useMutation({
+    mutationFn: (data: {
+      noteId: number;
+      content: string;
+      date: string;
+    }) => updateNoteApi({ chickenId, ...data }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["chicken-notes", chickenId] });
+    },
+  });
 
-      setEditingNoteId(null);
-      setEditContent("");
-      setEditDate("");
-      await fetchData();
-    } catch {
-      setError("Failed to update note");
-    } finally {
-      setSaving(false);
-    }
-  }
+  const deleteNoteMutation = useMutation({
+    mutationFn: (noteId: number) => deleteNoteApi({ chickenId, noteId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["chicken-notes", chickenId] });
+    },
+  });
 
-  async function handleDeleteNote(noteId: number) {
-    if (!confirm("Delete this note?")) return;
+  const uploadPhotoMutation = useMutation({
+    mutationFn: (data: { file: File; description?: string }) =>
+      uploadPhotoApi({ chickenId, ...data }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["chicken-photos", chickenId] });
+      queryClient.invalidateQueries({ queryKey: ["chicken", chickenId] });
+      setUploadDialogOpen(false);
+      setFileInputKey((k) => k + 1);
+    },
+  });
 
-    try {
-      const res = await fetch(
-        `/api/chickens/${chickenId}/notes/${noteId}`,
-        { method: "DELETE" }
-      );
+  const deletePhotoMutation = useMutation({
+    mutationFn: (photoId: number) => deletePhotoApi({ chickenId, photoId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["chicken-photos", chickenId] });
+      queryClient.invalidateQueries({ queryKey: ["chicken", chickenId] });
+    },
+  });
 
-      if (!res.ok) {
-        const data = await res.json();
-        setError(data.message || "Failed to delete note");
-        return;
-      }
+  const setPrimaryPhotoMutation = useMutation({
+    mutationFn: (photoId: number) => setPrimaryPhotoApi({ chickenId, photoId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["chicken", chickenId] });
+    },
+  });
 
-      await fetchData();
-    } catch {
-      setError("Failed to delete note");
-    }
-  }
+  const editChickenForm = useForm<EditChickenFormValues>({
+    resolver: zodResolver(editChickenSchema),
+    mode: "onBlur",
+    defaultValues: {
+      name: "",
+      sex: "Unknown",
+      breed: "",
+      origin_source: "",
+      acquisition_type: "",
+      acquisition_date: "",
+      departed: false,
+      departure_date: "",
+      departure_reason: "",
+    },
+  });
 
-  async function handleUploadPhoto(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    const file = fileInputRef.current?.files?.[0];
-    if (!file) return;
+  const addNoteForm = useForm<AddNoteFormValues>({
+    resolver: zodResolver(addNoteSchema),
+    mode: "onBlur",
+    defaultValues: {
+      content: "",
+      date: todayStr(),
+    },
+  });
 
-    setUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      if (uploadDescription.trim()) {
-        formData.append("description", uploadDescription.trim());
-      }
+  const breedOptions = useMemo(
+    () => breeds?.map((b) => b.value) ?? [],
+    [breeds]
+  );
+  const originOptions = useMemo(
+    () => originSources?.map((o) => o.value) ?? [],
+    [originSources]
+  );
+  const acqOptions = useMemo(
+    () => acquisitionTypes?.map((a) => a.value) ?? [],
+    [acquisitionTypes]
+  );
 
-      const res = await fetch(`/api/chickens/${chickenId}/photos`, {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        setError(data.message || "Failed to upload photo");
-        return;
-      }
-
-      setUploadDescription("");
-      if (fileInputRef.current) fileInputRef.current.value = "";
-      await fetchData();
-    } catch {
-      setError("Failed to upload photo");
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  async function handleSetPrimary(photoId: number) {
-    setError(null);
-    try {
-      const res = await fetch(
-        `/api/chickens/${chickenId}/photos/${photoId}/primary`,
-        { method: "PUT" }
-      );
-      if (!res.ok) {
-        const data = await res.json();
-        setError(data.message || "Failed to set primary photo");
-        return;
-      }
-      await fetchData();
-    } catch {
-      setError("Failed to set primary photo");
-    }
-  }
-
-  async function handleDeletePhoto(photoId: number) {
-    if (!confirm("Delete this photo?")) return;
-    setError(null);
-    try {
-      const res = await fetch(
-        `/api/chickens/${chickenId}/photos/${photoId}`,
-        { method: "DELETE" }
-      );
-      if (!res.ok) {
-        const data = await res.json();
-        setError(data.message || "Failed to delete photo");
-        return;
-      }
-      await fetchData();
-    } catch {
-      setError("Failed to delete photo");
-    }
-  }
-
-  function startEdit(note: Note) {
-    setEditingNoteId(note.id);
-    setEditContent(note.content);
-    setEditDate(note.date);
-    setError(null);
-  }
-
-  function cancelEdit() {
-    setEditingNoteId(null);
-    setEditContent("");
-    setEditDate("");
-  }
-
-  function startEditChicken() {
+  const handleOpenEditDialog = () => {
     if (!chicken) return;
-    setEditing(true);
-    setEditName(chicken.name);
-    setEditSex(chicken.sex as "Hen" | "Rooster" | "Unknown");
-    setEditBreed(chicken.breed_name || "");
-    setEditOrigin(chicken.origin_source_name || "");
-    setEditAcquisition(chicken.acquisition_type_name || "");
-    setEditAcquisitionDate(chicken.acquisition_date || "");
-    setEditDeparted(chicken.departed);
-    setEditDepartureDate(chicken.departure_date || "");
-    setEditDepartureReason(chicken.departure_reason || "");
-    setError(null);
-  }
+    editChickenForm.reset({
+      name: chicken.name,
+      sex: chicken.sex as "Hen" | "Rooster" | "Unknown",
+      breed: chicken.breed_name || "",
+      origin_source: chicken.origin_source_name || "",
+      acquisition_type: chicken.acquisition_type_name || "",
+      acquisition_date: chicken.acquisition_date || "",
+      departed: chicken.departed,
+      departure_date: chicken.departure_date || "",
+      departure_reason: chicken.departure_reason || "",
+    });
+    setEditDialogOpen(true);
+  };
 
-  function cancelEditChicken() {
-    setEditing(false);
-  }
+  const handleSaveEdit = (data: EditChickenFormValues) => {
+    const updates: Record<string, unknown> = {
+      name: data.name,
+      sex: data.sex,
+    };
+    if (data.breed) updates.breed = data.breed;
+    if (data.origin_source) updates.origin_source = data.origin_source;
+    if (data.acquisition_type) updates.acquisition_type = data.acquisition_type;
+    updates.acquisition_date = data.acquisition_date || null;
+    updates.departed = data.departed;
+    if (data.departure_date) updates.departure_date = data.departure_date;
+    if (data.departure_reason) updates.departure_reason = data.departure_reason;
+    editChickenMutation.mutate(updates);
+  };
 
-  async function handleSaveEdit(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    if (!editName.trim()) return;
+  const handleOpenAddNoteDialog = () => {
+    addNoteForm.reset({
+      content: "",
+      date: todayStr(),
+    });
+    setAddNoteDialogOpen(true);
+  };
 
-    setSavingChicken(true);
-    try {
-      const updates: Record<string, unknown> = {
-        name: editName.trim(),
-        sex: editSex,
-      };
+  const handleAddNote = (data: AddNoteFormValues) => {
+    addNoteMutation.mutate(data);
+  };
 
-      if (editBreed.trim()) {
-        updates.breed = editBreed.trim();
-      }
-      if (editOrigin.trim()) {
-        updates.origin_source = editOrigin.trim();
-      }
-      if (editAcquisition.trim()) {
-        updates.acquisition_type = editAcquisition.trim();
-      }
-      if (editAcquisitionDate) {
-        updates.acquisition_date = editAcquisitionDate;
-      } else {
-        updates.acquisition_date = null;
-      }
-      updates.departed = editDeparted;
-      if (editDepartureDate) {
-        updates.departure_date = editDepartureDate;
-      }
-      if (editDepartureReason.trim()) {
-        updates.departure_reason = editDepartureReason.trim();
-      }
+  const handleDeleteNote = (noteId: number) => {
+    if (!confirm("Delete this note?")) return;
+    deleteNoteMutation.mutate(noteId);
+  };
 
-      const res = await fetch(`/api/chickens/${chickenId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updates),
-      });
+  const handleOpenUploadDialog = () => {
+    uploadPhotoMutation.reset();
+    setUploadDialogOpen(true);
+  };
 
-      if (!res.ok) {
-        const data = await res.json();
-        setError(data.message || "Failed to update chicken");
-        setSavingChicken(false);
-        return;
-      }
+  const handleUploadPhoto = (file: File, description: string) => {
+    uploadPhotoMutation.mutate({ file, description });
+  };
 
-      setEditing(false);
-      await fetchData();
-    } catch {
-      setError("Failed to update chicken");
-    } finally {
-      setSavingChicken(false);
-    }
-  }
+  const handleSetPrimary = (photoId: number) => {
+    setPrimaryPhotoMutation.mutate(photoId);
+  };
 
-  const canModify = (note: Note) =>
+  const handleDeletePhoto = (photoId: number) => {
+    if (!confirm("Delete this photo?")) return;
+    deletePhotoMutation.mutate(photoId);
+  };
+
+  const canModifyNote = (note: Note) =>
     isAdmin || note.recorded_by === session?.user?.email;
 
-  if (status === "loading" || !chicken) {
+  if (status === "loading") {
     return (
-      <main style={{ padding: "2rem", textAlign: "center", color: "#999" }}>
-        Loading...
-      </main>
+      <Box sx={{ p: 2, display: "flex", justifyContent: "center" }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (status === "unauthenticated") {
+    router.replace("/");
+    return null;
+  }
+
+  if (isNaN(chickenId)) {
+    return (
+      <Box sx={{ p: 2 }}>
+        <Alert severity="error">Invalid chicken ID</Alert>
+      </Box>
     );
   }
 
   return (
-    <main
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        padding: "1.5rem",
-        gap: "1.5rem",
-        maxWidth: "700px",
-        margin: "0 auto",
-      }}
-    >
-      <h1 style={{ fontSize: "1.5rem" }}>{chicken.name}</h1>
-
-      <div
-        style={{
-          width: "100%",
-          padding: "1.25rem 1.5rem",
-          borderRadius: "8px",
-          border: "1px solid #ddd",
-          background: "#fff",
-        }}
-      >
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "auto 1fr",
-            gap: "0.5rem 1rem",
-            fontSize: "0.9rem",
-          }}
-        >
-          <span style={{ fontWeight: 600, color: "#555" }}>Sex</span>
-          <span>
-            <span
-              style={{
-                padding: "0.1rem 0.4rem",
-                borderRadius: "4px",
-                fontSize: "0.8rem",
-                fontWeight: 600,
-                background:
-                  chicken.sex === "Hen"
-                    ? "#fce4ec"
-                    : chicken.sex === "Rooster"
-                    ? "#e3f2fd"
-                    : "#f3e5f5",
-                color:
-                  chicken.sex === "Hen"
-                    ? "#c62828"
-                    : chicken.sex === "Rooster"
-                    ? "#1565c0"
-                    : "#7b1fa2",
-              }}
-            >
-              {chicken.sex}
-            </span>
-          </span>
-          <span style={{ fontWeight: 600, color: "#555" }}>Breed</span>
-          <span>{chicken.breed_name || "-"}</span>
-          <span style={{ fontWeight: 600, color: "#555" }}>Origin</span>
-          <span>{chicken.origin_source_name || "-"}</span>
-          <span style={{ fontWeight: 600, color: "#555" }}>Acquisition</span>
-          <span>{chicken.acquisition_type_name || "-"}</span>
-          <span style={{ fontWeight: 600, color: "#555" }}>Acquisition Date</span>
-          <span>{chicken.acquisition_date || "-"}</span>
-          <span style={{ fontWeight: 600, color: "#555" }}>Status</span>
-          <span>
-            {chicken.departed ? (
-              <span
-                style={{
-                  padding: "0.1rem 0.4rem",
-                  borderRadius: "4px",
-                  fontSize: "0.8rem",
-                  fontWeight: 600,
-                  background: "#ffebee",
-                  color: "#b71c1c",
-                }}
-              >
-                Departed
-              </span>
-            ) : (
-              <span
-                style={{
-                  padding: "0.1rem 0.4rem",
-                  borderRadius: "4px",
-                  fontSize: "0.8rem",
-                  fontWeight: 600,
-                  background: "#e8f5e9",
-                  color: "#2e7d32",
-                }}
-              >
-                Active
-              </span>
-            )}
-            {chicken.departed && chicken.departure_date && (
-              <span style={{ marginLeft: "0.5rem", color: "#888", fontSize: "0.8rem" }}>
-                {chicken.departure_date}
-                {chicken.departure_reason && ` · ${chicken.departure_reason}`}
-              </span>
-            )}
-          </span>
-        </div>
-      </div>
-
-      {editing && isAdmin && (
-        <div
-          style={{
-            width: "100%",
-            padding: "1.25rem 1.5rem",
-            borderRadius: "8px",
-            border: "1px solid #1565c0",
-            background: "#fff",
-          }}
-        >
-          <h2 style={{ fontSize: "1.125rem", marginBottom: "1rem" }}>
-            Edit Chicken
-          </h2>
-          <form
-            onSubmit={handleSaveEdit}
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: "0.75rem",
-            }}
-          >
-            <div style={{ display: "grid", gridTemplateColumns: "100px 1fr", gap: "0.5rem", alignItems: "center" }}>
-              <label style={{ fontWeight: 600, color: "#555", fontSize: "0.9rem" }}>Name</label>
-              <input
-                type="text"
-                value={editName}
-                onChange={(e) => setEditName(e.target.value)}
-                required
-                style={{
-                  padding: "0.5rem",
-                  border: "1px solid #ccc",
-                  borderRadius: "4px",
-                  fontSize: "0.9rem",
-                }}
-              />
-            </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "100px 1fr", gap: "0.5rem", alignItems: "center" }}>
-              <label style={{ fontWeight: 600, color: "#555", fontSize: "0.9rem" }}>Sex</label>
-              <select
-                value={editSex}
-                onChange={(e) => setEditSex(e.target.value as "Hen" | "Rooster" | "Unknown")}
-                style={{
-                  padding: "0.5rem",
-                  border: "1px solid #ccc",
-                  borderRadius: "4px",
-                  fontSize: "0.9rem",
-                  background: "#fff",
-                }}
-              >
-                <option value="Unknown">Unknown</option>
-                <option value="Hen">Hen</option>
-                <option value="Rooster">Rooster</option>
-              </select>
-            </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "100px 1fr", gap: "0.5rem", alignItems: "center" }}>
-              <label style={{ fontWeight: 600, color: "#555", fontSize: "0.9rem" }}>Breed</label>
-              <input
-                type="text"
-                value={editBreed}
-                onChange={(e) => setEditBreed(e.target.value)}
-                list="breeds-list"
-                placeholder="Select or type new"
-                style={{
-                  padding: "0.5rem",
-                  border: "1px solid #ccc",
-                  borderRadius: "4px",
-                  fontSize: "0.9rem",
-                }}
-              />
-              <datalist id="breeds-list">
-                {breeds.map((b) => (
-                  <option key={b.id} value={b.value} />
-                ))}
-              </datalist>
-            </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "100px 1fr", gap: "0.5rem", alignItems: "center" }}>
-              <label style={{ fontWeight: 600, color: "#555", fontSize: "0.9rem" }}>Origin Source</label>
-              <input
-                type="text"
-                value={editOrigin}
-                onChange={(e) => setEditOrigin(e.target.value)}
-                list="origin-list"
-                placeholder="Select or type new"
-                style={{
-                  padding: "0.5rem",
-                  border: "1px solid #ccc",
-                  borderRadius: "4px",
-                  fontSize: "0.9rem",
-                }}
-              />
-              <datalist id="origin-list">
-                {originSources.map((o) => (
-                  <option key={o.id} value={o.value} />
-                ))}
-              </datalist>
-            </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "100px 1fr", gap: "0.5rem", alignItems: "center" }}>
-              <label style={{ fontWeight: 600, color: "#555", fontSize: "0.9rem" }}>Acquisition Type</label>
-              <input
-                type="text"
-                value={editAcquisition}
-                onChange={(e) => setEditAcquisition(e.target.value)}
-                list="acquisition-list"
-                placeholder="Select or type new"
-                style={{
-                  padding: "0.5rem",
-                  border: "1px solid #ccc",
-                  borderRadius: "4px",
-                  fontSize: "0.9rem",
-                }}
-              />
-              <datalist id="acquisition-list">
-                {acquisitionTypes.map((a) => (
-                  <option key={a.id} value={a.value} />
-                ))}
-              </datalist>
-            </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "100px 1fr", gap: "0.5rem", alignItems: "center" }}>
-              <label style={{ fontWeight: 600, color: "#555", fontSize: "0.9rem" }}>Acquisition Date</label>
-              <input
-                type="date"
-                value={editAcquisitionDate}
-                onChange={(e) => setEditAcquisitionDate(e.target.value)}
-                style={{
-                  padding: "0.5rem",
-                  border: "1px solid #ccc",
-                  borderRadius: "4px",
-                  fontSize: "0.9rem",
-                }}
-              />
-            </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "100px 1fr", gap: "0.5rem", alignItems: "center" }}>
-              <label style={{ fontWeight: 600, color: "#555", fontSize: "0.9rem" }}>Status</label>
-              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                <input
-                  type="checkbox"
-                  checked={editDeparted}
-                  onChange={(e) => setEditDeparted(e.target.checked)}
-                  style={{ width: "auto", cursor: "pointer" }}
-                />
-                <span style={{ fontSize: "0.9rem" }}>Departed</span>
-              </div>
-            </div>
-
-            {editDeparted && (
-              <>
-                <div style={{ display: "grid", gridTemplateColumns: "100px 1fr", gap: "0.5rem", alignItems: "center" }}>
-                  <label style={{ fontWeight: 600, color: "#555", fontSize: "0.9rem" }}>Departure Date</label>
-                  <input
-                    type="date"
-                    value={editDepartureDate}
-                    onChange={(e) => setEditDepartureDate(e.target.value)}
-                    style={{
-                      padding: "0.5rem",
-                      border: "1px solid #ccc",
-                      borderRadius: "4px",
-                      fontSize: "0.9rem",
-                    }}
-                  />
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "100px 1fr", gap: "0.5rem", alignItems: "center" }}>
-                  <label style={{ fontWeight: 600, color: "#555", fontSize: "0.9rem" }}>Reason</label>
-                  <input
-                    type="text"
-                    value={editDepartureReason}
-                    onChange={(e) => setEditDepartureReason(e.target.value)}
-                    placeholder="Reason (optional)"
-                    style={{
-                      padding: "0.5rem",
-                      border: "1px solid #ccc",
-                      borderRadius: "4px",
-                      fontSize: "0.9rem",
-                    }}
-                  />
-                </div>
-              </>
-            )}
-
-            <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-              <button
-                type="submit"
-                disabled={savingChicken || !editName.trim()}
-                style={{
-                  padding: "0.4rem 1rem",
-                  background: savingChicken ? "#90caf9" : "#1565c0",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: "4px",
-                  fontSize: "0.9rem",
-                  cursor: savingChicken || !editName.trim() ? "not-allowed" : "pointer",
-                  opacity: savingChicken || !editName.trim() ? 0.6 : 1,
-                }}
-              >
-                 {savingChicken ? "Saving..." : "Save"}
-              </button>
-              <button
-                type="button"
-                onClick={cancelEditChicken}
-                disabled={savingChicken}
-                style={{
-                  padding: "0.4rem 1rem",
-                  background: "#757575",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: "4px",
-                  fontSize: "0.9rem",
-                  cursor: savingChicken ? "not-allowed" : "pointer",
-                }}
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {isAdmin && (
-        <div
-          style={{
-            width: "100%",
-            padding: "1.25rem 1.5rem",
-            borderRadius: "8px",
-            border: "1px solid #ddd",
-            background: "#fff",
-          }}
-        >
-          <h2 style={{ fontSize: "1.125rem", marginBottom: "1rem" }}>
-            Add Photo
-          </h2>
-          <form
-            onSubmit={handleUploadPhoto}
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: "0.5rem",
-            }}
-          >
-            <input
-              type="file"
-              accept="image/*"
-              ref={fileInputRef}
-              disabled={uploading}
-              style={{
-                padding: "0.4rem",
-                border: "1px solid #ccc",
-                borderRadius: "4px",
-                fontSize: "0.9rem",
-              }}
-            />
-            <input
-              type="text"
-              value={uploadDescription}
-              onChange={(e) => setUploadDescription(e.target.value)}
-              placeholder="Description (optional)"
-              disabled={uploading}
-              style={{
-                width: "100%",
-                padding: "0.5rem",
-                border: "1px solid #ccc",
-                borderRadius: "4px",
-                fontSize: "0.9rem",
-                boxSizing: "border-box",
-              }}
-            />
-            <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-              <button
-                type="submit"
-                disabled={uploading}
-                style={{
-                  padding: "0.4rem 1rem",
-                  background: "#2e7d32",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: "4px",
-                  fontSize: "0.9rem",
-                  cursor: "pointer",
-                  opacity: uploading ? 0.6 : 1,
-                }}
-              >
-                {uploading ? "Uploading..." : "Upload Photo"}
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {photos.length > 0 && (
-        <div
-          style={{
-            width: "100%",
-            padding: "1.25rem 1.5rem",
-            borderRadius: "8px",
-            border: "1px solid #ddd",
-            background: "#fff",
-          }}
-        >
-          <h2 style={{ fontSize: "1.125rem", marginBottom: "1rem" }}>
-            Photos
-          </h2>
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: "1rem",
-            }}
-          >
-            {photos.map((photo) => {
-              const isPrimary = chicken?.primary_photo_id === photo.id;
-              return (
-                <div
-                  key={photo.id}
-                  style={{
-                    padding: "0.75rem",
-                    border: isPrimary ? "2px solid #2e7d32" : "1px solid #e0e0e0",
-                    borderRadius: "6px",
-                    background: isPrimary ? "#f1f8e9" : "#fafafa",
-                  }}
+    <Box sx={{ maxWidth: 700, mx: "auto", p: 2 }}>
+      {chickenLoading ? (
+        <Stack spacing={2}>
+          <Skeleton variant="rectangular" height={200} />
+          <Skeleton variant="text" height={40} />
+          <Skeleton variant="rectangular" height={300} />
+        </Stack>
+      ) : chickenError ? (
+        <Alert severity="error">Failed to load chicken</Alert>
+      ) : chicken ? (
+        <Stack spacing={3}>
+          <Box>
+            <Stack direction="row" justifyContent="space-between" alignItems="center">
+              <Typography variant="h5">{chicken.name}</Typography>
+              {isAdmin && (
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<EditIcon />}
+                  onClick={handleOpenEditDialog}
                 >
-                  <img
-                    src={`/api/photos/${photo.file_path}`}
-                    alt={photo.description || "Chicken photo"}
-                    style={{
-                      width: "100%",
-                      maxHeight: "400px",
-                      objectFit: "contain",
-                      borderRadius: "4px",
-                      background: "#f0f0f0",
+                  Edit
+                </Button>
+              )}
+            </Stack>
+          </Box>
+
+          <ChickenInfoCard chicken={chicken} />
+
+          <Box>
+            <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+              <Typography variant="h6">Photos</Typography>
+              {isAdmin && (
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<PhotoCameraIcon />}
+                  onClick={handleOpenUploadDialog}
+                >
+                  Upload
+                </Button>
+              )}
+            </Stack>
+            <PhotoGallery
+              photos={photos ?? []}
+              primaryPhotoId={chicken.primary_photo_id}
+              isAdmin={isAdmin}
+              onPhotoClick={setLightboxPhoto}
+              onSetPrimary={handleSetPrimary}
+              onDeletePhoto={handleDeletePhoto}
+            />
+          </Box>
+
+          <Box>
+            <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+              <Typography variant="h6">Notes Log</Typography>
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<AddIcon />}
+                onClick={handleOpenAddNoteDialog}
+              >
+                Add Note
+              </Button>
+            </Stack>
+            <NotesList
+              notes={notes ?? []}
+              isAdmin={isAdmin}
+              canModifyNote={canModifyNote}
+              onDeleteNote={handleDeleteNote}
+              onUpdateNote={(noteId, data) => updateNoteMutation.mutate({ noteId, ...data })}
+              updateNotePending={updateNoteMutation.isPending}
+            />
+          </Box>
+        </Stack>
+      ) : null}
+
+      <Dialog
+        open={editDialogOpen}
+        onClose={() => setEditDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <Box
+          component="form"
+          onSubmit={editChickenForm.handleSubmit(handleSaveEdit)}
+        >
+          <DialogTitle>Edit Chicken</DialogTitle>
+          <DialogContent>
+            <Stack spacing={2} sx={{ mt: 1 }}>
+              <Controller
+                name="name"
+                control={editChickenForm.control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    label="Name"
+                    error={!!editChickenForm.formState.errors.name}
+                    helperText={editChickenForm.formState.errors.name?.message}
+                    fullWidth
+                    size="small"
+                  />
+                )}
+              />
+              <Controller
+                name="sex"
+                control={editChickenForm.control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    select
+                    label="Sex"
+                    error={!!editChickenForm.formState.errors.sex}
+                    helperText={editChickenForm.formState.errors.sex?.message}
+                    fullWidth
+                    size="small"
+                  >
+                    {SEX_OPTIONS.map((s) => (
+                      <MenuItem key={s} value={s}>
+                        {s}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                )}
+              />
+              <Controller
+                name="breed"
+                control={editChickenForm.control}
+                render={({ field }) => (
+                  <Autocomplete
+                    freeSolo
+                    options={breedOptions}
+                    value={field.value || ""}
+                    onChange={(_, newValue) => field.onChange(newValue || "")}
+                    onInputChange={(_, newValue, reason) => {
+                      if (reason === "input") {
+                        field.onChange(newValue);
+                      }
+                    }}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Breed (pick or type new)"
+                        error={!!editChickenForm.formState.errors.breed}
+                        helperText={editChickenForm.formState.errors.breed?.message}
+                        size="small"
+                      />
+                    )}
+                  />
+                )}
+              />
+              <Controller
+                name="origin_source"
+                control={editChickenForm.control}
+                render={({ field }) => (
+                  <Autocomplete
+                    freeSolo
+                    options={originOptions}
+                    value={field.value || ""}
+                    onChange={(_, newValue) => field.onChange(newValue || "")}
+                    onInputChange={(_, newValue, reason) => {
+                      if (reason === "input") {
+                        field.onChange(newValue);
+                      }
+                    }}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Origin source (pick or type new)"
+                        error={!!editChickenForm.formState.errors.origin_source}
+                        helperText={
+                          editChickenForm.formState.errors.origin_source?.message
+                        }
+                        size="small"
+                      />
+                    )}
+                  />
+                )}
+              />
+              <Controller
+                name="acquisition_type"
+                control={editChickenForm.control}
+                render={({ field }) => (
+                  <Autocomplete
+                    freeSolo
+                    options={acqOptions}
+                    value={field.value || ""}
+                    onChange={(_, newValue) => field.onChange(newValue || "")}
+                    onInputChange={(_, newValue, reason) => {
+                      if (reason === "input") {
+                        field.onChange(newValue);
+                      }
+                    }}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Acquisition type (pick or type new)"
+                        error={!!editChickenForm.formState.errors.acquisition_type}
+                        helperText={
+                          editChickenForm.formState.errors.acquisition_type?.message
+                        }
+                        size="small"
+                      />
+                    )}
+                  />
+                )}
+              />
+              <Controller
+                name="acquisition_date"
+                control={editChickenForm.control}
+                render={({ field }) => (
+                  <DatePicker
+                    label="Acquisition date"
+                    value={field.value ? formatDateForPicker(field.value) : null}
+                    onChange={(date) => field.onChange(formatDateForApi(date))}
+                    slotProps={{
+                      textField: {
+                        error: !!editChickenForm.formState.errors.acquisition_date,
+                        helperText:
+                          editChickenForm.formState.errors.acquisition_date?.message,
+                        size: "small",
+                        fullWidth: true,
+                      },
                     }}
                   />
-                  {photo.description && (
-                    <p
-                      style={{
-                        marginTop: "0.5rem",
-                        fontSize: "0.9rem",
-                        color: "#333",
-                      }}
-                    >
-                      {photo.description}
-                    </p>
-                  )}
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      marginTop: "0.5rem",
-                      fontSize: "0.8rem",
-                      color: "#666",
-                    }}
-                  >
-                    <span>
-                      {new Date(photo.created_at).toLocaleString()} &middot;{" "}
-                      {photo.recorded_by}
-                      {isPrimary && (
-                        <span
-                          style={{
-                            marginLeft: "0.5rem",
-                            padding: "0.1rem 0.4rem",
-                            borderRadius: "4px",
-                            fontSize: "0.75rem",
-                            fontWeight: 600,
-                            background: "#e8f5e9",
-                            color: "#2e7d32",
-                          }}
-                        >
-                          Primary
-                        </span>
-                      )}
-                    </span>
-                    {isAdmin && (
-                      <div style={{ display: "flex", gap: "0.3rem" }}>
-                        {!isPrimary && (
-                          <button
-                            onClick={() => handleSetPrimary(photo.id)}
-                            style={{
-                              padding: "0.2rem 0.5rem",
-                              fontSize: "0.75rem",
-                              border: "1px solid #a5d6a7",
-                              borderRadius: "3px",
-                              background: "#fff",
-                              color: "#2e7d32",
-                              cursor: "pointer",
-                            }}
-                          >
-                            Set as Primary
-                          </button>
-                        )}
-                        <button
-                          onClick={() => handleDeletePhoto(photo.id)}
-                          style={{
-                            padding: "0.2rem 0.5rem",
-                            fontSize: "0.75rem",
-                            border: "1px solid #ef9a9a",
-                            borderRadius: "3px",
-                            background: "#fff",
-                            color: "#c62828",
-                            cursor: "pointer",
-                          }}
-                        >
-                          Delete
-                        </button>
-                      </div>
+                )}
+              />
+              <Controller
+                name="departed"
+                control={editChickenForm.control}
+                render={({ field }) => (
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={field.value}
+                        onChange={(e) => field.onChange(e.target.checked)}
+                      />
+                    }
+                    label="Departed"
+                  />
+                )}
+              />
+              {editChickenForm.watch("departed") && (
+                <>
+                  <Controller
+                    name="departure_date"
+                    control={editChickenForm.control}
+                    render={({ field }) => (
+                      <DatePicker
+                        label="Departure date"
+                        value={field.value ? formatDateForPicker(field.value) : null}
+                        onChange={(date) => field.onChange(formatDateForApi(date))}
+                        slotProps={{
+                          textField: {
+                            error: !!editChickenForm.formState.errors.departure_date,
+                            helperText:
+                              editChickenForm.formState.errors.departure_date?.message,
+                            size: "small",
+                            fullWidth: true,
+                          },
+                        }}
+                      />
                     )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
+                  />
+                  <Controller
+                    name="departure_reason"
+                    control={editChickenForm.control}
+                    render={({ field }) => (
+                      <TextField
+                        {...field}
+                        label="Departure reason (optional)"
+                        fullWidth
+                        size="small"
+                      />
+                    )}
+                  />
+                </>
+              )}
+              {editChickenMutation.isError && (
+                <Alert severity="error">{editChickenMutation.error.message}</Alert>
+              )}
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setEditDialogOpen(false)} disabled={editChickenMutation.isPending}>
+              Cancel
+            </Button>
+            <Button type="submit" variant="contained" disabled={editChickenMutation.isPending}>
+              {editChickenMutation.isPending ? "Saving..." : "Save"}
+            </Button>
+          </DialogActions>
+        </Box>
+      </Dialog>
 
-      <div
-        style={{
-          width: "100%",
-          padding: "1.25rem 1.5rem",
-          borderRadius: "8px",
-          border: "1px solid #ddd",
-          background: "#fff",
-        }}
+      <Dialog
+        open={addNoteDialogOpen}
+        onClose={() => setAddNoteDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
       >
-        <h2 style={{ fontSize: "1.125rem", marginBottom: "1rem" }}>
-          Notes Log
-        </h2>
+        <Box component="form" onSubmit={addNoteForm.handleSubmit(handleAddNote)}>
+          <DialogTitle>Add Note</DialogTitle>
+          <DialogContent>
+            <Stack spacing={2} sx={{ mt: 1 }}>
+              <Controller
+                name="content"
+                control={addNoteForm.control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    label="Note content"
+                    multiline
+                    rows={4}
+                    error={!!addNoteForm.formState.errors.content}
+                    helperText={addNoteForm.formState.errors.content?.message}
+                    fullWidth
+                  />
+                )}
+              />
+              <Controller
+                name="date"
+                control={addNoteForm.control}
+                render={({ field }) => (
+                  <DatePicker
+                    label="Date"
+                    value={field.value ? formatDateForPicker(field.value) : null}
+                    onChange={(date) => field.onChange(formatDateForApi(date))}
+                    slotProps={{
+                      textField: {
+                        error: !!addNoteForm.formState.errors.date,
+                        helperText: addNoteForm.formState.errors.date?.message,
+                        fullWidth: true,
+                      },
+                    }}
+                  />
+                )}
+              />
+              {addNoteMutation.isError && (
+                <Alert severity="error">{addNoteMutation.error.message}</Alert>
+              )}
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setAddNoteDialogOpen(false)} disabled={addNoteMutation.isPending}>
+              Cancel
+            </Button>
+            <Button type="submit" variant="contained" disabled={addNoteMutation.isPending}>
+              {addNoteMutation.isPending ? "Adding..." : "Add"}
+            </Button>
+          </DialogActions>
+        </Box>
+      </Dialog>
 
-        <form
-          onSubmit={handleAddNote}
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "0.5rem",
-            marginBottom: "1.5rem",
-          }}
+      <Dialog
+        open={uploadDialogOpen}
+        onClose={() => setUploadDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <UploadPhotoForm
+          fileInputKey={fileInputKey}
+          onUpload={handleUploadPhoto}
+          isPending={uploadPhotoMutation.isPending}
+          error={uploadPhotoMutation.isError ? uploadPhotoMutation.error.message : null}
+        />
+      </Dialog>
+
+      {lightboxPhoto && (
+        <Dialog
+          open={!!lightboxPhoto}
+          onClose={() => setLightboxPhoto(null)}
+          maxWidth="md"
+          fullWidth
         >
-          <textarea
-            value={newContent}
-            onChange={(e) => setNewContent(e.target.value)}
-            placeholder="Add a note (e.g. vet visit, medication)..."
-            rows={3}
-            disabled={adding}
-            style={{
-              width: "100%",
-              padding: "0.5rem",
-              border: "1px solid #ccc",
-              borderRadius: "4px",
-              fontSize: "0.9rem",
-              resize: "vertical",
-              boxSizing: "border-box",
-            }}
-          />
-          <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-            <input
-              type="date"
-              value={newDate}
-              onChange={(e) => setNewDate(e.target.value)}
-              disabled={adding}
-              style={{
-                padding: "0.4rem 0.5rem",
-                border: "1px solid #ccc",
-                borderRadius: "4px",
-                fontSize: "0.9rem",
-              }}
+          <DialogContent sx={{ p: 0, position: "relative" }}>
+            <Box
+              component="img"
+              src={`/api/photos/${lightboxPhoto.file_path}`}
+              alt={lightboxPhoto.description || "Chicken photo"}
+              sx={{ width: "100%", display: "block" }}
             />
-            <button
-              type="submit"
-              disabled={adding || !newContent.trim()}
-              style={{
-                padding: "0.4rem 1rem",
-                background: "#2e7d32",
-                color: "#fff",
-                border: "none",
-                borderRadius: "4px",
-                fontSize: "0.9rem",
-                cursor: "pointer",
-                opacity: adding || !newContent.trim() ? 0.6 : 1,
+          </DialogContent>
+          <DialogActions sx={{ justifyContent: "space-between", px: 2, py: 1 }}>
+            <Box>
+              {lightboxPhoto.description && (
+                <Typography variant="body2">{lightboxPhoto.description}</Typography>
+              )}
+              <Typography variant="caption" color="text.secondary">
+                {new Date(lightboxPhoto.created_at).toLocaleString()} · {lightboxPhoto.recorded_by}
+              </Typography>
+            </Box>
+            <Button onClick={() => setLightboxPhoto(null)}>Close</Button>
+          </DialogActions>
+        </Dialog>
+      )}
+    </Box>
+  );
+}
+
+function ChickenInfoCard({ chicken }: { chicken: Chicken }) {
+  const sexColors = sexBadgeColors[chicken.sex] ?? defaultSexBadgeColors;
+
+  return (
+    <Card>
+      <CardContent>
+        <Stack direction="row" spacing={2} alignItems="center" mb={2}>
+          <Avatar
+            src={chicken.primary_photo_path ? `/api/photos/${chicken.primary_photo_path}` : undefined}
+            alt={chicken.name}
+            sx={{ width: 80, height: 80 }}
+          />
+          <Box flex={1}>
+            <Stack direction="row" spacing={1} alignItems="center" mb={1}>
+              <Chip
+                label={chicken.sex}
+                size="small"
+                sx={{
+                  bgcolor: sexColors.bg,
+                  color: sexColors.color,
+                  fontWeight: 600,
+                }}
+              />
+              <Chip
+                label={chicken.departed ? "Departed" : "Active"}
+                size="small"
+                sx={{
+                  bgcolor: chicken.departed ? "#ffebee" : "#e8f5e9",
+                  color: chicken.departed ? "#b71c1c" : "#2e7d32",
+                  fontWeight: 600,
+                }}
+              />
+            </Stack>
+            {chicken.departed && chicken.departure_date && (
+              <Typography variant="caption" color="text.secondary">
+                Departed {chicken.departure_date}
+                {chicken.departure_reason && ` · ${chicken.departure_reason}`}
+              </Typography>
+            )}
+          </Box>
+        </Stack>
+        <Grid container spacing={1}>
+          <Grid item xs={4}>
+            <Typography variant="caption" color="text.secondary">
+              Breed
+            </Typography>
+            <Typography variant="body2">{chicken.breed_name || "-"}</Typography>
+          </Grid>
+          <Grid item xs={4}>
+            <Typography variant="caption" color="text.secondary">
+              Origin
+            </Typography>
+            <Typography variant="body2">{chicken.origin_source_name || "-"}</Typography>
+          </Grid>
+          <Grid item xs={4}>
+            <Typography variant="caption" color="text.secondary">
+              Acquisition
+            </Typography>
+            <Typography variant="body2">{chicken.acquisition_type_name || "-"}</Typography>
+          </Grid>
+          <Grid item xs={12}>
+            <Typography variant="caption" color="text.secondary">
+              Acquisition Date
+            </Typography>
+            <Typography variant="body2">{chicken.acquisition_date || "-"}</Typography>
+          </Grid>
+        </Grid>
+      </CardContent>
+    </Card>
+  );
+}
+
+function PhotoGallery({
+  photos,
+  primaryPhotoId,
+  isAdmin,
+  onPhotoClick,
+  onSetPrimary,
+  onDeletePhoto,
+}: {
+  photos: Photo[];
+  primaryPhotoId: number | null;
+  isAdmin: boolean;
+  onPhotoClick: (photo: Photo) => void;
+  onSetPrimary: (photoId: number) => void;
+  onDeletePhoto: (photoId: number) => void;
+}) {
+  if (photos.length === 0) {
+    return (
+      <Typography variant="body2" color="text.secondary" textAlign="center" py={3}>
+        No photos yet
+      </Typography>
+    );
+  }
+
+  return (
+    <ImageList cols={3} gap={8}>
+      {photos.map((photo) => {
+        const isPrimary = primaryPhotoId === photo.id;
+        return (
+          <ImageListItem key={photo.id} sx={{ cursor: "pointer" }}>
+            <Box
+              onClick={() => onPhotoClick(photo)}
+              sx={{
+                position: "relative",
+                border: isPrimary ? 2 : 1,
+                borderColor: isPrimary ? "success.main" : "divider",
+                borderRadius: 1,
+                overflow: "hidden",
               }}
             >
-              {adding ? "Adding..." : "Add Note"}
-            </button>
-          </div>
-        </form>
-
-        {error && (
-          <p
-            style={{
-              color: "#d32f2f",
-              fontSize: "0.85rem",
-              marginBottom: "0.75rem",
-            }}
-          >
-            {error}
-          </p>
-        )}
-
-        {notes.length === 0 ? (
-          <p style={{ color: "#999", fontSize: "0.9rem" }}>
-            No notes yet.
-          </p>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-            {notes.map((note) => (
-              <NoteItem
-                key={note.id}
-                note={note}
-                isEditing={editingNoteId === note.id}
-                editContent={editContent}
-                editDate={editDate}
-                saving={saving}
-                canModify={canModify(note)}
-                onStartEdit={() => startEdit(note)}
-                onSave={() => handleUpdateNote(note.id)}
-                onCancel={cancelEdit}
-                onDelete={() => handleDeleteNote(note.id)}
-                onEditContentChange={(value) => setEditContent(value)}
-                onEditDateChange={(value) => setEditDate(value)}
+              <Box
+                component="img"
+                src={`/api/photos/${photo.file_path}`}
+                alt={photo.description || "Chicken photo"}
+                sx={{
+                  width: "100%",
+                  height: 120,
+                  objectFit: "cover",
+                  display: "block",
+                }}
               />
-            ))}
-          </div>
-        )}
-      </div>
-    </main>
+              {isPrimary && (
+                <Chip
+                  icon={<StarIcon sx={{ fontSize: 14 }} />}
+                  label="Primary"
+                  size="small"
+                  sx={{
+                    position: "absolute",
+                    top: 4,
+                    left: 4,
+                    bgcolor: "success.main",
+                    color: "success.contrastText",
+                    fontSize: "0.7rem",
+                  }}
+                />
+              )}
+              {isAdmin && (
+                <Box
+                  sx={{
+                    position: "absolute",
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    bgcolor: "rgba(0,0,0,0.6)",
+                    display: "flex",
+                    justifyContent: "flex-end",
+                    p: 0.5,
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {!isPrimary && (
+                    <IconButton
+                      size="small"
+                      onClick={() => onSetPrimary(photo.id)}
+                      sx={{ color: "success.light" }}
+                    >
+                      <StarIcon fontSize="small" />
+                    </IconButton>
+                  )}
+                  <IconButton
+                    size="small"
+                    onClick={() => onDeletePhoto(photo.id)}
+                    sx={{ color: "error.light" }}
+                  >
+                    <DeleteIcon fontSize="small" />
+                  </IconButton>
+                </Box>
+              )}
+            </Box>
+            {photo.description && (
+              <Typography variant="caption" display="block" sx={{ mt: 0.5, px: 0.5 }}>
+                {photo.description}
+              </Typography>
+            )}
+          </ImageListItem>
+        );
+      })}
+    </ImageList>
+  );
+}
+
+function UploadPhotoForm({
+  fileInputKey,
+  onUpload,
+  isPending,
+  error,
+}: {
+  fileInputKey: number;
+  onUpload: (file: File, description: string) => void;
+  isPending: boolean;
+  error: string | null;
+}) {
+  const [file, setFile] = useState<File | null>(null);
+  const [description, setDescription] = useState("");
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!file) return;
+    onUpload(file, description);
+  };
+
+  return (
+    <Box component="form" onSubmit={handleSubmit}>
+      <DialogTitle>Upload Photo</DialogTitle>
+      <DialogContent>
+        <Stack spacing={2} sx={{ mt: 1 }}>
+          <input
+            key={fileInputKey}
+            type="file"
+            accept="image/*"
+            onChange={(e) => setFile(e.target.files?.[0] || null)}
+            disabled={isPending}
+          />
+          <TextField
+            label="Description (optional)"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            disabled={isPending}
+            fullWidth
+            size="small"
+          />
+          {error && <Alert severity="error">{error}</Alert>}
+        </Stack>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={() => setFile(null)} disabled={isPending}>
+          Cancel
+        </Button>
+        <Button type="submit" variant="contained" disabled={isPending || !file}>
+          {isPending ? "Uploading..." : "Upload"}
+        </Button>
+      </DialogActions>
+    </Box>
+  );
+}
+
+function NotesList({
+  notes,
+  isAdmin,
+  canModifyNote,
+  onDeleteNote,
+  onUpdateNote,
+  updateNotePending,
+}: {
+  notes: Note[];
+  isAdmin: boolean;
+  canModifyNote: (note: Note) => boolean;
+  onDeleteNote: (noteId: number) => void;
+  onUpdateNote: (noteId: number, data: { content: string; date: string }) => void;
+  updateNotePending: boolean;
+}) {
+  if (notes.length === 0) {
+    return (
+      <Typography variant="body2" color="text.secondary" textAlign="center" py={3}>
+        No notes yet
+      </Typography>
+    );
+  }
+
+  return (
+    <List>
+      {notes.map((note) => (
+        <NoteItem
+          key={note.id}
+          note={note}
+          isAdmin={isAdmin}
+          canModify={canModifyNote(note)}
+          onDelete={() => onDeleteNote(note.id)}
+          onSave={(data) => onUpdateNote(note.id, data)}
+          savePending={updateNotePending}
+        />
+      ))}
+    </List>
   );
 }
 
 const NoteItem = memo(function NoteItem({
   note,
-  isEditing,
-  editContent,
-  editDate,
-  saving,
+  isAdmin,
   canModify,
-  onStartEdit,
-  onSave,
-  onCancel,
   onDelete,
-  onEditContentChange,
-  onEditDateChange,
+  onSave,
+  savePending,
 }: {
   note: Note;
-  isEditing: boolean;
-  editContent: string;
-  editDate: string;
-  saving: boolean;
+  isAdmin: boolean;
   canModify: boolean;
-  onStartEdit: () => void;
-  onSave: () => void;
-  onCancel: () => void;
   onDelete: () => void;
-  onEditContentChange: (value: string) => void;
-  onEditDateChange: (value: string) => void;
+  onSave: (data: { content: string; date: string }) => void;
+  savePending: boolean;
 }) {
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+
+  const form = useForm<EditNoteFormValues>({
+    resolver: zodResolver(editNoteSchema),
+    mode: "onBlur",
+    values: {
+      content: note.content,
+      date: note.date,
+    },
+  });
+
+  const handleSubmit = (data: EditNoteFormValues) => {
+    onSave(data);
+    setEditDialogOpen(false);
+  };
+
   return (
-    <div
-      style={{
-        padding: "0.75rem 1rem",
-        border: "1px solid #e0e0e0",
-        borderRadius: "6px",
-        background: "#fafafa",
-      }}
-    >
-      {isEditing ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-          <textarea
-            value={editContent}
-            onChange={(e) => onEditContentChange(e.target.value)}
-            rows={3}
-            disabled={saving}
-            style={{
-              width: "100%",
-              padding: "0.5rem",
-              border: "1px solid #1565c0",
-              borderRadius: "4px",
-              fontSize: "0.9rem",
-              resize: "vertical",
-              boxSizing: "border-box",
-            }}
-          />
-          <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-            <input
-              type="date"
-              value={editDate}
-              onChange={(e) => onEditDateChange(e.target.value)}
-              disabled={saving}
-              style={{
-                padding: "0.3rem 0.5rem",
-                border: "1px solid #ccc",
-                borderRadius: "4px",
-                fontSize: "0.85rem",
-              }}
-            />
-            <button
-              onClick={onSave}
-              disabled={saving || !editContent.trim()}
-              style={{
-                padding: "0.3rem 0.75rem",
-                background: "#1565c0",
-                color: "#fff",
-                border: "none",
-                borderRadius: "4px",
-                fontSize: "0.85rem",
-                cursor: "pointer",
-                opacity: saving || !editContent.trim() ? 0.6 : 1,
-              }}
+    <>
+      <ListItem
+        alignItems="flex-start"
+        sx={{
+          border: 1,
+          borderColor: "divider",
+          borderRadius: 1,
+          mb: 1,
+          bgcolor: "action.hover",
+        }}
+        secondaryAction={
+          canModify && (
+            <Stack direction="row" spacing={0.5}>
+              <IconButton size="small" onClick={() => setEditDialogOpen(true)}>
+                <EditIcon fontSize="small" />
+              </IconButton>
+              <IconButton size="small" onClick={onDelete} color="error">
+                <DeleteIcon fontSize="small" />
+              </IconButton>
+            </Stack>
+          )
+        }
+      >
+        <ListItemText
+          primary={
+            <Stack direction="row" spacing={1} alignItems="center" mb={0.5}>
+              <Typography variant="body2" fontWeight={600}>
+                {note.date}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                {note.recorded_by}
+              </Typography>
+            </Stack>
+          }
+          secondary={
+            <Typography
+              variant="body2"
+              sx={{ whiteSpace: "pre-wrap", lineHeight: 1.5 }}
             >
-              {saving ? "Saving..." : "Save"}
-            </button>
-            <button
-              onClick={onCancel}
-              disabled={saving}
-              style={{
-                padding: "0.3rem 0.75rem",
-                background: "#757575",
-                color: "#fff",
-                border: "none",
-                borderRadius: "4px",
-                fontSize: "0.85rem",
-                cursor: "pointer",
-              }}
-            >
+              {note.content}
+            </Typography>
+          }
+        />
+      </ListItem>
+
+      <Dialog
+        open={editDialogOpen}
+        onClose={() => setEditDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <Box component="form" onSubmit={form.handleSubmit(handleSubmit)}>
+          <DialogTitle>Edit Note</DialogTitle>
+          <DialogContent>
+            <Stack spacing={2} sx={{ mt: 1 }}>
+              <Controller
+                name="content"
+                control={form.control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    label="Note content"
+                    multiline
+                    rows={4}
+                    error={!!form.formState.errors.content}
+                    helperText={form.formState.errors.content?.message}
+                    fullWidth
+                  />
+                )}
+              />
+              <Controller
+                name="date"
+                control={form.control}
+                render={({ field }) => (
+                  <DatePicker
+                    label="Date"
+                    value={field.value ? formatDateForPicker(field.value) : null}
+                    onChange={(date) => field.onChange(formatDateForApi(date))}
+                    slotProps={{
+                      textField: {
+                        error: !!form.formState.errors.date,
+                        helperText: form.formState.errors.date?.message,
+                        fullWidth: true,
+                      },
+                    }}
+                  />
+                )}
+              />
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setEditDialogOpen(false)} disabled={savePending}>
               Cancel
-            </button>
-          </div>
-        </div>
-      ) : (
-        <>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "flex-start",
-              marginBottom: "0.4rem",
-            }}
-          >
-            <div
-              style={{
-                fontSize: "0.8rem",
-                color: "#666",
-                display: "flex",
-                gap: "0.75rem",
-                alignItems: "center",
-              }}
-            >
-              <span style={{ fontWeight: 600 }}>{note.date}</span>
-              <span>{note.recorded_by}</span>
-            </div>
-            {canModify && (
-              <div style={{ display: "flex", gap: "0.3rem" }}>
-                <button
-                  onClick={onStartEdit}
-                  style={{
-                    padding: "0.15rem 0.4rem",
-                    fontSize: "0.7rem",
-                    border: "1px solid #ccc",
-                    borderRadius: "3px",
-                    background: "#fff",
-                    cursor: "pointer",
-                  }}
-                >
-                  Edit
-                </button>
-                <button
-                  onClick={onDelete}
-                  style={{
-                    padding: "0.15rem 0.4rem",
-                    fontSize: "0.7rem",
-                    border: "1px solid #ef9a9a",
-                    borderRadius: "3px",
-                    background: "#fff",
-                    color: "#c62828",
-                    cursor: "pointer",
-                  }}
-                >
-                  Delete
-                </button>
-              </div>
-            )}
-          </div>
-          <div
-            style={{
-              fontSize: "0.9rem",
-              whiteSpace: "pre-wrap",
-              lineHeight: 1.5,
-            }}
-          >
-            {note.content}
-          </div>
-        </>
-      )}
-    </div>
+            </Button>
+            <Button type="submit" variant="contained" disabled={savePending}>
+              {savePending ? "Saving..." : "Save"}
+            </Button>
+          </DialogActions>
+        </Box>
+      </Dialog>
+    </>
   );
 });
