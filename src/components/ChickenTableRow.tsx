@@ -12,6 +12,7 @@ import {
   Typography,
   Link as MuiLink,
 } from "@mui/material";
+import { formatDateForDisplay } from "@/lib/dateUtils";
 
 type Chicken = {
   id: number;
@@ -119,7 +120,7 @@ function ChickenTableRowInner({
         />
         {chicken.departed && chicken.departure_date && (
           <Typography variant="caption" display="block" color="text.disabled" sx={{ mt: 0.5 }}>
-            {chicken.departure_date}
+            {formatDateForDisplay(chicken.departure_date)}
             {chicken.departure_reason && ` \u00b7 ${chicken.departure_reason}`}
           </Typography>
         )}

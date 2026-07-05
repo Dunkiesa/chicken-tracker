@@ -44,6 +44,13 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import AddIcon from "@mui/icons-material/Add";
 import PhotoCameraIcon from "@mui/icons-material/PhotoCamera";
 import StarIcon from "@mui/icons-material/Star";
+import {
+  todayStr,
+  formatDateForPicker,
+  formatDateForApi,
+  formatDateForDisplay,
+  formatDateTimeForDisplay,
+} from "@/lib/dateUtils";
 
 type Chicken = {
   id: number;
@@ -93,27 +100,6 @@ const sexBadgeSx: Record<string, { bgcolor: string; color: string }> = {
   Rooster: { bgcolor: "primary.light", color: "primary.dark" },
 };
 const defaultSexBadgeSx = { bgcolor: "action.disabledBackground", color: "text.secondary" };
-
-function todayStr(): string {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
-function formatDateForPicker(dateStr: string): Date {
-  const [y, m, d] = dateStr.split("-").map(Number);
-  return new Date(y, m - 1, d);
-}
-
-function formatDateForApi(date: Date | null): string {
-  if (!date) return "";
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
 
 async function fetchChickenApi(id: number): Promise<Chicken> {
   const res = await fetch(`/api/chickens/${id}`);
@@ -945,7 +931,7 @@ function ProfileContent() {
                 <Typography variant="body2">{lightboxPhoto.description}</Typography>
               )}
               <Typography variant="caption" color="text.secondary">
-                {new Date(lightboxPhoto.created_at).toLocaleString()} · {lightboxPhoto.recorded_by}
+                {formatDateTimeForDisplay(lightboxPhoto.created_at)} · {lightboxPhoto.recorded_by}
               </Typography>
             </Box>
             <Button onClick={() => setLightboxPhoto(null)}>Close</Button>
@@ -991,7 +977,7 @@ function ChickenInfoCard({ chicken }: { chicken: Chicken }) {
             </Stack>
             {chicken.departed && chicken.departure_date && (
               <Typography variant="caption" color="text.secondary">
-                Departed {chicken.departure_date}
+                Departed {formatDateForDisplay(chicken.departure_date)}
                 {chicken.departure_reason && ` · ${chicken.departure_reason}`}
               </Typography>
             )}
@@ -1020,7 +1006,7 @@ function ChickenInfoCard({ chicken }: { chicken: Chicken }) {
             <Typography variant="caption" color="text.secondary">
               Acquisition Date
             </Typography>
-            <Typography variant="body2">{chicken.acquisition_date || "-"}</Typography>
+            <Typography variant="body2">{chicken.acquisition_date ? formatDateForDisplay(chicken.acquisition_date) : "-"}</Typography>
           </Grid>
         </Grid>
       </CardContent>
@@ -1292,7 +1278,7 @@ const NoteItem = memo(function NoteItem({
           primary={
             <Stack direction="row" spacing={1} alignItems="center" mb={0.5}>
               <Typography variant="body2" fontWeight={600}>
-                {note.date}
+                {formatDateForDisplay(note.date)}
               </Typography>
               <Typography variant="caption" color="text.secondary">
                 {note.recorded_by}

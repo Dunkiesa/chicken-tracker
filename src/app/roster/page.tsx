@@ -37,6 +37,7 @@ import SearchIcon from "@mui/icons-material/Search";
 import AddIcon from "@mui/icons-material/Add";
 import Link from "next/link";
 import { ChickenTableRow } from "@/components/ChickenTableRow";
+import { todayStr } from "@/lib/dateUtils";
 
 type Chicken = {
   id: number;
@@ -51,14 +52,6 @@ type Chicken = {
   primary_photo_id: number | null;
   primary_photo_path: string | null;
 };
-
-function todayStr(): string {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
 
 async function fetchChickensApi(includeDeparted: boolean): Promise<Chicken[]> {
   const url = includeDeparted ? "/api/chickens?includeDeparted=true" : "/api/chickens";

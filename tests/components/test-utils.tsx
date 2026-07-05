@@ -3,6 +3,7 @@ import { ThemeModeProvider } from "@/theme";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
+import { getDateFnsLocale } from "@/lib/dateUtils";
 import { ReactElement, ReactNode } from "react";
 
 function createTestQueryClient() {
@@ -19,7 +20,7 @@ function AllProviders({ children }: { children: ReactNode }) {
   const queryClient = createTestQueryClient();
   return (
     <QueryClientProvider client={queryClient}>
-      <LocalizationProvider dateAdapter={AdapterDateFns}>
+      <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={getDateFnsLocale()}>
         <ThemeModeProvider>{children}</ThemeModeProvider>
       </LocalizationProvider>
     </QueryClientProvider>

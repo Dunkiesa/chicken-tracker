@@ -22,6 +22,7 @@ import {
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import Link from "next/link";
+import { formatDateForPicker, formatDateForApi } from "@/lib/dateUtils";
 
 type DynamicListEntry = {
   id: number;
@@ -53,19 +54,6 @@ async function enrollChickenApi(data: {
     const result = await res.json();
     throw new Error(result.message || "Failed to enroll chicken");
   }
-}
-
-function formatDateForPicker(dateStr: string): Date {
-  const [y, m, d] = dateStr.split("-").map(Number);
-  return new Date(y, m - 1, d);
-}
-
-function formatDateForApi(date: Date | null): string {
-  if (!date) return "";
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
 }
 
 const enrollSchema = z.object({

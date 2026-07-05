@@ -30,38 +30,15 @@ import type {
   AnalyticsData,
   ProductionTimeSeries,
 } from "@/lib/analytics";
+import {
+  todayStr,
+  oneYearAgoStr,
+  formatDateForPicker,
+  formatDateForApi,
+  formatDateForDisplay,
+} from "@/lib/dateUtils";
 
 type TimeGranularity = "daily" | "weekly" | "monthly";
-
-function todayStr(): string {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
-function oneYearAgoStr(): string {
-  const d = new Date();
-  d.setFullYear(d.getFullYear() - 1);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
-function formatDateForPicker(dateStr: string): Date {
-  const [y, m, d] = dateStr.split("-").map(Number);
-  return new Date(y, m - 1, d);
-}
-
-function formatDateForApi(date: Date | null): string {
-  if (!date) return "";
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
 
 async function fetchAnalytics(from: string, to: string): Promise<AnalyticsData> {
   const res = await fetch(`/api/analytics?from=${from}&to=${to}`);
@@ -272,7 +249,7 @@ function DashboardContent() {
                       <TableBody>
                         {productionData.map((row, i) => (
                           <TableRow key={i}>
-                            <TableCell>{row.date}</TableCell>
+                            <TableCell>{formatDateForDisplay(row.date)}</TableCell>
                             <TableCell align="right" sx={{ fontWeight: 600 }}>
                               {row.count}
                             </TableCell>

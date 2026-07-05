@@ -34,6 +34,12 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import CheckIcon from "@mui/icons-material/Check";
 import CloseIcon from "@mui/icons-material/Close";
 import { HenRow } from "@/components/HenRow";
+import {
+  todayStr,
+  formatDateForPicker,
+  formatDateForApi,
+  formatDateForDisplay,
+} from "@/lib/dateUtils";
 
 type Chicken = {
   id: number;
@@ -74,27 +80,6 @@ const formSchema = z.object({
 });
 
 type FormValues = z.infer<typeof formSchema>;
-
-function todayStr(): string {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
-function formatDateForPicker(dateStr: string): Date {
-  const [y, m, d] = dateStr.split("-").map(Number);
-  return new Date(y, m - 1, d);
-}
-
-function formatDateForApi(date: Date | null): string {
-  if (!date) return "";
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
 
 async function fetchChickens(): Promise<Chicken[]> {
   const res = await fetch("/api/chickens");
@@ -514,7 +499,7 @@ function LogEggContent() {
               <TableBody>
                 {displayEggs.map((egg) => (
                   <TableRow key={egg.id}>
-                    <TableCell>{egg.date}</TableCell>
+                    <TableCell>{formatDateForDisplay(egg.date)}</TableCell>
                     <TableCell>{egg.chicken_name}</TableCell>
                     <TableCell align="right">
                       {egg.weight.toFixed(2)}g
