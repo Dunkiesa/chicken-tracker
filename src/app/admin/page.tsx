@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, Suspense, useMemo } from "react";
+import { useState, Suspense, useMemo, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -391,6 +391,12 @@ function AdminContent() {
   const currentListType = useMemo((): ListType | null => {
     if (tabIndex === 0) return null;
     return LIST_CONFIGS[tabIndex - 1]?.type ?? null;
+  }, [tabIndex]);
+
+  useEffect(() => {
+    addListForm.reset();
+    addListValueMutation.reset();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tabIndex]);
 
   const handleAddUser = (data: AddUserFormValues) => {
