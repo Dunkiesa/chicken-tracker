@@ -572,51 +572,55 @@ function ProfileContent() {
 
           <ChickenInfoCard chicken={chicken} />
 
-          <Box>
-            <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
-              <Typography variant="h6">Photos</Typography>
-              {isAdmin && (
+          <Card>
+            <CardContent>
+              <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+                <Typography variant="h6">Photos</Typography>
+                {isAdmin && (
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={<PhotoCameraIcon />}
+                    onClick={handleOpenUploadDialog}
+                  >
+                    Upload
+                  </Button>
+                )}
+              </Stack>
+              <PhotoGallery
+                photos={photos ?? []}
+                primaryPhotoId={chicken.primary_photo_id}
+                isAdmin={isAdmin}
+                onPhotoClick={setLightboxPhoto}
+                onSetPrimary={handleSetPrimary}
+                onDeletePhoto={handleDeletePhoto}
+              />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent>
+              <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+                <Typography variant="h6">Notes Log</Typography>
                 <Button
                   variant="outlined"
                   size="small"
-                  startIcon={<PhotoCameraIcon />}
-                  onClick={handleOpenUploadDialog}
+                  startIcon={<AddIcon />}
+                  onClick={handleOpenAddNoteDialog}
                 >
-                  Upload
+                  Add Note
                 </Button>
-              )}
-            </Stack>
-            <PhotoGallery
-              photos={photos ?? []}
-              primaryPhotoId={chicken.primary_photo_id}
-              isAdmin={isAdmin}
-              onPhotoClick={setLightboxPhoto}
-              onSetPrimary={handleSetPrimary}
-              onDeletePhoto={handleDeletePhoto}
-            />
-          </Box>
-
-          <Box>
-            <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
-              <Typography variant="h6">Notes Log</Typography>
-              <Button
-                variant="outlined"
-                size="small"
-                startIcon={<AddIcon />}
-                onClick={handleOpenAddNoteDialog}
-              >
-                Add Note
-              </Button>
-            </Stack>
-            <NotesList
-              notes={notes ?? []}
-              isAdmin={isAdmin}
-              canModifyNote={canModifyNote}
-              onDeleteNote={handleDeleteNote}
-              onUpdateNote={(noteId, data) => updateNoteMutation.mutate({ noteId, ...data })}
-              updateNotePending={updateNoteMutation.isPending}
-            />
-          </Box>
+              </Stack>
+              <NotesList
+                notes={notes ?? []}
+                isAdmin={isAdmin}
+                canModifyNote={canModifyNote}
+                onDeleteNote={handleDeleteNote}
+                onUpdateNote={(noteId, data) => updateNoteMutation.mutate({ noteId, ...data })}
+                updateNotePending={updateNoteMutation.isPending}
+              />
+            </CardContent>
+          </Card>
         </Stack>
       ) : null}
 
