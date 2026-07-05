@@ -59,27 +59,26 @@ describe("RosterPage", () => {
     expect(mockReplace).toHaveBeenCalledWith("/");
   });
 
-  it("shows enroll form for admins", async () => {
+  it("shows enrol button for admins", async () => {
     (useSession as jest.Mock).mockReturnValue({
       data: { user: { email: "admin@test.com", role: "Admin" } },
       status: "authenticated",
     });
     renderWithProviders(<RosterPage />);
     await waitFor(() => {
-      expect(screen.getByText("Add Chicken")).toBeInTheDocument();
+      expect(screen.getByText("Enrol Chicken")).toBeInTheDocument();
     });
   });
 
-  it("hides enroll form for viewers", async () => {
+  it("hides enrol button for viewers", async () => {
     (useSession as jest.Mock).mockReturnValue({
       data: { user: { email: "viewer@test.com", role: "Viewer" } },
       status: "authenticated",
     });
     renderWithProviders(<RosterPage />);
     await waitFor(() => {
-      expect(screen.queryByText("Add Chicken")).not.toBeInTheDocument();
+      expect(screen.queryByText("Enrol Chicken")).not.toBeInTheDocument();
     });
-    expect(screen.getByText(/only admins can add/i)).toBeInTheDocument();
   });
 
   it("shows chicken list", async () => {

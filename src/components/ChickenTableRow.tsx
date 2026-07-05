@@ -105,15 +105,7 @@ function ChickenTableRowInner({
           }}
         />
       </TableCell>
-      <TableCell sx={{ py: 1, color: "text.secondary", fontSize: "0.9rem" }}>
-        {chicken.breed_name || "-"}
-      </TableCell>
-      <TableCell sx={{ py: 1, color: "text.secondary", fontSize: "0.9rem" }}>
-        {chicken.origin_source_name || "-"}
-      </TableCell>
-      <TableCell sx={{ py: 1, color: "text.secondary", fontSize: "0.9rem" }}>
-        {chicken.acquisition_type_name || "-"}
-      </TableCell>
+
       <TableCell sx={{ py: 1 }}>
         <Chip
           label={chicken.departed ? "Departed" : "Active"}
