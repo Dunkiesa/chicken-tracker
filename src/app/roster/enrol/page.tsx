@@ -267,6 +267,7 @@ function EnrolContent() {
               render={({ field }) => (
                 <Autocomplete
                   freeSolo
+                  fullWidth
                   options={breedOptions}
                   value={field.value || ""}
                   onChange={(_, newValue) => field.onChange(newValue || "")}
@@ -293,6 +294,7 @@ function EnrolContent() {
               render={({ field }) => (
                 <Autocomplete
                   freeSolo
+                  fullWidth
                   options={originOptions}
                   value={field.value || ""}
                   onChange={(_, newValue) => field.onChange(newValue || "")}
@@ -322,6 +324,7 @@ function EnrolContent() {
               render={({ field }) => (
                 <Autocomplete
                   freeSolo
+                  fullWidth
                   options={acqOptions}
                   value={field.value || ""}
                   onChange={(_, newValue) => field.onChange(newValue || "")}
@@ -352,12 +355,12 @@ function EnrolContent() {
                     field.value ? formatDateForPicker(field.value) : null
                   }
                   onChange={(date) => field.onChange(formatDateForApi(date))}
+                  sx={{ maxWidth: 200 }}
                   slotProps={{
                     textField: {
                       error: !!formErrors.acquisition_date,
                       helperText: formErrors.acquisition_date?.message,
                       size: "small",
-                      fullWidth: true,
                     },
                   }}
                 />
