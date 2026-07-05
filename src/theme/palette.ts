@@ -23,6 +23,18 @@ export interface MD3Palette {
   onError: string;
   errorContainer: string;
   onErrorContainer: string;
+  warning: string;
+  onWarning: string;
+  warningContainer: string;
+  onWarningContainer: string;
+  success: string;
+  onSuccess: string;
+  successContainer: string;
+  onSuccessContainer: string;
+  info: string;
+  onInfo: string;
+  infoContainer: string;
+  onInfoContainer: string;
   background: string;
   onBackground: string;
   surface: string;
@@ -65,6 +77,18 @@ function extractPalette(theme: Theme, isDark: boolean): MD3Palette {
     onError: hexFromArgb(scheme.onError),
     errorContainer: hexFromArgb(scheme.errorContainer),
     onErrorContainer: hexFromArgb(scheme.onErrorContainer),
+    warning: isDark ? "#FFB300" : "#F9A825",
+    onWarning: isDark ? "#422C00" : "#FFFFFF",
+    warningContainer: isDark ? "#5F4200" : "#FFF3E0",
+    onWarningContainer: isDark ? "#FFDDB1" : "#4E3600",
+    success: isDark ? "#70C060" : "#4CAF50",
+    onSuccess: isDark ? "#003A07" : "#FFFFFF",
+    successContainer: isDark ? "#005410" : "#E8F5E9",
+    onSuccessContainer: isDark ? "#8FDB8A" : "#1B5E20",
+    info: isDark ? "#70B8FF" : "#2196F3",
+    onInfo: isDark ? "#003258" : "#FFFFFF",
+    infoContainer: isDark ? "#004A7C" : "#E3F2FD",
+    onInfoContainer: isDark ? "#C8E1FF" : "#0D47A1",
     background: hexFromArgb(scheme.background),
     onBackground: hexFromArgb(scheme.onBackground),
     surface: hexFromArgb(scheme.surface),

@@ -46,11 +46,11 @@ type ChickenTableRowProps = {
   onDepartureOtherReasonChange: (value: string) => void;
 };
 
-const sexBadgeColors: Record<string, { bg: string; color: string }> = {
-  Hen: { bg: "#fce4ec", color: "#c62828" },
-  Rooster: { bg: "#e3f2fd", color: "#1565c0" },
+const sexBadgeSx: Record<string, { bgcolor: string; color: string }> = {
+  Hen: { bgcolor: "secondary.light", color: "secondary.dark" },
+  Rooster: { bgcolor: "primary.light", color: "primary.dark" },
 };
-const defaultSexBadgeColors = { bg: "#f3e5f5", color: "#7b1fa2" };
+const defaultSexBadgeSx = { bgcolor: "action.disabledBackground", color: "text.secondary" };
 
 function ChickenTableRowInner({
   chicken,
@@ -68,7 +68,7 @@ function ChickenTableRowInner({
   onDepartureReasonChange,
   onDepartureOtherReasonChange,
 }: ChickenTableRowProps) {
-  const sexColors = sexBadgeColors[chicken.sex] ?? defaultSexBadgeColors;
+  const sexSx = sexBadgeSx[chicken.sex] ?? defaultSexBadgeSx;
 
   return (
     <TableRow
@@ -98,8 +98,8 @@ function ChickenTableRowInner({
           label={chicken.sex}
           size="small"
           sx={{
-            bgcolor: sexColors.bg,
-            color: sexColors.color,
+            bgcolor: sexSx.bgcolor,
+            color: sexSx.color,
             fontWeight: 600,
             fontSize: "0.8rem",
           }}
@@ -111,8 +111,8 @@ function ChickenTableRowInner({
           label={chicken.departed ? "Departed" : "Active"}
           size="small"
           sx={{
-            bgcolor: chicken.departed ? "#ffebee" : "#e8f5e9",
-            color: chicken.departed ? "#b71c1c" : "#2e7d32",
+            bgcolor: chicken.departed ? "error.light" : "success.light",
+            color: chicken.departed ? "error.dark" : "success.dark",
             fontWeight: 600,
             fontSize: "0.8rem",
           }}

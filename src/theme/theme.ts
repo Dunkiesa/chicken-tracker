@@ -25,6 +25,24 @@ export function createMD3Theme(mode: "light" | "dark"): Theme {
         dark: palette.onErrorContainer,
         contrastText: palette.onError,
       },
+      warning: {
+        main: palette.warning,
+        light: palette.warningContainer,
+        dark: palette.onWarningContainer,
+        contrastText: palette.onWarning,
+      },
+      success: {
+        main: palette.success,
+        light: palette.successContainer,
+        dark: palette.onSuccessContainer,
+        contrastText: palette.onSuccess,
+      },
+      info: {
+        main: palette.info,
+        light: palette.infoContainer,
+        dark: palette.onInfoContainer,
+        contrastText: palette.onInfo,
+      },
       background: {
         default: palette.background,
         paper: palette.surface,

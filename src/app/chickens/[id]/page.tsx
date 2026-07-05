@@ -38,6 +38,7 @@ import {
   FormControlLabel,
   Checkbox,
 } from "@mui/material";
+import { alpha } from "@mui/material/styles";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import AddIcon from "@mui/icons-material/Add";
@@ -87,11 +88,11 @@ type DynamicListEntry = {
 
 const SEX_OPTIONS = ["Hen", "Rooster", "Unknown"] as const;
 
-const sexBadgeColors: Record<string, { bg: string; color: string }> = {
-  Hen: { bg: "#fce4ec", color: "#c62828" },
-  Rooster: { bg: "#e3f2fd", color: "#1565c0" },
+const sexBadgeSx: Record<string, { bgcolor: string; color: string }> = {
+  Hen: { bgcolor: "secondary.light", color: "secondary.dark" },
+  Rooster: { bgcolor: "primary.light", color: "primary.dark" },
 };
-const defaultSexBadgeColors = { bg: "#f3e5f5", color: "#7b1fa2" };
+const defaultSexBadgeSx = { bgcolor: "action.disabledBackground", color: "text.secondary" };
 
 function todayStr(): string {
   const d = new Date();
@@ -956,7 +957,7 @@ function ProfileContent() {
 }
 
 function ChickenInfoCard({ chicken }: { chicken: Chicken }) {
-  const sexColors = sexBadgeColors[chicken.sex] ?? defaultSexBadgeColors;
+  const sexSx = sexBadgeSx[chicken.sex] ?? defaultSexBadgeSx;
 
   return (
     <Card>
@@ -973,8 +974,8 @@ function ChickenInfoCard({ chicken }: { chicken: Chicken }) {
                 label={chicken.sex}
                 size="small"
                 sx={{
-                  bgcolor: sexColors.bg,
-                  color: sexColors.color,
+                  bgcolor: sexSx.bgcolor,
+                  color: sexSx.color,
                   fontWeight: 600,
                 }}
               />
@@ -982,8 +983,8 @@ function ChickenInfoCard({ chicken }: { chicken: Chicken }) {
                 label={chicken.departed ? "Departed" : "Active"}
                 size="small"
                 sx={{
-                  bgcolor: chicken.departed ? "#ffebee" : "#e8f5e9",
-                  color: chicken.departed ? "#b71c1c" : "#2e7d32",
+                  bgcolor: chicken.departed ? "error.light" : "success.light",
+                  color: chicken.departed ? "error.dark" : "success.dark",
                   fontWeight: 600,
                 }}
               />
@@ -1099,7 +1100,7 @@ function PhotoGallery({
                     bottom: 0,
                     left: 0,
                     right: 0,
-                    bgcolor: "rgba(0,0,0,0.6)",
+                    bgcolor: (theme) => alpha(theme.palette.common.black, 0.6),
                     display: "flex",
                     justifyContent: "flex-end",
                     p: 0.5,
