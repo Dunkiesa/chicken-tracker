@@ -1101,7 +1101,13 @@ function PhotoGallery({
                     <IconButton
                       size="small"
                       onClick={() => onSetPrimary(photo.id)}
-                      sx={{ color: "success.light" }}
+                      sx={{
+                        color: "success.contrastText",
+                        bgcolor: (theme) => alpha(theme.palette.success.main, 0.5),
+                        "&:hover": {
+                          bgcolor: (theme) => alpha(theme.palette.success.main, 0.7),
+                        },
+                      }}
                     >
                       <StarIcon fontSize="small" />
                     </IconButton>
@@ -1109,7 +1115,13 @@ function PhotoGallery({
                   <IconButton
                     size="small"
                     onClick={() => onDeletePhoto(photo.id)}
-                    sx={{ color: "error.light" }}
+                    sx={{
+                      color: "error.contrastText",
+                      bgcolor: (theme) => alpha(theme.palette.error.main, 0.5),
+                      "&:hover": {
+                        bgcolor: (theme) => alpha(theme.palette.error.main, 0.7),
+                      },
+                    }}
                   >
                     <DeleteIcon fontSize="small" />
                   </IconButton>
