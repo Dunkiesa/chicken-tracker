@@ -34,7 +34,7 @@ import {
   List,
   ListItem,
   ListItemText,
-  Grid,
+  Grid2 as Grid,
   FormControlLabel,
   Checkbox,
 } from "@mui/material";
@@ -988,25 +988,25 @@ function ChickenInfoCard({ chicken }: { chicken: Chicken }) {
           </Box>
         </Stack>
         <Grid container spacing={1}>
-          <Grid item xs={4}>
+          <Grid size={{ xs: 4 }}>
             <Typography variant="caption" color="text.secondary">
               Breed
             </Typography>
             <Typography variant="body2">{chicken.breed_name || "-"}</Typography>
           </Grid>
-          <Grid item xs={4}>
+          <Grid size={{ xs: 4 }}>
             <Typography variant="caption" color="text.secondary">
               Origin
             </Typography>
             <Typography variant="body2">{chicken.origin_source_name || "-"}</Typography>
           </Grid>
-          <Grid item xs={4}>
+          <Grid size={{ xs: 4 }}>
             <Typography variant="caption" color="text.secondary">
               Acquisition
             </Typography>
             <Typography variant="body2">{chicken.acquisition_type_name || "-"}</Typography>
           </Grid>
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <Typography variant="caption" color="text.secondary">
               Acquisition Date
             </Typography>

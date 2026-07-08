@@ -17,7 +17,7 @@ import {
   CircularProgress,
   FormControlLabel,
   Checkbox,
-  Grid,
+  Grid2 as Grid,
   Skeleton,
   Stack,
   Table,
@@ -354,12 +354,12 @@ function LogEggContent() {
   const hasWeightErrors = Object.keys(weightErrors).length > 0;
 
   return (
-    <Box sx={{ maxWidth: 700, mx: "auto", p: 2 }}>
+    <Box sx={{ maxWidth: 700, mx: "auto", p: 2, overflowX: "hidden" }}>
       <Typography variant="h5" gutterBottom>
         Log
       </Typography>
 
-      <Card sx={{ p: 2, mb: 2 }}>
+      <Card sx={{ p: 2, mb: 2, overflow: "hidden" }}>
         <Stack spacing={2}>
           <Controller
             name="date"
@@ -405,7 +405,7 @@ function LogEggContent() {
           ) : (
             <Grid container spacing={1.5}>
               {hens.map((hen) => (
-                <Grid item xs={12} sm={6} key={hen.id}>
+                <Grid size={{ xs: 12, sm: 6 }} key={hen.id}>
                   <Card variant="outlined">
                     <Box
                       onBlur={() => handleWeightBlur(hen.id)}
