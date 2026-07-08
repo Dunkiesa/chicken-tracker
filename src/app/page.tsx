@@ -4,6 +4,7 @@ import { useState, Suspense, useMemo } from "react";
 import { useSession, signIn } from "next-auth/react";
 import { useQuery } from "@tanstack/react-query";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import { BarChart } from "@mui/x-charts/BarChart";
 import {
   Box,
   Card,
@@ -238,26 +239,21 @@ function DashboardContent() {
                     No eggs logged in this period.
                   </Typography>
                 ) : (
-                  <TableContainer>
-                    <Table size="small">
-                      <TableHead>
-                        <TableRow>
-                          <TableCell>Period</TableCell>
-                          <TableCell align="right">Eggs</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {productionData.map((row, i) => (
-                          <TableRow key={i}>
-                            <TableCell>{formatDateForDisplay(row.date)}</TableCell>
-                            <TableCell align="right" sx={{ fontWeight: 600 }}>
-                              {row.count}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
+                  <BarChart
+                    dataset={productionData}
+                    xAxis={[
+                      {
+                        scaleType: "band",
+                        dataKey: "date",
+                        valueFormatter: (d: string) => formatDateForDisplay(d),
+                      },
+                    ]}
+                    series={[{ dataKey: "count" }]}
+                    height={300}
+                    slotProps={{ legend: { hidden: true } }}
+                    grid={{ horizontal: true }}
+                    sx={{ width: "100%" }}
+                  />
                 )}
               </CardContent>
             </Card>
@@ -267,7 +263,7 @@ function DashboardContent() {
                 <Typography variant="h6" sx={{ mb: 2 }}>
                   Average Egg Weight
                 </Typography>
-                {data.average_weight_per_hen.length === 0 ? (
+                {data.average_weight_per_hen.filter((h) => h.avg_weight != null).length === 0 ? (
                   <Typography variant="body2" color="text.secondary">
                     No data.
                   </Typography>
@@ -281,11 +277,11 @@ function DashboardContent() {
                         </TableRow>
                       </TableHead>
                       <TableBody>
-                        {data.average_weight_per_hen.map((h) => (
+                        {data.average_weight_per_hen.filter((h) => h.avg_weight != null).map((h) => (
                           <TableRow key={h.chicken_id}>
                             <TableCell>{h.chicken_name}</TableCell>
                             <TableCell align="right">
-                              {h.avg_weight != null ? h.avg_weight.toFixed(1) : "-"}
+                              {h.avg_weight!.toFixed(1)}
                             </TableCell>
                           </TableRow>
                         ))}
@@ -301,7 +297,7 @@ function DashboardContent() {
                 <Typography variant="h6" sx={{ mb: 2 }}>
                   Egg Weight Variance
                 </Typography>
-                {data.weight_variance_per_hen.length === 0 ? (
+                {data.weight_variance_per_hen.filter((h) => h.min_weight != null && h.max_weight != null && h.std_dev != null).length === 0 ? (
                   <Typography variant="body2" color="text.secondary">
                     No data.
                   </Typography>
@@ -317,17 +313,17 @@ function DashboardContent() {
                         </TableRow>
                       </TableHead>
                       <TableBody>
-                        {data.weight_variance_per_hen.map((h) => (
+                        {data.weight_variance_per_hen.filter((h) => h.min_weight != null && h.max_weight != null && h.std_dev != null).map((h) => (
                           <TableRow key={h.chicken_id}>
                             <TableCell>{h.chicken_name}</TableCell>
                             <TableCell align="right">
-                              {h.min_weight != null ? h.min_weight.toFixed(1) : "-"}
+                              {h.min_weight!.toFixed(1)}
                             </TableCell>
                             <TableCell align="right">
-                              {h.max_weight != null ? h.max_weight.toFixed(1) : "-"}
+                              {h.max_weight!.toFixed(1)}
                             </TableCell>
                             <TableCell align="right">
-                              {h.std_dev != null ? h.std_dev.toFixed(2) : "-"}
+                              {h.std_dev!.toFixed(2)}
                             </TableCell>
                           </TableRow>
                         ))}
