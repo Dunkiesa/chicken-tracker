@@ -13,16 +13,16 @@ jest.mock("next/navigation", () => ({
   usePathname: jest.fn(() => "/"),
 }));
 
-jest.mock("@mui/material/useMediaQuery", () => ({
-  __esModule: true,
-  default: jest.fn(() => true),
+jest.mock("@mui/material", () => ({
+  ...jest.requireActual("@mui/material"),
+  useMediaQuery: jest.fn(() => true),
 }));
 
 import { useSession } from "next-auth/react";
 import { screen, waitFor } from "@testing-library/react";
 import { renderWithProviders } from "./test-utils";
 import AppShell from "@/components/AppShell";
-import useMediaQuery from "@mui/material/useMediaQuery";
+import { useMediaQuery } from "@mui/material";
 
 beforeEach(() => {
   jest.clearAllMocks();
