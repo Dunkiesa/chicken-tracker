@@ -70,6 +70,8 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const date = searchParams.get("date") || undefined;
+    const from = searchParams.get("from") || undefined;
+    const to = searchParams.get("to") || undefined;
     const chicken_id = searchParams.get("chicken_id")
       ? parseInt(searchParams.get("chicken_id")!, 10)
       : undefined;
@@ -87,7 +89,9 @@ export async function GET(request: NextRequest) {
     }
 
     const eggs = await listEggs(
-      chicken_id || date ? { date, chicken_id } : undefined
+      chicken_id || date || from || to
+        ? { date, chicken_id, date_from: from, date_to: to }
+        : undefined
     );
     return NextResponse.json(eggs);
   } catch (error) {

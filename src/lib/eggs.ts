@@ -170,7 +170,12 @@ export async function createEggs(
 }
 
 export async function listEggs(
-  filters?: { date?: string; chicken_id?: number }
+  filters?: {
+    date?: string;
+    chicken_id?: number;
+    date_from?: string;
+    date_to?: string;
+  }
 ): Promise<Egg[]> {
   const pool = await getPool();
   const conditions: string[] = [];
@@ -183,6 +188,14 @@ export async function listEggs(
   if (filters?.chicken_id) {
     conditions.push("e.chicken_id = @chicken_id");
     request.input("chicken_id", sql.Int, filters.chicken_id);
+  }
+  if (filters?.date_from) {
+    conditions.push("e.date >= @date_from");
+    request.input("date_from", sql.Date, filters.date_from);
+  }
+  if (filters?.date_to) {
+    conditions.push("e.date <= @date_to");
+    request.input("date_to", sql.Date, filters.date_to);
   }
 
   const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";

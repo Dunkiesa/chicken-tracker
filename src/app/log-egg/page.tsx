@@ -3,6 +3,7 @@
 import { useState, Suspense, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -33,6 +34,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import CheckIcon from "@mui/icons-material/Check";
 import CloseIcon from "@mui/icons-material/Close";
+import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import { HenRow } from "@/components/HenRow";
 import {
   todayStr,
@@ -350,7 +352,7 @@ function LogEggContent() {
     return null;
   }
 
-  const displayEggs = allEggs ?? [];
+  const displayEggs = (allEggs ?? []).slice(0, 10);
   const hasWeightErrors = Object.keys(weightErrors).length > 0;
 
   return (
@@ -471,9 +473,19 @@ function LogEggContent() {
       </Card>
 
       <Card sx={{ p: 2 }}>
-        <Typography variant="h6" gutterBottom>
-          Recent Eggs
-        </Typography>
+        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
+          <Typography variant="h6">
+            Recent Eggs
+          </Typography>
+          <Button
+            component={Link}
+            href="/egg-history"
+            size="small"
+            endIcon={<ArrowForwardIcon />}
+          >
+            Full History
+          </Button>
+        </Stack>
 
         {eggsLoading ? (
           <Stack spacing={1}>
