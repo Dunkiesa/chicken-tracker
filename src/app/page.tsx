@@ -487,7 +487,9 @@ function DashboardContent() {
                         {data.seasonal_trends.map((s, i) => (
                           <TableRow key={i}>
                             <TableCell>
-                              {s.year}-{String(s.month).padStart(2, "0")}
+                              {i === 0 || s.year !== data.seasonal_trends[i - 1].year
+                                ? s.year
+                                : ""}
                             </TableCell>
                             <TableCell>
                               <Chip

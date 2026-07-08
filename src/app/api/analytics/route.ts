@@ -79,9 +79,9 @@ function analyticsToCsv(data: AnalyticsData): string {
 
   // Seasonal trends
   lines.push("");
-  lines.push("section,year,month,season,egg_count");
+  lines.push("section,year,season,egg_count");
   for (const row of data.seasonal_trends) {
-    lines.push(`seasonal,${row.year},${row.month},${row.season},${row.egg_count}`);
+    lines.push(`seasonal,${row.year},${row.season},${row.egg_count}`);
   }
 
   // Attrition

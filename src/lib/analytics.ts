@@ -48,7 +48,6 @@ export type HenLongestStreak = {
 
 export type SeasonalTrend = {
   year: number;
-  month: number;
   season: string;
   egg_count: number;
 };
@@ -451,12 +450,21 @@ async function getSeasonalTrends(
       ORDER BY YEAR(e.date), MONTH(e.date)
     `);
 
-  return result.recordset.map((r) => ({
-    year: r.year,
-    month: r.month,
-    season: seasonForMonth(r.month),
-    egg_count: r.egg_count,
-  }));
+  const seasonOrder: Record<string, number> = { Summer: 0, Autumn: 1, Winter: 2, Spring: 3 };
+  const aggregated = new Map<string, SeasonalTrend>();
+  for (const r of result.recordset) {
+    const season = seasonForMonth(r.month);
+    const key = `${r.year}-${season}`;
+    if (aggregated.has(key)) {
+      aggregated.get(key)!.egg_count += r.egg_count;
+    } else {
+      aggregated.set(key, { year: r.year, season, egg_count: r.egg_count });
+    }
+  }
+  return Array.from(aggregated.values()).sort((a, b) => {
+    if (a.year !== b.year) return a.year - b.year;
+    return seasonOrder[a.season] - seasonOrder[b.season];
+  });
 }
 
 async function getAttrition(
