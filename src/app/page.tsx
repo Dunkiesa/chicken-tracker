@@ -261,81 +261,92 @@ function DashboardContent() {
             <Card>
               <CardContent>
                 <Typography variant="h6" sx={{ mb: 2 }}>
-                  Average Egg Weight
+                  Egg Weights
                 </Typography>
                 {(() => {
-                  const weightData = data.average_weight_per_hen.filter((h) => h.avg_weight != null);
-                  if (weightData.length === 0) {
+                  const weightMap = new Map(
+                    data.average_weight_per_hen
+                      .filter((h) => h.avg_weight != null)
+                      .map((h) => [h.chicken_id, h.avg_weight!]),
+                  );
+                  const rows = data.weight_variance_per_hen.filter(
+                    (h) =>
+                      h.min_weight != null &&
+                      h.max_weight != null &&
+                      h.std_dev != null &&
+                      weightMap.has(h.chicken_id),
+                  );
+                  if (rows.length === 0) {
                     return (
                       <Typography variant="body2" color="text.secondary">
                         No data.
                       </Typography>
                     );
                   }
+                  const chartData = rows.map((h) => ({
+                    chicken_name: h.chicken_name,
+                    min_weight: h.min_weight!,
+                    avg_weight: weightMap.get(h.chicken_id)!,
+                    max_weight: h.max_weight!,
+                  }));
+                  const L = 55, R = 20, T = 20, B = 55;
+                  const barGap = 40;
+                  const padH = 20;
+                  const totalH = 300;
+                  const innerH = totalH - T - B;
+                  const totalW = L + R + padH * 2 + chartData.length * barGap;
+                  const dataMin = Math.min(...chartData.map((d) => d.min_weight));
+                  const dataMax = Math.max(...chartData.map((d) => d.max_weight));
+                  const padding = (dataMax - dataMin) * 0.1 || 1;
+                  const yMin = dataMin - padding;
+                  const yMax = dataMax + padding;
+                  const yPos = (v: number) => T + innerH - ((v - yMin) / (yMax - yMin)) * innerH;
+                  const yTicks: number[] = [];
+                  const yTickStep = (yMax - yMin) / 5;
+                  for (let i = 0; i <= 5; i++) yTicks.push(Math.round(yMin + yTickStep * i));
                   return (
-                    <BarChart
-                      dataset={weightData}
-                      xAxis={[
-                        {
-                          scaleType: "band",
-                          dataKey: "chicken_name",
-                          tickLabelStyle: {
-                            angle: 45,
-                            textAnchor: "start",
-                            fontSize: 8,
-                          },
-                        },
-                      ]}
-                      series={[{ dataKey: "avg_weight" }]}
-                      height={300}
-                      slotProps={{ legend: { hidden: true } }}
-                      grid={{ horizontal: true }}
-                      sx={{ width: "100%" }}
-                    />
+                    <Box sx={{ width: "100%", overflowX: "auto" }}>
+                      <svg
+                        viewBox={`0 0 ${totalW} ${totalH}`}
+                        style={{ width: "100%", minWidth: chartData.length * 40 + 100 }}
+                      >
+                        <line x1={L} y1={T} x2={L} y2={T + innerH} stroke="#ccc" strokeWidth={1} />
+                        <line x1={L} y1={T + innerH} x2={totalW - R} y2={T + innerH} stroke="#ccc" strokeWidth={1} />
+                        {yTicks.map((t) => (
+                          <g key={t}>
+                            <line x1={L} y1={yPos(t)} x2={totalW - R} y2={yPos(t)} stroke="#eee" strokeWidth={1} />
+                            <text x={L - 8} y={yPos(t)} textAnchor="end" dominantBaseline="central" fontSize={10} fill="#888">
+                              {t}g
+                            </text>
+                          </g>
+                        ))}
+                        {chartData.map((d, i) => {
+                          const cx = L + padH + barGap * i + barGap / 2;
+                          const yHigh = yPos(d.min_weight);
+                          const yLow = yPos(d.max_weight);
+                          const yAvg = yPos(d.avg_weight);
+                          return (
+                            <g key={d.chicken_name}>
+                              <line x1={cx} y1={yHigh} x2={cx} y2={yLow} stroke="#90a4ae" strokeWidth={1.5} />
+                              <circle cx={cx} cy={yAvg} r={4} fill="#1565c0" />
+                              <text
+                                x={cx}
+                                y={T + innerH + 6}
+                                textAnchor="start"
+                                dominantBaseline="hanging"
+                                fontSize={8}
+                                fill="#666"
+                                transform={`rotate(45, ${cx}, ${T + innerH + 6})`}
+                              >
+                                {d.chicken_name}
+                              </text>
+                            </g>
+                          );
+                        })}
+                      </svg>
+                    </Box>
                   );
                 })()}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent>
-                <Typography variant="h6" sx={{ mb: 2 }}>
-                  Egg Weight Variance
-                </Typography>
-                {data.weight_variance_per_hen.filter((h) => h.min_weight != null && h.max_weight != null && h.std_dev != null).length === 0 ? (
-                  <Typography variant="body2" color="text.secondary">
-                    No data.
-                  </Typography>
-                ) : (
-                  <TableContainer>
-                    <Table size="small">
-                      <TableHead>
-                        <TableRow>
-                          <TableCell>Hen</TableCell>
-                          <TableCell align="right">Min (g)</TableCell>
-                          <TableCell align="right">Max (g)</TableCell>
-                          <TableCell align="right">Std Dev</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {data.weight_variance_per_hen.filter((h) => h.min_weight != null && h.max_weight != null && h.std_dev != null).map((h) => (
-                          <TableRow key={h.chicken_id}>
-                            <TableCell>{h.chicken_name}</TableCell>
-                            <TableCell align="right">
-                              {h.min_weight!.toFixed(1)}
-                            </TableCell>
-                            <TableCell align="right">
-                              {h.max_weight!.toFixed(1)}
-                            </TableCell>
-                            <TableCell align="right">
-                              {h.std_dev!.toFixed(2)}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                )}
               </CardContent>
             </Card>
 
