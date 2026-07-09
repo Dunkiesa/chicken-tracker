@@ -263,32 +263,37 @@ function DashboardContent() {
                 <Typography variant="h6" sx={{ mb: 2 }}>
                   Average Egg Weight
                 </Typography>
-                {data.average_weight_per_hen.filter((h) => h.avg_weight != null).length === 0 ? (
-                  <Typography variant="body2" color="text.secondary">
-                    No data.
-                  </Typography>
-                ) : (
-                  <TableContainer>
-                    <Table size="small">
-                      <TableHead>
-                        <TableRow>
-                          <TableCell>Hen</TableCell>
-                          <TableCell align="right">Avg Weight (g)</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {data.average_weight_per_hen.filter((h) => h.avg_weight != null).map((h) => (
-                          <TableRow key={h.chicken_id}>
-                            <TableCell>{h.chicken_name}</TableCell>
-                            <TableCell align="right">
-                              {h.avg_weight!.toFixed(1)}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                )}
+                {(() => {
+                  const weightData = data.average_weight_per_hen.filter((h) => h.avg_weight != null);
+                  if (weightData.length === 0) {
+                    return (
+                      <Typography variant="body2" color="text.secondary">
+                        No data.
+                      </Typography>
+                    );
+                  }
+                  return (
+                    <BarChart
+                      dataset={weightData}
+                      xAxis={[
+                        {
+                          scaleType: "band",
+                          dataKey: "chicken_name",
+                          tickLabelStyle: {
+                            angle: 45,
+                            textAnchor: "start",
+                            fontSize: 8,
+                          },
+                        },
+                      ]}
+                      series={[{ dataKey: "avg_weight" }]}
+                      height={300}
+                      slotProps={{ legend: { hidden: true } }}
+                      grid={{ horizontal: true }}
+                      sx={{ width: "100%" }}
+                    />
+                  );
+                })()}
               </CardContent>
             </Card>
 
