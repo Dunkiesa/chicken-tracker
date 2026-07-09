@@ -141,39 +141,43 @@ function DashboardContent() {
 
         <Card>
           <CardContent>
-            <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap" useFlexGap>
-              <DatePicker
-                label="From"
-                value={formatDateForPicker(dateFrom)}
-                onChange={(d) => d && setDateFrom(formatDateForApi(d))}
-                slotProps={{ textField: { size: "small" } }}
-              />
-              <DatePicker
-                label="To"
-                value={formatDateForPicker(dateTo)}
-                onChange={(d) => d && setDateTo(formatDateForApi(d))}
-                slotProps={{ textField: { size: "small" } }}
-              />
-              <Button
-                variant="outlined"
-                size="small"
-                startIcon={<FileDownloadIcon />}
-                onClick={() => {
-                  const url = `/api/analytics?from=${dateFrom}&to=${dateTo}&format=csv`;
-                  window.open(url, "_blank");
-                }}
-              >
-                Export CSV
-              </Button>
-              <Button
-                variant="outlined"
-                size="small"
-                startIcon={<RefreshIcon />}
-                disabled={isRefetching}
-                onClick={() => refetch()}
-              >
-                {isRefetching ? "Loading..." : "Refresh"}
-              </Button>
+            <Stack spacing={2}>
+              <Stack direction="row" spacing={2} alignItems="center">
+                <DatePicker
+                  label="From"
+                  value={formatDateForPicker(dateFrom)}
+                  onChange={(d) => d && setDateFrom(formatDateForApi(d))}
+                  slotProps={{ textField: { size: "small", fullWidth: true } }}
+                  sx={{ flex: 1, minWidth: 0 }}
+                />
+                <DatePicker
+                  label="To"
+                  value={formatDateForPicker(dateTo)}
+                  onChange={(d) => d && setDateTo(formatDateForApi(d))}
+                  slotProps={{ textField: { size: "small", fullWidth: true } }}
+                  sx={{ flex: 1, minWidth: 0 }}
+                />
+              </Stack>
+              <Stack direction="row" spacing={1}>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  aria-label="Export CSV"
+                  startIcon={<FileDownloadIcon />}
+                  onClick={() => {
+                    const url = `/api/analytics?from=${dateFrom}&to=${dateTo}&format=csv`;
+                    window.open(url, "_blank");
+                  }}
+                />
+                <Button
+                  variant="outlined"
+                  size="small"
+                  aria-label={isRefetching ? "Loading..." : "Refresh"}
+                  startIcon={<RefreshIcon />}
+                  disabled={isRefetching}
+                  onClick={() => refetch()}
+                />
+              </Stack>
             </Stack>
           </CardContent>
         </Card>
