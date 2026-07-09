@@ -329,20 +329,26 @@ async function getProductionConsistency(
         CASE
           WHEN c.departed = 1 AND c.departure_date IS NOT NULL AND c.departure_date < @to
             THEN DATEDIFF(DAY,
-              CASE WHEN c.created_at > @from THEN c.created_at ELSE @from END,
+              CASE WHEN fe.first_egg_date > @from THEN fe.first_egg_date ELSE @from END,
               c.departure_date
             ) + 1
           ELSE DATEDIFF(DAY,
-            CASE WHEN c.created_at > @from THEN c.created_at ELSE @from END,
+            CASE WHEN fe.first_egg_date > @from THEN fe.first_egg_date ELSE @from END,
             @to
           ) + 1
         END AS active_days
       FROM chickens c
+      CROSS APPLY (
+        SELECT MIN(e2.date) AS first_egg_date
+        FROM eggs e2
+        WHERE e2.chicken_id = c.id
+          AND (c.departed = 0 OR e2.date <= c.departure_date)
+      ) fe
       LEFT JOIN eggs e ON c.id = e.chicken_id
         AND e.date >= @from AND e.date <= @to
         AND (c.departed = 0 OR e.date <= c.departure_date)
       WHERE c.sex IN ('Hen', 'Unknown')
-      GROUP BY c.id, c.name, c.departed, c.departure_date, c.created_at
+      GROUP BY c.id, c.name, c.departed, c.departure_date, fe.first_egg_date
       ORDER BY c.name
     `);
 
@@ -352,7 +358,7 @@ async function getProductionConsistency(
       chicken_id: r.chicken_id,
       chicken_name: r.chicken_name,
       egg_count: r.egg_count,
-      active_days: r.active_days,
+      active_days: activeDays,
       laying_rate: Math.round((r.egg_count / activeDays) * 10000) / 100,
     };
   });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, Suspense, useMemo, useEffect } from "react";
+import { useState, Suspense, useMemo, useEffect, useCallback } from "react";
 import { useSession, signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
@@ -30,6 +30,7 @@ import {
 } from "@mui/material";
 import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import RefreshIcon from "@mui/icons-material/Refresh";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import type {
   AnalyticsData,
   ProductionTimeSeries,
@@ -73,6 +74,9 @@ function DashboardContent() {
   const [dateTo, setDateTo] = useState(todayStr());
   const [granularity, setGranularity] = useState<TimeGranularity>("monthly");
   const [dryThreshold, setDryThreshold] = useState(4);
+  const [drillStack, setDrillStack] = useState<
+    { date: string; granularity: TimeGranularity }[]
+  >([]);
   const router = useRouter();
 
   const isRangeBiggerThanMonth = useMemo(() => {
@@ -95,6 +99,10 @@ function DashboardContent() {
     }
   }, [isRangeBiggerThanMonth, granularity]);
 
+  useEffect(() => {
+    setDrillStack([]);
+  }, [granularity, dateFrom, dateTo]);
+
   const {
     data,
     isLoading,
@@ -107,17 +115,56 @@ function DashboardContent() {
     enabled: status === "authenticated",
   });
 
-  const productionData = useMemo<ProductionTimeSeries[]>(
-    () =>
-      data
-        ? granularity === "daily"
-          ? data.production_daily
-          : granularity === "weekly"
-            ? data.production_weekly
-            : data.production_monthly
-        : [],
-    [data, granularity]
+  const displayGranularity = useMemo(() => {
+    if (drillStack.length === 0) return granularity;
+    const lastDrill = drillStack[drillStack.length - 1];
+    if (lastDrill.granularity === "monthly") return "weekly";
+    return "daily";
+  }, [granularity, drillStack]);
+
+  const productionData = useMemo<ProductionTimeSeries[]>(() => {
+    if (!data) return [];
+    if (drillStack.length === 0) {
+      if (granularity === "daily") return data.production_daily;
+      if (granularity === "weekly") return data.production_weekly;
+      return data.production_monthly;
+    }
+    const lastDrill = drillStack[drillStack.length - 1];
+    if (lastDrill.granularity === "monthly") {
+      const prefix = lastDrill.date + "-";
+      return data.production_weekly.filter((w) => w.date.startsWith(prefix));
+    }
+    if (lastDrill.granularity === "weekly") {
+      const weekStart = new Date(lastDrill.date);
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekEnd.getDate() + 6);
+      return data.production_daily.filter((d) => {
+        const dDate = new Date(d.date);
+        return dDate >= weekStart && dDate <= weekEnd;
+      });
+    }
+    return [];
+  }, [data, granularity, drillStack]);
+
+  const handleBarClick = useCallback(
+    (
+      _event: React.MouseEvent<SVGElement, MouseEvent>,
+      barItemIdentifier: { dataIndex: number }
+    ) => {
+      if (displayGranularity === "daily") return;
+      const clicked = productionData[barItemIdentifier.dataIndex];
+      if (!clicked) return;
+      setDrillStack((prev) => [
+        ...prev,
+        { date: clicked.date, granularity: displayGranularity },
+      ]);
+    },
+    [productionData, displayGranularity]
   );
+
+  const handleBack = useCallback(() => {
+    setDrillStack((prev) => prev.slice(0, -1));
+  }, []);
 
   if (status === "loading") {
     return (
@@ -249,19 +296,32 @@ function DashboardContent() {
             <Card>
               <CardContent>
                 <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }} flexWrap="wrap" spacing={1}>
-                  <Typography variant="h6">Production Over Time</Typography>
-                  <ToggleButtonGroup
-                    value={granularity}
-                    exclusive
-                    onChange={(_, v) => v && setGranularity(v)}
-                    size="small"
-                  >
-                    {granularityOptions.map((g) => (
-                      <ToggleButton key={g} value={g}>
-                        {g.charAt(0).toUpperCase() + g.slice(1)}
-                      </ToggleButton>
-                    ))}
-                  </ToggleButtonGroup>
+                  <Stack direction="row" alignItems="center" spacing={1}>
+                    <Typography variant="h6">Production Over Time</Typography>
+                    {drillStack.length > 0 && (
+                      <Button
+                        size="small"
+                        startIcon={<ArrowBackIcon />}
+                        onClick={handleBack}
+                      >
+                        Back
+                      </Button>
+                    )}
+                  </Stack>
+                  {drillStack.length === 0 && (
+                    <ToggleButtonGroup
+                      value={granularity}
+                      exclusive
+                      onChange={(_, v) => v && setGranularity(v)}
+                      size="small"
+                    >
+                      {granularityOptions.map((g) => (
+                        <ToggleButton key={g} value={g}>
+                          {g.charAt(0).toUpperCase() + g.slice(1)}
+                        </ToggleButton>
+                      ))}
+                    </ToggleButtonGroup>
+                  )}
                 </Stack>
                 {productionData.length === 0 ? (
                   <Typography variant="body2" color="text.secondary">
@@ -281,7 +341,8 @@ function DashboardContent() {
                     height={300}
                     slotProps={{ legend: { hidden: true } }}
                     grid={{ horizontal: true }}
-                    sx={{ width: "100%" }}
+                    onItemClick={handleBarClick}
+                    sx={{ width: "100%", "& .MuiBarElement-root": { cursor: displayGranularity !== "daily" ? "pointer" : "default" } }}
                   />
                 )}
               </CardContent>
