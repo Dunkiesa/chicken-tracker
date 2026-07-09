@@ -179,7 +179,8 @@ function EggHistoryContent() {
 
   return (
     <Box sx={{ maxWidth: 700, mx: "auto", p: 2, overflowX: "hidden" }}>
-      <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
+      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
+        <Typography variant="h5">Egg History</Typography>
         <Button
           component={Link}
           href="/log-egg"
@@ -187,7 +188,6 @@ function EggHistoryContent() {
         >
           Back
         </Button>
-        <Typography variant="h5">Egg History</Typography>
       </Stack>
 
       <Stack direction="row" spacing={2} sx={{ mb: 2 }}>

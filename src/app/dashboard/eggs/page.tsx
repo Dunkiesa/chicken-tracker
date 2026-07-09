@@ -82,17 +82,17 @@ function ChickenEggsContent() {
 
   return (
     <Box sx={{ maxWidth: 700, mx: "auto", p: 2 }}>
-      <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
+      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
+        <Typography variant="h5">
+          {chickenName}
+        </Typography>
         <Button
           component={Link}
           href="/"
           startIcon={<ArrowBackIcon />}
         >
-          Back to Dashboard
+          Back
         </Button>
-        <Typography variant="h5">
-          {chickenName}
-        </Typography>
       </Stack>
 
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>

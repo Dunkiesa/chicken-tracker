@@ -182,27 +182,29 @@ function EnrolContent() {
         <Typography color="text.secondary">
           You are signed in as a Viewer. Only admins can enrol chickens.
         </Typography>
-        <Button component={Link} href="/roster" sx={{ mt: 2 }}>
-          Back to Roster
-        </Button>
+        <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 2 }}>
+          <Button component={Link} href="/roster" startIcon={<ArrowBackIcon />}>
+            Back
+          </Button>
+        </Box>
       </Box>
     );
   }
 
   return (
     <Box sx={{ maxWidth: 600, mx: "auto", p: 2 }}>
-      <Button
-        component={Link}
-        href="/roster"
-        startIcon={<ArrowBackIcon />}
-        sx={{ mb: 2 }}
-      >
-        Back to Roster
-      </Button>
-
-      <Typography variant="h5" gutterBottom>
-        Enrol Chicken
-      </Typography>
+      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
+        <Typography variant="h5">
+          Enrol Chicken
+        </Typography>
+        <Button
+          component={Link}
+          href="/roster"
+          startIcon={<ArrowBackIcon />}
+        >
+          Back
+        </Button>
+      </Stack>
 
       <Card sx={{ p: 2 }}>
         <Box

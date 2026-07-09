@@ -1,3 +1,4 @@
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Container from "@mui/material/Container";
@@ -22,9 +23,11 @@ export default function AuthErrorPage() {
         <Typography color="text.secondary" paragraph>
           Something went wrong during sign-in. Please try again.
         </Typography>
-        <Button variant="contained" href="/" sx={{ mt: 2 }}>
-          Back to Home
-        </Button>
+        <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+          <Button variant="contained" href="/" startIcon={<ArrowBackIcon />}>
+            Back
+          </Button>
+        </Box>
       </Container>
     </Box>
   );
