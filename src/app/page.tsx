@@ -25,6 +25,7 @@ import {
   ToggleButton,
   ToggleButtonGroup,
   Chip,
+  Slider,
 } from "@mui/material";
 import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import RefreshIcon from "@mui/icons-material/Refresh";
@@ -42,8 +43,8 @@ import {
 
 type TimeGranularity = "daily" | "weekly" | "monthly";
 
-async function fetchAnalytics(from: string, to: string): Promise<AnalyticsData> {
-  const res = await fetch(`/api/analytics?from=${from}&to=${to}`);
+async function fetchAnalytics(from: string, to: string, dryThreshold: number): Promise<AnalyticsData> {
+  const res = await fetch(`/api/analytics?from=${from}&to=${to}&dry_threshold=${dryThreshold}`);
   if (!res.ok) {
     const body = await res.json();
     throw new Error(body.message || "Failed to load analytics");
@@ -70,6 +71,7 @@ function DashboardContent() {
   const [dateFrom, setDateFrom] = useState(oneYearAgoStr());
   const [dateTo, setDateTo] = useState(todayStr());
   const [granularity, setGranularity] = useState<TimeGranularity>("monthly");
+  const [dryThreshold, setDryThreshold] = useState(4);
 
   const {
     data,
@@ -78,8 +80,8 @@ function DashboardContent() {
     refetch,
     isRefetching,
   } = useQuery({
-    queryKey: ["analytics", dateFrom, dateTo],
-    queryFn: () => fetchAnalytics(dateFrom, dateTo),
+    queryKey: ["analytics", dateFrom, dateTo, dryThreshold],
+    queryFn: () => fetchAnalytics(dateFrom, dateTo, dryThreshold),
     enabled: status === "authenticated",
   });
 
@@ -447,11 +449,24 @@ function DashboardContent() {
 
             <Card>
               <CardContent>
-                <Stack direction="row" alignItems="baseline" spacing={1} sx={{ mb: 2 }}>
+                <Stack direction="row" alignItems="baseline" spacing={1} sx={{ mb: 1 }}>
                   <Typography variant="h6">Dry Periods</Typography>
                   <Typography variant="body2" color="text.secondary">
-                    (alert after {data.dry_threshold_days} days)
+                    (alert after {dryThreshold} days)
                   </Typography>
+                </Stack>
+                <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 2 }}>
+                  <Typography variant="caption" color="text.secondary">1d</Typography>
+                  <Slider
+                    value={dryThreshold}
+                    onChange={(_, v) => setDryThreshold(v as number)}
+                    min={1}
+                    max={14}
+                    step={1}
+                    size="small"
+                    sx={{ maxWidth: 200 }}
+                  />
+                  <Typography variant="caption" color="text.secondary">14d</Typography>
                 </Stack>
 
                 {data.dry_periods_current.length === 0 ? (
