@@ -356,45 +356,54 @@ function DashboardContent() {
                 <Typography variant="h6" sx={{ mb: 2 }}>
                   Productivity
                 </Typography>
-                {data.most_productive.length === 0 ? (
-                  <Typography variant="body2" color="text.secondary">
-                    No eggs logged in this period.
-                  </Typography>
-                ) : (
-                  <PieChart
-                    series={[
-                      {
-                        data: data.most_productive.slice(0, 10).map((h) => ({
-                          id: h.chicken_id,
-                          value: h.egg_count,
-                          label: h.chicken_name,
-                        })),
-                        arcLabel: (item) => String(item.value),
-                        arcLabelRadius: "85%",
-                        arcLabelStyle: {
-                          fill: "#1a1a1a",
+                {(() => {
+                  if (data.most_productive.length === 0) {
+                    return (
+                      <Typography variant="body2" color="text.secondary">
+                        No eggs logged in this period.
+                      </Typography>
+                    );
+                  }
+                  const top10 = data.most_productive.slice(0, 10);
+                  const rest = data.most_productive.slice(10);
+                  const otherCount = rest.reduce((sum, h) => sum + h.egg_count, 0);
+                  const pieData = top10.map((h) => ({
+                    id: h.chicken_id,
+                    value: h.egg_count,
+                    label: h.chicken_name,
+                  }));
+                  if (otherCount > 0) {
+                    pieData.push({ id: -1, value: otherCount, label: "Other" });
+                  }
+                  return (
+                    <PieChart
+                      series={[
+                        {
+                          data: pieData,
+                          arcLabel: (item) => String(item.value),
+                          arcLabelRadius: "85%",
+                        },
+                      ]}
+                      height={300}
+                      margin={{ right: 140 }}
+                      slotProps={{
+                        pieArcLabel: {
+                          fill: "#000",
                           fontWeight: 700,
                           fontSize: 12,
-                          paintOrder: "stroke",
-                          stroke: "#fff",
-                          strokeWidth: 3,
                         },
-                      },
-                    ]}
-                    height={300}
-                    margin={{ right: 140 }}
-                    slotProps={{
-                      legend: {
-                        direction: "column",
-                        position: { vertical: "middle", horizontal: "right" },
-                        labelStyle: { fontSize: 11 },
-                        padding: 0,
-                        itemGap: 4,
-                      },
-                    }}
-                    sx={{ width: "100%" }}
-                  />
-                )}
+                        legend: {
+                          direction: "column",
+                          position: { vertical: "middle", horizontal: "right" },
+                          labelStyle: { fontSize: 11 },
+                          padding: 0,
+                          itemGap: 4,
+                        },
+                      }}
+                      sx={{ width: "100%" }}
+                    />
+                  );
+                })()}
               </CardContent>
             </Card>
 
