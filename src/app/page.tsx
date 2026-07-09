@@ -428,7 +428,7 @@ function DashboardContent() {
                         </TableRow>
                       </TableHead>
                       <TableBody>
-                        {data.production_consistency.map((h) => (
+                        {data.production_consistency.filter((h) => h.laying_rate > 0).map((h) => (
                           <TableRow key={h.chicken_id}>
                             <TableCell>{h.chicken_name}</TableCell>
                             <TableCell align="right">{h.egg_count}</TableCell>
