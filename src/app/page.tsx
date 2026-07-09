@@ -485,6 +485,7 @@ function DashboardContent() {
                       </TableHead>
                       <TableBody>
                         {[...data.dry_periods_current]
+                          .filter((h) => h.days_since_last_egg != null && h.days_since_last_egg > 0)
                           .sort((a, b) => (b.days_since_last_egg ?? 0) - (a.days_since_last_egg ?? 0))
                           .map((h) => {
                           const longest = data.dry_periods_longest.find(
