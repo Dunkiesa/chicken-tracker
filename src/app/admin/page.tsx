@@ -44,6 +44,8 @@ import {
   Tabs,
   Tab,
   Select,
+  useTheme,
+  useMediaQuery,
 } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -258,6 +260,8 @@ function AdminContent() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const isAdmin = session?.user?.role === "Admin";
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
   const [tabIndex, setTabIndex] = useState(0);
   const [userSorting, setUserSorting] = useState<SortingState>([]);
@@ -462,16 +466,17 @@ function AdminContent() {
   const tabPanelId = (index: number) => `admin-tabpanel-${index}`;
 
   return (
-    <Box sx={{ maxWidth: 900, mx: "auto", p: 2 }}>
+    <Box sx={{ maxWidth: 900, mx: "auto", p: { xs: 1, sm: 2 } }}>
       <Typography variant="h5" gutterBottom>
         Admin
       </Typography>
 
-      <Card sx={{ p: 2 }}>
+      <Card sx={{ p: { xs: 1.5, sm: 2 } }}>
         <Tabs
           value={tabIndex}
           onChange={(_, v) => setTabIndex(v)}
           aria-label="Admin sections"
+          variant={isMobile ? "scrollable" : "standard"}
           sx={{ mb: 2 }}
         >
           <Tab label="Users" id={tabLabelId(0)} aria-controls={tabPanelId(0)} />
@@ -524,7 +529,8 @@ function AdminContent() {
                       label="Role"
                       error={!!addUserErrors.role}
                       helperText={addUserErrors.role?.message}
-                      sx={{ minWidth: 140 }}
+                      fullWidth={isMobile}
+                      sx={{ minWidth: { xs: 0, sm: 140 } }}
                       size="small"
                       disabled={addUserMutation.isPending}
                     >
@@ -538,7 +544,8 @@ function AdminContent() {
                   variant="contained"
                   disabled={addUserMutation.isPending}
                   startIcon={<AddIcon />}
-                  sx={{ minWidth: 140 }}
+                  fullWidth={isMobile}
+                  sx={{ minWidth: { xs: 0, sm: 140 } }}
                 >
                   {addUserMutation.isPending ? "Adding..." : "Add User"}
                 </Button>
@@ -570,13 +577,13 @@ function AdminContent() {
                   No users found.
                 </Typography>
               ) : (
-                <TableContainer>
+                <TableContainer sx={{ overflowX: "auto" }}>
                   <Table size="small">
                     <TableHead>
                       {userTable.getHeaderGroups().map((headerGroup) => (
                         <TableRow key={headerGroup.id}>
                           {headerGroup.headers.map((header) => (
-                            <TableCell key={header.id}>
+                            <TableCell key={header.id} sx={{ py: { xs: 0.5, sm: 1 } }}>
                               {header.isPlaceholder ? null : header.id === "actions" ? null : (
                                 <TableSortLabel
                                   active={header.column.getIsSorted() !== false}
@@ -601,8 +608,8 @@ function AdminContent() {
                     <TableBody>
                       {userTable.getRowModel().rows.map((row) => (
                         <TableRow key={row.original.email}>
-                          <TableCell>{row.original.email}</TableCell>
-                          <TableCell>
+                          <TableCell sx={{ py: { xs: 0.5, sm: 1 } }}>{row.original.email}</TableCell>
+                          <TableCell sx={{ py: { xs: 0.5, sm: 1 } }}>
                             <Select
                               value={row.original.role}
                               onChange={(e) =>
@@ -613,7 +620,7 @@ function AdminContent() {
                               }
                               size="small"
                               sx={{
-                                minWidth: 100,
+                                minWidth: { xs: 80, sm: 100 },
                                 fontSize: "0.8rem",
                                 fontWeight: 600,
                               }}
@@ -623,7 +630,7 @@ function AdminContent() {
                               <MenuItem value="Admin">Admin</MenuItem>
                             </Select>
                           </TableCell>
-                          <TableCell align="right">
+                          <TableCell sx={{ py: { xs: 0.5, sm: 1 } }} align="right">
                             {row.original.email !== session?.user?.email && (
                               <Button
                                 size="small"
@@ -667,6 +674,7 @@ function AdminContent() {
                     onSubmit={addListForm.handleSubmit(handleAddListValue)}
                     sx={{
                       display: "flex",
+                      flexDirection: { xs: "column", sm: "row" },
                       gap: 2,
                       alignItems: "flex-start",
                       p: 2,
@@ -696,7 +704,8 @@ function AdminContent() {
                       variant="contained"
                       disabled={addListValueMutation.isPending}
                       startIcon={<AddIcon />}
-                      sx={{ minWidth: 100 }}
+                      fullWidth={isMobile}
+                      sx={{ minWidth: { xs: 0, sm: 100 } }}
                     >
                       {addListValueMutation.isPending ? "Adding..." : "Add"}
                     </Button>
@@ -809,7 +818,7 @@ function AdminContent() {
                             </Box>
 
                             {!isRenaming && otherEntries.length > 0 && (
-                              <Box sx={{ display: "flex", gap: 1, alignItems: "center", mt: 0.5, pl: 1 }}>
+                              <Box sx={{ display: "flex", flexDirection: { xs: "column", sm: "row" }, gap: 1, alignItems: { xs: "stretch", sm: "center" }, mt: 0.5, pl: 1 }}>
                                 <Select
                                   size="small"
                                   value={mergeTarget}
@@ -820,7 +829,7 @@ function AdminContent() {
                                     }))
                                   }
                                   displayEmpty
-                                  sx={{ minWidth: 160, fontSize: "0.8rem" }}
+                                  sx={{ minWidth: { xs: 0, sm: 160 }, fontSize: "0.8rem" }}
                                 >
                                   <MenuItem value="" disabled>
                                     Merge into...
@@ -837,7 +846,8 @@ function AdminContent() {
                                   startIcon={<MergeTypeIcon />}
                                   disabled={!mergeTarget}
                                   onClick={() => handleMergeClick(type, entry.id, mergeTarget, entriesList)}
-                                  sx={{ fontSize: "0.75rem", minWidth: 80 }}
+                                  fullWidth={isMobile}
+                                  sx={{ fontSize: "0.75rem", minWidth: { xs: 0, sm: 80 } }}
                                 >
                                   Merge
                                 </Button>
