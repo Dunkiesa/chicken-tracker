@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, Suspense, useMemo } from "react";
+import { useState, Suspense, useMemo, useEffect } from "react";
 import { useSession, signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
@@ -74,6 +74,26 @@ function DashboardContent() {
   const [granularity, setGranularity] = useState<TimeGranularity>("monthly");
   const [dryThreshold, setDryThreshold] = useState(4);
   const router = useRouter();
+
+  const isRangeBiggerThanMonth = useMemo(() => {
+    const from = new Date(dateFrom);
+    const to = new Date(dateTo);
+    return to.getTime() - from.getTime() > 31 * 24 * 60 * 60 * 1000;
+  }, [dateFrom, dateTo]);
+
+  const granularityOptions = useMemo(() => {
+    const all: TimeGranularity[] = ["daily", "weekly", "monthly"];
+    if (isRangeBiggerThanMonth) {
+      return all.filter((g) => g !== "daily");
+    }
+    return all;
+  }, [isRangeBiggerThanMonth]);
+
+  useEffect(() => {
+    if (isRangeBiggerThanMonth && granularity === "daily") {
+      setGranularity("weekly");
+    }
+  }, [isRangeBiggerThanMonth, granularity]);
 
   const {
     data,
@@ -236,7 +256,7 @@ function DashboardContent() {
                     onChange={(_, v) => v && setGranularity(v)}
                     size="small"
                   >
-                    {(["daily", "weekly", "monthly"] as TimeGranularity[]).map((g) => (
+                    {granularityOptions.map((g) => (
                       <ToggleButton key={g} value={g}>
                         {g.charAt(0).toUpperCase() + g.slice(1)}
                       </ToggleButton>
@@ -320,6 +340,7 @@ function DashboardContent() {
                         style={{ width: "100%", minWidth: chartData.length * 40 + 100 }}
                       >
                         <line x1={L} y1={T} x2={L} y2={T + innerH} stroke="#ccc" strokeWidth={1} />
+                        <line x1={totalW - R} y1={T} x2={totalW - R} y2={T + innerH} stroke="#ccc" strokeWidth={1} />
                         <line x1={L} y1={T + innerH} x2={totalW - R} y2={T + innerH} stroke="#ccc" strokeWidth={1} />
                         {yTicks.map((t) => (
                           <g key={t}>

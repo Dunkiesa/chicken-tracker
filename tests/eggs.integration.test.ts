@@ -27,6 +27,8 @@ afterAll(async () => {
 const RECORDED_BY = "test@example.com";
 const SECOND_USER = "viewer@example.com";
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 async function ensureHen(name: string): Promise<Chicken> {
   const all = await listChickens();
   const existing = all.find((c: Chicken) => c.name === name);
@@ -546,6 +548,8 @@ describe("Last Used Chicken", () => {
       date: "2026-07-01",
       recorded_by: RECORDED_BY,
     });
+
+    await sleep(1100);
 
     await createEgg({
       chicken_id: henB.id,
