@@ -33,6 +33,7 @@ const DEPARTURE_REASONS = ["died/illness", "sold", "predator", "gave away", "Oth
 type ChickenTableRowProps = {
   chicken: Chicken;
   isAdmin: boolean;
+  isMobile?: boolean;
   departingChickenId: number | null;
   departureDate: string;
   departureReason: string;
@@ -56,6 +57,7 @@ const defaultSexBadgeSx = { bgcolor: "action.disabledBackground", color: "text.s
 function ChickenTableRowInner({
   chicken,
   isAdmin,
+  isMobile = false,
   departingChickenId,
   departureDate,
   departureReason,
@@ -78,23 +80,23 @@ function ChickenTableRowInner({
         bgcolor: chicken.departed ? "action.hover" : "transparent",
       }}
     >
-      <TableCell sx={{ py: 1, pl: 0, width: 56 }}>
+      <TableCell sx={{ py: { xs: 0.5, sm: 1 }, pl: 0, width: { xs: 40, sm: 56 } }}>
         <Avatar
           src={chicken.primary_photo_path ? `/api/photos/${chicken.primary_photo_path}` : undefined}
           alt=""
           sx={{
-            width: 36,
-            height: 36,
+            width: { xs: 28, sm: 36 },
+            height: { xs: 28, sm: 36 },
             bgcolor: "action.disabledBackground",
           }}
         />
       </TableCell>
-      <TableCell sx={{ py: 1, fontWeight: 500 }}>
+      <TableCell sx={{ py: { xs: 0.5, sm: 1 }, fontWeight: 500 }}>
         <MuiLink href={`/chickens/${chicken.id}`} underline="none" color="primary">
           {chicken.name}
         </MuiLink>
       </TableCell>
-      <TableCell sx={{ py: 1 }}>
+      <TableCell sx={{ py: { xs: 0.5, sm: 1 } }}>
         <Chip
           label={chicken.sex}
           size="small"
@@ -107,7 +109,7 @@ function ChickenTableRowInner({
         />
       </TableCell>
 
-      <TableCell sx={{ py: 1 }}>
+      <TableCell sx={{ py: { xs: 0.5, sm: 1 } }}>
         <Chip
           label={chicken.departed ? "Departed" : "Active"}
           size="small"
@@ -126,19 +128,18 @@ function ChickenTableRowInner({
         )}
       </TableCell>
       {isAdmin && (
-        <TableCell sx={{ py: 1, textAlign: "center" }}>
+        <TableCell sx={{ py: { xs: 0.5, sm: 1 }, textAlign: "center" }}>
           {departingChickenId === chicken.id ? (
             <Box
               sx={{
                 display: "flex",
                 flexDirection: "column",
                 gap: 1,
-                p: 1.5,
+                p: { xs: 1, sm: 1.5 },
                 border: 1,
                 borderColor: "divider",
                 borderRadius: 1.5,
                 bgcolor: "action.disabledBackground",
-                minWidth: 220,
               }}
             >
               <TextField

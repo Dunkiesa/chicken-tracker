@@ -32,6 +32,8 @@ import {
   TextField,
   TableSortLabel,
   Skeleton,
+  useTheme,
+  useMediaQuery,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import AddIcon from "@mui/icons-material/Add";
@@ -117,6 +119,8 @@ function RosterContent() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const isAdmin = session?.user?.role === "Admin";
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
   const [includeDeparted, setIncludeDeparted] = useState(false);
   const [search, setSearch] = useState("");
@@ -242,7 +246,7 @@ function RosterContent() {
     departMutation.isPending || reinstateMutation.isPending;
 
   return (
-    <Box sx={{ p: 2 }}>
+    <Box sx={{ p: { xs: 1, sm: 2 } }}>
       <Stack
         direction="row"
         alignItems="center"
@@ -262,20 +266,20 @@ function RosterContent() {
         )}
       </Stack>
 
-      <Card sx={{ p: 2 }}>
+      <Card sx={{ p: { xs: 1.5, sm: 2 } }}>
         <Stack spacing={2}>
           <Stack
-            direction="row"
-            spacing={2}
-            alignItems="center"
-            flexWrap="wrap"
+            direction={{ xs: "column", sm: "row" }}
+            spacing={{ xs: 1, sm: 2 }}
+            alignItems={{ xs: "stretch", sm: "center" }}
           >
             <TextField
               placeholder="Search chickens..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               size="small"
-              sx={{ minWidth: 220 }}
+              fullWidth={isMobile}
+              sx={isMobile ? undefined : { minWidth: 220 }}
               slotProps={{
                 input: {
                   startAdornment: (
@@ -313,8 +317,8 @@ function RosterContent() {
                 : "No active chickens enrolled yet."}
             </Typography>
           ) : (
-            <TableContainer sx={{ overflowX: "auto" }}>
-              <Table size="small">
+            <TableContainer>
+              <Table size="small" sx={{ tableLayout: "fixed" }}>
                 <TableHead>
                   {table.getHeaderGroups().map((headerGroup) => (
                     <TableRow key={headerGroup.id}>
@@ -364,6 +368,7 @@ function RosterContent() {
                       key={row.original.id}
                       chicken={row.original}
                       isAdmin={isAdmin}
+                      isMobile={isMobile}
                       departingChickenId={departingChickenId}
                       departureDate={departureDate}
                       departureReason={departureReason}
