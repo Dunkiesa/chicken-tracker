@@ -5,6 +5,7 @@ import { useSession, signIn } from "next-auth/react";
 import { useQuery } from "@tanstack/react-query";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { BarChart } from "@mui/x-charts/BarChart";
+import { PieChart } from "@mui/x-charts/PieChart";
 import {
   Box,
   Card,
@@ -353,25 +354,46 @@ function DashboardContent() {
             <Card>
               <CardContent>
                 <Typography variant="h6" sx={{ mb: 2 }}>
-                  Most Productive Chickens
+                  Productivity
                 </Typography>
                 {data.most_productive.length === 0 ? (
                   <Typography variant="body2" color="text.secondary">
                     No eggs logged in this period.
                   </Typography>
                 ) : (
-                  <Stack component="ol" spacing={0.5} sx={{ pl: 1.5, m: 0, listStyleType: "decimal" }}>
-                    {data.most_productive.map((h) => (
-                      <Box component="li" key={h.chicken_id}>
-                        <Typography variant="body2" component="span">
-                          <strong>{h.chicken_name}</strong>{" "}
-                          <Typography variant="body2" component="span" color="text.secondary">
-                            {h.egg_count} egg{h.egg_count !== 1 ? "s" : ""}
-                          </Typography>
-                        </Typography>
-                      </Box>
-                    ))}
-                  </Stack>
+                  <PieChart
+                    series={[
+                      {
+                        data: data.most_productive.slice(0, 10).map((h) => ({
+                          id: h.chicken_id,
+                          value: h.egg_count,
+                          label: h.chicken_name,
+                        })),
+                        arcLabel: (item) => String(item.value),
+                        arcLabelRadius: "85%",
+                        arcLabelStyle: {
+                          fill: "#1a1a1a",
+                          fontWeight: 700,
+                          fontSize: 12,
+                          paintOrder: "stroke",
+                          stroke: "#fff",
+                          strokeWidth: 3,
+                        },
+                      },
+                    ]}
+                    height={300}
+                    margin={{ right: 140 }}
+                    slotProps={{
+                      legend: {
+                        direction: "column",
+                        position: { vertical: "middle", horizontal: "right" },
+                        labelStyle: { fontSize: 11 },
+                        padding: 0,
+                        itemGap: 4,
+                      },
+                    }}
+                    sx={{ width: "100%" }}
+                  />
                 )}
               </CardContent>
             </Card>
