@@ -2,6 +2,7 @@
 
 import { useState, Suspense, useMemo } from "react";
 import { useSession, signIn } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { BarChart } from "@mui/x-charts/BarChart";
@@ -72,6 +73,7 @@ function DashboardContent() {
   const [dateTo, setDateTo] = useState(todayStr());
   const [granularity, setGranularity] = useState<TimeGranularity>("monthly");
   const [dryThreshold, setDryThreshold] = useState(4);
+  const router = useRouter();
 
   const {
     data,
@@ -377,6 +379,21 @@ function DashboardContent() {
                   if (otherCount > 0) {
                     pieData.push({ id: -1, value: otherCount, label: "Other" });
                   }
+                  const handleSliceClick = (
+                    _event: React.MouseEvent<SVGPathElement>,
+                    pieItemIdentifier: { dataIndex: number }
+                  ) => {
+                    const entry = pieData[pieItemIdentifier.dataIndex];
+                    if (entry && entry.id !== undefined && Number(entry.id) > 0) {
+                      const params = new URLSearchParams();
+                      params.set("chicken_id", String(entry.id));
+                      params.set("chicken_name", entry.label);
+                      params.set("from", dateFrom);
+                      params.set("to", dateTo);
+                      router.push(`/dashboard/eggs?${params.toString()}`);
+                    }
+                  };
+
                   return (
                     <PieChart
                       series={[
@@ -388,6 +405,7 @@ function DashboardContent() {
                       ]}
                       height={300}
                       margin={{ right: 140 }}
+                      onItemClick={handleSliceClick}
                       slotProps={{
                         pieArcLabel: {
                           fill: "#000",
@@ -402,7 +420,7 @@ function DashboardContent() {
                           itemGap: 4,
                         },
                       }}
-                      sx={{ width: "100%" }}
+                      sx={{ width: "100%", "& .MuiPieArc-root": { cursor: "pointer" } }}
                     />
                   );
                 })()}
