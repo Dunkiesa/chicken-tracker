@@ -1,0 +1,9 @@
+{
+  "recommendations": [
+    "dbaeumer.vscode-eslint",
+    "ms-azuretools.vscode-docker",
+    "redhat.vscode-yaml",
+    "ms-mssql.mssql",
+    "bierner.comment-tagged-templates"
+  ]
+}

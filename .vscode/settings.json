@@ -1,0 +1,43 @@
+{
+  "typescript.tsdk": "node_modules\\typescript\\lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+  "typescript.preferences.includePackageJsonAutoImports": "auto",
+
+  "eslint.validate": [
+    "javascript",
+    "javascriptreact",
+    "typescript",
+    "typescriptreact"
+  ],
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+
+  "editor.formatOnSave": true,
+  "[typescript]": {
+    "editor.defaultFormatter": "vscode.typescript-language-features"
+  },
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "vscode.typescript-language-features"
+  },
+  "[javascript]": {
+    "editor.defaultFormatter": "vscode.typescript-language-features"
+  },
+  "[json]": {
+    "editor.defaultFormatter": "vscode.json-language-features"
+  },
+  "[css]": {
+    "editor.defaultFormatter": "vscode.css-language-features"
+  },
+
+  "css.validate": true,
+  "json.schemas": [
+    {
+      "fileMatch": ["**/docker-compose*.yml", "**/docker-compose*.yaml"],
+      "url": "https://raw.githubusercontent.com/compose-spec/compose-spec/master/schema/compose-spec.json"
+    }
+  ],
+
+  "commentAnchors.scrollPosition": "top",
+  "comment-tagged-templates.keywords": ["sql"]
+}
