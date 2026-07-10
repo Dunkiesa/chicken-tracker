@@ -2,7 +2,7 @@
 
 import { useState, Suspense, useMemo, useEffect, useCallback } from "react";
 import { useSession, signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { BarChart } from "@mui/x-charts/BarChart";
@@ -70,14 +70,15 @@ export default function Home() {
 
 function DashboardContent() {
   const { data: session, status } = useSession();
-  const [dateFrom, setDateFrom] = useState(oneYearAgoStr());
-  const [dateTo, setDateTo] = useState(todayStr());
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const [dateFrom, setDateFrom] = useState(() => searchParams.get("from") || oneYearAgoStr());
+  const [dateTo, setDateTo] = useState(() => searchParams.get("to") || todayStr());
   const [granularity, setGranularity] = useState<TimeGranularity>("monthly");
   const [dryThreshold, setDryThreshold] = useState(4);
   const [drillStack, setDrillStack] = useState<
     { date: string; granularity: TimeGranularity }[]
   >([]);
-  const router = useRouter();
 
   const isRangeBiggerThanMonth = useMemo(() => {
     const from = new Date(dateFrom);
@@ -102,6 +103,18 @@ function DashboardContent() {
   useEffect(() => {
     setDrillStack([]);
   }, [granularity, dateFrom, dateTo]);
+
+  useEffect(() => {
+    router.replace(`/?from=${dateFrom}&to=${dateTo}`, { scroll: false });
+  }, [dateFrom, dateTo, router]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("from")) {
+      const el = document.getElementById("productivity");
+      if (el) el.scrollIntoView({ behavior: "smooth" });
+    }
+  }, []);
 
   const {
     data,
@@ -444,7 +457,7 @@ function DashboardContent() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card id="productivity">
               <CardContent>
                 <Typography variant="h6" sx={{ mb: 2 }}>
                   Productivity

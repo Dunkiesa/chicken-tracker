@@ -1,8 +1,7 @@
 "use client";
 
 import { Suspense } from "react";
-import { useSearchParams } from "next/navigation";
-import Link from "next/link";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import {
   Box,
@@ -62,6 +61,7 @@ export default function ChickenEggsPage() {
 
 function ChickenEggsContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const chickenIdStr = searchParams.get("chicken_id");
   const chickenName = searchParams.get("chicken_name") || "Chicken";
   const from = searchParams.get("from") || "";
@@ -87,8 +87,7 @@ function ChickenEggsContent() {
           {chickenName}
         </Typography>
         <Button
-          component={Link}
-          href="/"
+          onClick={() => router.push(`/?from=${from}&to=${to}`)}
           startIcon={<ArrowBackIcon />}
         >
           Back
