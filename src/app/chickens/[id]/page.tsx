@@ -3,6 +3,7 @@
 import { useState, useMemo, Suspense, memo } from "react";
 import { useSession } from "next-auth/react";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -39,6 +40,7 @@ import {
   Checkbox,
 } from "@mui/material";
 import { alpha } from "@mui/material/styles";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import AddIcon from "@mui/icons-material/Add";
@@ -557,16 +559,25 @@ function ProfileContent() {
           <Box>
             <Stack direction="row" justifyContent="space-between" alignItems="center">
               <Typography variant="h5">{chicken.name}</Typography>
-              {isAdmin && (
+              <Stack direction="row" spacing={1}>
+                {isAdmin && (
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={<EditIcon />}
+                    onClick={handleOpenEditDialog}
+                  >
+                    Edit
+                  </Button>
+                )}
                 <Button
-                  variant="outlined"
-                  size="small"
-                  startIcon={<EditIcon />}
-                  onClick={handleOpenEditDialog}
+                  component={Link}
+                  href="/roster"
+                  startIcon={<ArrowBackIcon />}
                 >
-                  Edit
+                  Back
                 </Button>
-              )}
+              </Stack>
             </Stack>
           </Box>
 
