@@ -35,6 +35,7 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import CheckIcon from "@mui/icons-material/Check";
 import CloseIcon from "@mui/icons-material/Close";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
+import SaveIcon from "@mui/icons-material/Save";
 import { HenRow } from "@/components/HenRow";
 import {
   todayStr,
@@ -460,16 +461,9 @@ function LogEggContent() {
             }
             fullWidth
             size="large"
-          >
-            {submitMutation.isPending ? (
-              <>
-                <CircularProgress size={20} sx={{ mr: 1 }} />
-                Saving...
-              </>
-            ) : (
-              "Log All"
-            )}
-          </Button>
+            aria-label={submitMutation.isPending ? "Saving" : "Log All"}
+            startIcon={submitMutation.isPending ? <CircularProgress size={20} /> : <SaveIcon />}
+          /> 
         </Stack>
       </Card>
 
@@ -482,9 +476,9 @@ function LogEggContent() {
             component={Link}
             href="/egg-history"
             size="small"
-            endIcon={<ArrowForwardIcon />}
+            aria-label="Full History"
           >
-            Full History
+            <ArrowForwardIcon />
           </Button>
         </Stack>
 

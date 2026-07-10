@@ -21,6 +21,7 @@ import {
   MenuItem,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import AddIcon from "@mui/icons-material/Add";
 import Link from "next/link";
 import { formatDateForPicker, formatDateForApi } from "@/lib/dateUtils";
 
@@ -370,9 +371,10 @@ function EnrolContent() {
               type="submit"
               variant="contained"
               disabled={enrollMutation.isPending}
-              sx={{ minWidth: 140 }}
+              aria-label={enrollMutation.isPending ? "Adding" : "Add Chicken"}
+              sx={{ minWidth: 0, p: 1.5, width: 42, height: 42 }}
             >
-              {enrollMutation.isPending ? "Adding..." : "Add Chicken"}
+              {enrollMutation.isPending ? <CircularProgress size={20} /> : <AddIcon />}
             </Button>
           </Box>
         </Box>

@@ -31,6 +31,7 @@ import {
 import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import LoginIcon from "@mui/icons-material/Login";
 import type {
   AnalyticsData,
   ProductionTimeSeries,
@@ -206,8 +207,8 @@ function DashboardContent() {
         <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 400, textAlign: "center" }}>
           Egg-production tracking for your backyard flock
         </Typography>
-        <Button variant="contained" onClick={() => signIn("google")} sx={{ mt: 1 }}>
-          Sign in with Google
+        <Button variant="contained" onClick={() => signIn("google")} aria-label="Sign in with Google" sx={{ mt: 1, minWidth: 0, p: 1.5 }}>
+          <LoginIcon />
         </Button>
       </Box>
     );

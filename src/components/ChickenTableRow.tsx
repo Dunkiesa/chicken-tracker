@@ -12,8 +12,11 @@ import {
   Typography,
   Stack,
   Link as MuiLink,
+  CircularProgress,
 } from "@mui/material";
 import SwapHorizIcon from "@mui/icons-material/SwapHoriz";
+import CheckIcon from "@mui/icons-material/Check";
+import CloseIcon from "@mui/icons-material/Close";
 import { formatDateForDisplay } from "@/lib/dateUtils";
 
 type Chicken = {
@@ -205,16 +208,20 @@ function ChickenTableRowInner({
                   size="small"
                   onClick={onMarkDeparted}
                   disabled={departingSave || (departureReason === "Other" && !departureOtherReason.trim())}
+                  aria-label={departingSave ? "Saving" : "Confirm"}
+                  sx={{ minWidth: 0, p: 1 }}
                 >
-                  {departingSave ? "Saving..." : "Confirm"}
+                  {departingSave ? <CircularProgress size={18} /> : <CheckIcon />}
                 </Button>
                 <Button
                   variant="outlined"
                   size="small"
                   onClick={onCancelDepart}
                   disabled={departingSave}
+                  aria-label="Cancel"
+                  sx={{ minWidth: 0, p: 1 }}
                 >
-                  Cancel
+                  <CloseIcon />
                 </Button>
               </Box>
             </Box>

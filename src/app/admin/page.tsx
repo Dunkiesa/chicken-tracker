@@ -53,6 +53,7 @@ import AddIcon from "@mui/icons-material/Add";
 import CheckIcon from "@mui/icons-material/Check";
 import CloseIcon from "@mui/icons-material/Close";
 import MergeTypeIcon from "@mui/icons-material/MergeType";
+import DeleteForeverIcon from "@mui/icons-material/DeleteForever";
 import TableSortLabel from "@mui/material/TableSortLabel";
 
 type User = {
@@ -211,6 +212,7 @@ function ConfirmDialog({
   title,
   message,
   confirmLabel,
+  confirmIcon,
   onConfirm,
   onCancel,
   pending,
@@ -219,6 +221,7 @@ function ConfirmDialog({
   title: string;
   message: string;
   confirmLabel: string;
+  confirmIcon?: React.ReactNode;
   onConfirm: () => void;
   onCancel: () => void;
   pending?: boolean;
@@ -230,11 +233,11 @@ function ConfirmDialog({
         <Typography>{message}</Typography>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onCancel} disabled={pending}>
-          Cancel
+        <Button onClick={onCancel} disabled={pending} aria-label="Cancel">
+          <CloseIcon />
         </Button>
-        <Button onClick={onConfirm} variant="contained" color="error" disabled={pending}>
-          {pending ? "..." : confirmLabel}
+        <Button onClick={onConfirm} variant="contained" color="error" disabled={pending} aria-label={confirmLabel}>
+          {pending ? <CircularProgress size={20} /> : (confirmIcon ?? <CheckIcon />)}
         </Button>
       </DialogActions>
     </Dialog>
@@ -543,11 +546,11 @@ function AdminContent() {
                   type="submit"
                   variant="contained"
                   disabled={addUserMutation.isPending}
-                  startIcon={<AddIcon />}
                   fullWidth={isMobile}
-                  sx={{ minWidth: { xs: 0, sm: 140 } }}
+                  aria-label={addUserMutation.isPending ? "Adding" : "Add User"}
+                  sx={{ minWidth: { xs: 0, sm: 0 }, p: 1, width: { xs: "100%", sm: 42 }, height: { xs: "auto", sm: 42 } }}
                 >
-                  {addUserMutation.isPending ? "Adding..." : "Add User"}
+                  {addUserMutation.isPending ? <CircularProgress size={20} /> : <AddIcon />}
                 </Button>
               </Box>
 
@@ -702,11 +705,11 @@ function AdminContent() {
                       type="submit"
                       variant="contained"
                       disabled={addListValueMutation.isPending}
-                      startIcon={<AddIcon />}
                       fullWidth={isMobile}
-                      sx={{ minWidth: { xs: 0, sm: 100 } }}
+                      aria-label={addListValueMutation.isPending ? "Adding" : "Add"}
+                      sx={{ minWidth: { xs: 0, sm: 0 }, p: 1, width: { xs: "100%", sm: 42 }, height: { xs: "auto", sm: 42 } }}
                     >
-                      {addListValueMutation.isPending ? "Adding..." : "Add"}
+                      {addListValueMutation.isPending ? <CircularProgress size={20} /> : <AddIcon />}
                     </Button>
                   </Box>
 
@@ -842,13 +845,13 @@ function AdminContent() {
                                 <Button
                                   size="small"
                                   variant="outlined"
-                                  startIcon={<MergeTypeIcon />}
                                   disabled={!mergeTarget}
                                   onClick={() => handleMergeClick(type, entry.id, mergeTarget, entriesList)}
                                   fullWidth={isMobile}
-                                  sx={{ fontSize: "0.75rem", minWidth: { xs: 0, sm: 80 } }}
+                                  aria-label="Merge"
+                                  sx={{ fontSize: "0.75rem", minWidth: { xs: 0, sm: 0 }, p: 0.5 }}
                                 >
-                                  Merge
+                                  <MergeTypeIcon />
                                 </Button>
                               </Box>
                             )}
@@ -869,6 +872,7 @@ function AdminContent() {
         title="Remove User"
         message={`Are you sure you want to remove ${removeUserEmail ?? ""}? This will revoke their access.`}
         confirmLabel="Remove"
+        confirmIcon={<DeleteForeverIcon />}
         pending={removeUserMutation.isPending}
         onConfirm={() => {
           if (removeUserEmail) removeUserMutation.mutate(removeUserEmail);
@@ -885,6 +889,7 @@ function AdminContent() {
             : ""
         }
         confirmLabel="Remove"
+        confirmIcon={<DeleteForeverIcon />}
         pending={removeListValueMutation.isPending}
         onConfirm={() => {
           if (removeListEntry) {
@@ -903,6 +908,7 @@ function AdminContent() {
             : ""
         }
         confirmLabel="Merge"
+        confirmIcon={<MergeTypeIcon />}
         pending={mergeListValuesMutation.isPending}
         onConfirm={handleConfirmMerge}
         onCancel={() => setMergeDialog(null)}

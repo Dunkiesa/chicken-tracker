@@ -46,6 +46,9 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import AddIcon from "@mui/icons-material/Add";
 import PhotoCameraIcon from "@mui/icons-material/PhotoCamera";
 import StarIcon from "@mui/icons-material/Star";
+import CloseIcon from "@mui/icons-material/Close";
+import CheckIcon from "@mui/icons-material/Check";
+import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import {
   todayStr,
   formatDateForPicker,
@@ -564,10 +567,11 @@ function ProfileContent() {
                   <Button
                     variant="outlined"
                     size="small"
-                    startIcon={<EditIcon />}
                     onClick={handleOpenEditDialog}
+                    aria-label="Edit"
+                    sx={{ minWidth: 0, p: 1, width: 38, height: 38 }}
                   >
-                    Edit
+                    <EditIcon />
                   </Button>
                 )}
                 <Button
@@ -591,10 +595,11 @@ function ProfileContent() {
                   <Button
                     variant="outlined"
                     size="small"
-                    startIcon={<PhotoCameraIcon />}
                     onClick={handleOpenUploadDialog}
+                    aria-label="Upload photo"
+                    sx={{ minWidth: 0, p: 1, width: 38, height: 38 }}
                   >
-                    Upload
+                    <PhotoCameraIcon />
                   </Button>
                 )}
               </Stack>
@@ -616,10 +621,11 @@ function ProfileContent() {
                 <Button
                   variant="outlined"
                   size="small"
-                  startIcon={<AddIcon />}
                   onClick={handleOpenAddNoteDialog}
+                  aria-label="Add note"
+                  sx={{ minWidth: 0, p: 1, width: 38, height: 38 }}
                 >
-                  Add Note
+                  <AddIcon />
                 </Button>
               </Stack>
               <NotesList
@@ -844,11 +850,11 @@ function ProfileContent() {
             </Stack>
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setEditDialogOpen(false)} disabled={editChickenMutation.isPending}>
-              Cancel
+            <Button onClick={() => setEditDialogOpen(false)} disabled={editChickenMutation.isPending} aria-label="Cancel">
+              <CloseIcon />
             </Button>
-            <Button type="submit" variant="contained" disabled={editChickenMutation.isPending}>
-              {editChickenMutation.isPending ? "Saving..." : "Save"}
+            <Button type="submit" variant="contained" disabled={editChickenMutation.isPending} aria-label={editChickenMutation.isPending ? "Saving" : "Save"}>
+              {editChickenMutation.isPending ? <CircularProgress size={20} /> : <CheckIcon />}
             </Button>
           </DialogActions>
         </Box>
@@ -904,11 +910,11 @@ function ProfileContent() {
             </Stack>
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setAddNoteDialogOpen(false)} disabled={addNoteMutation.isPending}>
-              Cancel
+            <Button onClick={() => setAddNoteDialogOpen(false)} disabled={addNoteMutation.isPending} aria-label="Cancel">
+              <CloseIcon />
             </Button>
-            <Button type="submit" variant="contained" disabled={addNoteMutation.isPending}>
-              {addNoteMutation.isPending ? "Adding..." : "Add"}
+            <Button type="submit" variant="contained" disabled={addNoteMutation.isPending} aria-label={addNoteMutation.isPending ? "Adding" : "Add"}>
+              {addNoteMutation.isPending ? <CircularProgress size={20} /> : <CheckIcon />}
             </Button>
           </DialogActions>
         </Box>
@@ -952,7 +958,9 @@ function ProfileContent() {
                 {formatDateTimeForDisplay(lightboxPhoto.created_at)} · {lightboxPhoto.recorded_by}
               </Typography>
             </Box>
-            <Button onClick={() => setLightboxPhoto(null)}>Close</Button>
+            <Button onClick={() => setLightboxPhoto(null)} aria-label="Close">
+              <CloseIcon />
+            </Button>
           </DialogActions>
         </Dialog>
       )}
@@ -1198,11 +1206,11 @@ function UploadPhotoForm({
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button onClick={() => setFile(null)} disabled={isPending}>
-          Cancel
+        <Button onClick={() => setFile(null)} disabled={isPending} aria-label="Cancel">
+          <CloseIcon />
         </Button>
-        <Button type="submit" variant="contained" disabled={isPending || !file}>
-          {isPending ? "Uploading..." : "Upload"}
+        <Button type="submit" variant="contained" disabled={isPending || !file} aria-label={isPending ? "Uploading" : "Upload"}>
+          {isPending ? <CircularProgress size={20} /> : <CloudUploadIcon />}
         </Button>
       </DialogActions>
     </Box>
@@ -1373,11 +1381,11 @@ const NoteItem = memo(function NoteItem({
             </Stack>
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setEditDialogOpen(false)} disabled={savePending}>
-              Cancel
+            <Button onClick={() => setEditDialogOpen(false)} disabled={savePending} aria-label="Cancel">
+              <CloseIcon />
             </Button>
-            <Button type="submit" variant="contained" disabled={savePending}>
-              {savePending ? "Saving..." : "Save"}
+            <Button type="submit" variant="contained" disabled={savePending} aria-label={savePending ? "Saving" : "Save"}>
+              {savePending ? <CircularProgress size={20} /> : <CheckIcon />}
             </Button>
           </DialogActions>
         </Box>
