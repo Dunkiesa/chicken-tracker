@@ -66,7 +66,9 @@ describe("RosterPage", () => {
     });
     renderWithProviders(<RosterPage />);
     await waitFor(() => {
-      expect(screen.getByText("Enrol Chicken")).toBeInTheDocument();
+      expect(
+        screen.getByRole("link", { name: "Enrol Chicken" }),
+      ).toBeInTheDocument();
     });
   });
 
@@ -77,7 +79,9 @@ describe("RosterPage", () => {
     });
     renderWithProviders(<RosterPage />);
     await waitFor(() => {
-      expect(screen.queryByText("Enrol Chicken")).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("link", { name: "Enrol Chicken" }),
+      ).not.toBeInTheDocument();
     });
   });
 

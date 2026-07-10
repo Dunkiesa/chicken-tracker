@@ -245,10 +245,11 @@ function RosterContent() {
           <Button
             component={Link}
             href="/roster/enrol"
-            variant="contained"
-            startIcon={<AddIcon />}
+            variant="outlined"
+            aria-label="Enrol Chicken"
+            sx={{ minWidth: 0, p: 1, width: 40, height: 40 }}
           >
-            Enrol Chicken
+            <AddIcon />
           </Button>
         )}
       </Stack>
