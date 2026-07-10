@@ -316,11 +316,11 @@ function DashboardContent() {
                     <Typography variant="h6">Production Over Time</Typography>
                     {drillStack.length > 0 && (
                       <Button
+                        variant="outlined"
                         size="small"
-                        startIcon={<ArrowBackIcon />}
                         onClick={handleBack}
                       >
-                        Back
+                        <ArrowBackIcon fontSize="small" />
                       </Button>
                     )}
                   </Stack>

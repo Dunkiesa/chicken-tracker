@@ -87,10 +87,10 @@ function ChickenEggsContent() {
           {chickenName}
         </Typography>
         <Button
+          variant="outlined"
           onClick={() => router.push(`/?from=${from}&to=${to}`)}
-          startIcon={<ArrowBackIcon />}
         >
-          Back
+          <ArrowBackIcon />
         </Button>
       </Stack>
 

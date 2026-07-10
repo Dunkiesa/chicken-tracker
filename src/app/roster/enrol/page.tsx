@@ -183,9 +183,7 @@ function EnrolContent() {
           You are signed in as a Viewer. Only admins can enrol chickens.
         </Typography>
         <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 2 }}>
-          <Button component={Link} href="/roster" startIcon={<ArrowBackIcon />}>
-            Back
-          </Button>
+          <Button variant="outlined" component={Link} href="/roster"><ArrowBackIcon /></Button>
         </Box>
       </Box>
     );
@@ -198,11 +196,11 @@ function EnrolContent() {
           Enrol Chicken
         </Typography>
         <Button
+          variant="outlined"
           component={Link}
           href="/roster"
-          startIcon={<ArrowBackIcon />}
         >
-          Back
+          <ArrowBackIcon />
         </Button>
       </Stack>
 

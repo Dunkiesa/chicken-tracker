@@ -182,11 +182,11 @@ function EggHistoryContent() {
       <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
         <Typography variant="h5">Egg History</Typography>
         <Button
+          variant="outlined"
           component={Link}
           href="/log-egg"
-          startIcon={<ArrowBackIcon />}
         >
-          Back
+          <ArrowBackIcon />
         </Button>
       </Stack>
 

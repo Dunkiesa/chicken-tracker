@@ -24,9 +24,7 @@ export default function AuthErrorPage() {
           Something went wrong during sign-in. Please try again.
         </Typography>
         <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
-          <Button variant="contained" href="/" startIcon={<ArrowBackIcon />}>
-            Back
-          </Button>
+          <Button variant="outlined" href="/"><ArrowBackIcon /></Button>
         </Box>
       </Container>
     </Box>

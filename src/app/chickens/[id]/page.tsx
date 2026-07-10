@@ -571,11 +571,11 @@ function ProfileContent() {
                   </Button>
                 )}
                 <Button
+                  variant="outlined"
                   component={Link}
                   href="/roster"
-                  startIcon={<ArrowBackIcon />}
                 >
-                  Back
+                  <ArrowBackIcon />
                 </Button>
               </Stack>
             </Stack>
