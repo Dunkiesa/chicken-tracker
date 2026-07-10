@@ -389,7 +389,7 @@ function LogEggContent() {
                 onChange={(e) => setShowAll(e.target.checked)}
               />
             }
-            label={`Show all chickens (including roosters) — ${hens.length} available`}
+            label={`Show All ${hens.length}`}
           />
 
           {hensLoading ? (
