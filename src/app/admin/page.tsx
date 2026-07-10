@@ -275,6 +275,7 @@ function AdminContent() {
 
   const [renamingEntry, setRenamingEntry] = useState<{ type: ListType; entry: DynamicListEntry } | null>(null);
   const [mergeTargets, setMergeTargets] = useState<Record<string, Record<number, string>>>({});
+  const [mergingEntryId, setMergingEntryId] = useState<number | null>(null);
 
   const { data: users, isLoading: usersLoading, error: usersError } = useQuery({
     queryKey: ["admin-users"],
@@ -403,6 +404,7 @@ function AdminContent() {
   useEffect(() => {
     addListForm.reset();
     addListValueMutation.reset();
+    setMergingEntryId(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tabIndex]);
 
@@ -436,6 +438,7 @@ function AdminContent() {
     const target = entries.find((e) => e.id === targetId);
     if (!source || !target) return;
     setMergeDialog({ type, sourceId, targetId, sourceValue: source.value, targetValue: target.value });
+    setMergingEntryId(null);
   };
 
   const handleConfirmMerge = () => {
@@ -799,6 +802,21 @@ function AdminContent() {
                                 </Box>
                               ) : (
                                 <>
+                                  {otherEntries.length > 0 && mergingEntryId !== entry.id && (
+                                    <IconButton
+                                      size="small"
+                                      onClick={() => {
+                                        setMergingEntryId(entry.id);
+                                        setMergeTargets((prev) => ({
+                                          ...prev,
+                                          [type]: { ...(prev[type] || {}), [entry.id]: "" },
+                                        }));
+                                      }}
+                                      aria-label="Merge"
+                                    >
+                                      <MergeTypeIcon fontSize="small" />
+                                    </IconButton>
+                                  )}
                                   <ListItemText primary={entry.value} sx={{ flex: 1 }} />
                                   <IconButton
                                     size="small"
@@ -819,7 +837,7 @@ function AdminContent() {
                               )}
                             </Box>
 
-                            {!isRenaming && otherEntries.length > 0 && (
+                            {!isRenaming && mergingEntryId === entry.id && (
                               <Box sx={{ display: "flex", flexDirection: { xs: "column", sm: "row" }, gap: 1, alignItems: { xs: "stretch", sm: "center" }, mt: 0.5, pl: 1 }}>
                                 <Select
                                   size="small"
@@ -845,10 +863,20 @@ function AdminContent() {
                                 <Button
                                   size="small"
                                   variant="outlined"
+                                  onClick={() => setMergingEntryId(null)}
+                                  fullWidth={isMobile}
+                                  aria-label="Cancel Merge"
+                                  sx={{ fontSize: "0.75rem", minWidth: { xs: 0, sm: 0 }, p: 0.5 }}
+                                >
+                                  <CloseIcon fontSize="small" />
+                                </Button>
+                                <Button
+                                  size="small"
+                                  variant="contained"
                                   disabled={!mergeTarget}
                                   onClick={() => handleMergeClick(type, entry.id, mergeTarget, entriesList)}
                                   fullWidth={isMobile}
-                                  aria-label="Merge"
+                                  aria-label="Confirm Merge"
                                   sx={{ fontSize: "0.75rem", minWidth: { xs: 0, sm: 0 }, p: 0.5 }}
                                 >
                                   <MergeTypeIcon />
