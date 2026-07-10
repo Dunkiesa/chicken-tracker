@@ -195,6 +195,7 @@ function EggHistoryContent() {
           label="From"
           value={fromDate ? formatDateForPicker(fromDate) : null}
           onChange={(date) => setFromDate(formatDateForApi(date))}
+          closeOnSelect
           slotProps={{ textField: { size: "small", fullWidth: true } }}
           sx={{ flex: 1 }}
         />
@@ -202,6 +203,7 @@ function EggHistoryContent() {
           label="To"
           value={toDate ? formatDateForPicker(toDate) : null}
           onChange={(date) => setToDate(formatDateForApi(date))}
+          closeOnSelect
           slotProps={{ textField: { size: "small", fullWidth: true } }}
           sx={{ flex: 1 }}
         />

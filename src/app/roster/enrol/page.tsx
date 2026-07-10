@@ -343,6 +343,7 @@ function EnrolContent() {
                     field.value ? formatDateForPicker(field.value) : null
                   }
                   onChange={(date) => field.onChange(formatDateForApi(date))}
+                  closeOnSelect
                   sx={{ maxWidth: 200 }}
                   slotProps={{
                     textField: {

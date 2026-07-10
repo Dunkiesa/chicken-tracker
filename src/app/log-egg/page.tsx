@@ -371,6 +371,7 @@ function LogEggContent() {
                 label="Date"
                 value={field.value ? formatDateForPicker(field.value) : null}
                 onChange={(date) => field.onChange(formatDateForApi(date))}
+                closeOnSelect
                 slotProps={{
                   textField: {
                     error: !!formErrors.date,

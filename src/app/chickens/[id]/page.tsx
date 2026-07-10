@@ -773,6 +773,7 @@ function ProfileContent() {
                     label="Acquisition date"
                     value={field.value ? formatDateForPicker(field.value) : null}
                     onChange={(date) => field.onChange(formatDateForApi(date))}
+                    closeOnSelect
                     slotProps={{
                       textField: {
                         error: !!editChickenForm.formState.errors.acquisition_date,
@@ -810,6 +811,7 @@ function ProfileContent() {
                         label="Departure date"
                         value={field.value ? formatDateForPicker(field.value) : null}
                         onChange={(date) => field.onChange(formatDateForApi(date))}
+                        closeOnSelect
                         slotProps={{
                           textField: {
                             error: !!editChickenForm.formState.errors.departure_date,
@@ -885,6 +887,7 @@ function ProfileContent() {
                     label="Date"
                     value={field.value ? formatDateForPicker(field.value) : null}
                     onChange={(date) => field.onChange(formatDateForApi(date))}
+                    closeOnSelect
                     slotProps={{
                       textField: {
                         error: !!addNoteForm.formState.errors.date,
@@ -1356,6 +1359,7 @@ const NoteItem = memo(function NoteItem({
                     label="Date"
                     value={field.value ? formatDateForPicker(field.value) : null}
                     onChange={(date) => field.onChange(formatDateForApi(date))}
+                    closeOnSelect
                     slotProps={{
                       textField: {
                         error: !!form.formState.errors.date,

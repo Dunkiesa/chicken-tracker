@@ -228,6 +228,7 @@ function DashboardContent() {
                   label="From"
                   value={formatDateForPicker(dateFrom)}
                   onChange={(d) => d && setDateFrom(formatDateForApi(d))}
+                  closeOnSelect
                   slotProps={{ textField: { size: "small", fullWidth: true } }}
                   sx={{ flex: 1, minWidth: 0 }}
                 />
@@ -235,6 +236,7 @@ function DashboardContent() {
                   label="To"
                   value={formatDateForPicker(dateTo)}
                   onChange={(d) => d && setDateTo(formatDateForApi(d))}
+                  closeOnSelect
                   slotProps={{ textField: { size: "small", fullWidth: true } }}
                   sx={{ flex: 1, minWidth: 0 }}
                 />
