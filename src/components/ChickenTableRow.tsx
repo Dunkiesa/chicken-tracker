@@ -8,10 +8,13 @@ import {
   TextField,
   MenuItem,
   Button,
+  IconButton,
   Box,
   Typography,
+  Stack,
   Link as MuiLink,
 } from "@mui/material";
+import SwapHorizIcon from "@mui/icons-material/SwapHoriz";
 import { formatDateForDisplay } from "@/lib/dateUtils";
 
 type Chicken = {
@@ -74,62 +77,87 @@ function ChickenTableRowInner({
   const sexSx = sexBadgeSx[chicken.sex] ?? defaultSexBadgeSx;
 
   return (
-    <TableRow
-      sx={{
-        "&:last-child td, &:last-child th": { border: 0 },
-        bgcolor: chicken.departed ? "action.hover" : "transparent",
-      }}
-    >
-      <TableCell sx={{ py: { xs: 0.5, sm: 1 }, pl: 0, width: { xs: 40, sm: 56 } }}>
-        <Avatar
-          src={chicken.primary_photo_path ? `/api/photos/${chicken.primary_photo_path}` : undefined}
-          alt=""
-          sx={{
-            width: { xs: 28, sm: 36 },
-            height: { xs: 28, sm: 36 },
-            bgcolor: "action.disabledBackground",
-          }}
-        />
-      </TableCell>
-      <TableCell sx={{ py: { xs: 0.5, sm: 1 }, fontWeight: 500 }}>
-        <MuiLink href={`/chickens/${chicken.id}`} underline="none" color="primary">
-          {chicken.name}
-        </MuiLink>
-      </TableCell>
-      <TableCell sx={{ py: { xs: 0.5, sm: 1 } }}>
-        <Chip
-          label={chicken.sex}
-          size="small"
-          sx={{
-            bgcolor: sexSx.bgcolor,
-            color: sexSx.color,
-            fontWeight: 600,
-            fontSize: "0.8rem",
-          }}
-        />
-      </TableCell>
+    <>
+      <TableRow
+        sx={{
+          "&:last-child td, &:last-child th": { border: 0 },
+          bgcolor: chicken.departed ? "action.hover" : "transparent",
+        }}
+      >
+        <TableCell sx={{ py: { xs: 0.5, sm: 1 }, pl: 0, width: { xs: 40, sm: 56 } }}>
+          <Stack alignItems="center" spacing={0.5}>
+            <Avatar
+              src={chicken.primary_photo_path ? `/api/photos/${chicken.primary_photo_path}` : undefined}
+              alt=""
+              sx={{
+                width: { xs: 28, sm: 36 },
+                height: { xs: 28, sm: 36 },
+                bgcolor: "action.disabledBackground",
+              }}
+            />
+            <Chip
+              label={chicken.sex}
+              size="small"
+              sx={{
+                bgcolor: sexSx.bgcolor,
+                color: sexSx.color,
+                fontWeight: 600,
+                fontSize: "0.65rem",
+                height: 18,
+                "& .MuiChip-label": { px: 0.75 },
+              }}
+            />
+          </Stack>
+        </TableCell>
+        <TableCell sx={{ py: { xs: 0.5, sm: 1 }, fontWeight: 500 }}>
+          <MuiLink href={`/chickens/${chicken.id}`} underline="none" color="primary">
+            {chicken.name}
+          </MuiLink>
+        </TableCell>
 
-      <TableCell sx={{ py: { xs: 0.5, sm: 1 } }}>
-        <Chip
-          label={chicken.departed ? "Departed" : "Active"}
-          size="small"
-          sx={{
-            bgcolor: chicken.departed ? "error.light" : "success.light",
-            color: chicken.departed ? "error.dark" : "success.dark",
-            fontWeight: 600,
-            fontSize: "0.8rem",
-          }}
-        />
-        {chicken.departed && chicken.departure_date && (
-          <Typography variant="caption" display="block" color="text.disabled" sx={{ mt: 0.5 }}>
-            {formatDateForDisplay(chicken.departure_date)}
-            {chicken.departure_reason && ` \u00b7 ${chicken.departure_reason}`}
-          </Typography>
-        )}
-      </TableCell>
-      {isAdmin && (
-        <TableCell sx={{ py: { xs: 0.5, sm: 1 }, textAlign: "center" }}>
-          {departingChickenId === chicken.id ? (
+        <TableCell sx={{ py: { xs: 0.5, sm: 1 } }}>
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <Box>
+              <Chip
+                label={chicken.departed ? "Departed" : "Active"}
+                size="small"
+                sx={{
+                  bgcolor: chicken.departed ? "error.light" : "success.light",
+                  color: chicken.departed ? "error.dark" : "success.dark",
+                  fontWeight: 600,
+                  fontSize: "0.8rem",
+                }}
+              />
+              {chicken.departed && chicken.departure_date && (
+                <Typography variant="caption" display="block" color="text.disabled" sx={{ mt: 0.5 }}>
+                  {formatDateForDisplay(chicken.departure_date)}
+                  {chicken.departure_reason && ` \u00b7 ${chicken.departure_reason}`}
+                </Typography>
+              )}
+            </Box>
+            {isAdmin && (
+              <IconButton
+                size="small"
+                onClick={() => {
+                  if (chicken.departed) {
+                    if (confirm("Reinstate this chicken?")) {
+                      onReinstate();
+                    }
+                  } else {
+                    onStartDepart();
+                  }
+                }}
+                sx={{ flexShrink: 0 }}
+              >
+                <SwapHorizIcon fontSize="small" />
+              </IconButton>
+            )}
+          </Stack>
+        </TableCell>
+      </TableRow>
+      {isAdmin && departingChickenId === chicken.id && (
+        <TableRow>
+          <TableCell colSpan={3} sx={{ py: 1, pl: 0 }}>
             <Box
               sx={{
                 display: "flex",
@@ -140,6 +168,7 @@ function ChickenTableRowInner({
                 borderColor: "divider",
                 borderRadius: 1.5,
                 bgcolor: "action.disabledBackground",
+                maxWidth: 320,
               }}
             >
               <TextField
@@ -192,33 +221,10 @@ function ChickenTableRowInner({
                 </Button>
               </Box>
             </Box>
-          ) : chicken.departed ? (
-            <Button
-              variant="outlined"
-              size="small"
-              onClick={onReinstate}
-              sx={{
-                color: "success.main",
-                borderColor: "success.light",
-                fontSize: "0.75rem",
-              }}
-            >
-              Reinstate
-            </Button>
-          ) : (
-            <Button
-              variant="outlined"
-              size="small"
-              onClick={onStartDepart}
-              color="error"
-              sx={{ fontSize: "0.75rem" }}
-            >
-              Mark Departed
-            </Button>
-          )}
-        </TableCell>
+          </TableCell>
+        </TableRow>
       )}
-    </TableRow>
+    </>
   );
 }
 

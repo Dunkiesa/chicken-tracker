@@ -90,10 +90,6 @@ const columns = [
   columnHelper.accessor("name", {
     header: "Name",
   }),
-  columnHelper.accessor("sex", {
-    header: "Sex",
-  }),
-
   columnHelper.accessor((row) => (row.departed ? "Departed" : "Active"), {
     id: "status",
     header: "Status",
@@ -348,17 +344,6 @@ function RosterContent() {
                           )}
                         </TableCell>
                       ))}
-                      {isAdmin && (
-                        <TableCell
-                          sx={{
-                            fontWeight: 600,
-                            fontSize: "0.875rem",
-                            textAlign: "center",
-                          }}
-                        >
-                          Actions
-                        </TableCell>
-                      )}
                     </TableRow>
                   ))}
                 </TableHead>
