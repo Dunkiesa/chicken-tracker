@@ -3,7 +3,7 @@
 import { useState, Suspense, useMemo, useEffect, useCallback } from "react";
 import { useSession, signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { BarChart } from "@mui/x-charts/BarChart";
 import { PieChart } from "@mui/x-charts/PieChart";
@@ -113,6 +113,7 @@ function DashboardContent() {
     queryKey: ["analytics", dateFrom, dateTo, dryThreshold],
     queryFn: () => fetchAnalytics(dateFrom, dateTo, dryThreshold),
     enabled: status === "authenticated",
+    placeholderData: keepPreviousData,
   });
 
   const displayGranularity = useMemo(() => {
