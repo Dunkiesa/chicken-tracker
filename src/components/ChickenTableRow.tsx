@@ -8,7 +8,6 @@ import {
   TextField,
   MenuItem,
   Button,
-  IconButton,
   Box,
   Typography,
   Stack,
@@ -84,7 +83,7 @@ function ChickenTableRowInner({
           bgcolor: chicken.departed ? "action.hover" : "transparent",
         }}
       >
-        <TableCell sx={{ py: { xs: 0.5, sm: 1 }, pl: 0, width: { xs: 40, sm: 56 } }}>
+        <TableCell sx={{ py: { xs: 0.5, sm: 1 }, pl: 0, width: { xs: 80, sm: 100 } }}>
           <Stack alignItems="center" spacing={0.5}>
             <Avatar
               src={chicken.primary_photo_path ? `/api/photos/${chicken.primary_photo_path}` : undefined}
@@ -113,10 +112,7 @@ function ChickenTableRowInner({
           <MuiLink href={`/chickens/${chicken.id}`} underline="none" color="primary">
             {chicken.name}
           </MuiLink>
-        </TableCell>
-
-        <TableCell sx={{ py: { xs: 0.5, sm: 1 } }}>
-          <Stack direction="row" alignItems="center" spacing={1}>
+          <Stack direction="row" alignItems="center" spacing={1} sx={{ mt: 0.25, justifyContent: "space-between" }}>
             <Box>
               <Chip
                 label={chicken.departed ? "Departed" : "Active"}
@@ -136,8 +132,9 @@ function ChickenTableRowInner({
               )}
             </Box>
             {isAdmin && (
-              <IconButton
+              <Button
                 size="small"
+                variant="outlined"
                 onClick={() => {
                   if (chicken.departed) {
                     if (confirm("Reinstate this chicken?")) {
@@ -147,17 +144,17 @@ function ChickenTableRowInner({
                     onStartDepart();
                   }
                 }}
-                sx={{ flexShrink: 0 }}
+                sx={{ flexShrink: 0, minWidth: 0, px: 0.75, fontSize: "0.7rem" }}
               >
-                <SwapHorizIcon fontSize="small" />
-              </IconButton>
+                <SwapHorizIcon sx={{ fontSize: 18 }} />
+              </Button>
             )}
           </Stack>
         </TableCell>
       </TableRow>
       {isAdmin && departingChickenId === chicken.id && (
         <TableRow>
-          <TableCell colSpan={3} sx={{ py: 1, pl: 0 }}>
+          <TableCell colSpan={2} sx={{ py: 1, pl: 0 }}>
             <Box
               sx={{
                 display: "flex",

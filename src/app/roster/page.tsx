@@ -10,7 +10,6 @@ import {
   getSortedRowModel,
   getFilteredRowModel,
   createColumnHelper,
-  flexRender,
   type SortingState,
 } from "@tanstack/react-table";
 import {
@@ -25,12 +24,8 @@ import {
   Stack,
   Table,
   TableBody,
-  TableCell,
   TableContainer,
-  TableHead,
-  TableRow,
   TextField,
-  TableSortLabel,
   Skeleton,
   useTheme,
   useMediaQuery,
@@ -85,14 +80,10 @@ const columns = [
   columnHelper.display({
     id: "photo",
     header: "",
-    size: 56,
+    size: 100,
   }),
   columnHelper.accessor("name", {
     header: "Name",
-  }),
-  columnHelper.accessor((row) => (row.departed ? "Departed" : "Active"), {
-    id: "status",
-    header: "Status",
   }),
 ];
 
@@ -315,38 +306,6 @@ function RosterContent() {
           ) : (
             <TableContainer>
               <Table size="small" sx={{ tableLayout: "fixed" }}>
-                <TableHead>
-                  {table.getHeaderGroups().map((headerGroup) => (
-                    <TableRow key={headerGroup.id}>
-                      {headerGroup.headers.map((header) => (
-                        <TableCell key={header.id}>
-                          {header.isPlaceholder ? null : (
-                            <TableSortLabel
-                              active={header.column.getIsSorted() !== false}
-                              direction={
-                                header.column.getIsSorted() === "asc"
-                                  ? "asc"
-                                  : header.column.getIsSorted() === "desc"
-                                    ? "desc"
-                                    : undefined
-                              }
-                              onClick={header.column.getToggleSortingHandler()}
-                              sx={{
-                                fontWeight: 600,
-                                fontSize: "0.875rem",
-                              }}
-                            >
-                              {flexRender(
-                                header.column.columnDef.header,
-                                header.getContext()
-                              )}
-                            </TableSortLabel>
-                          )}
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                  ))}
-                </TableHead>
                 <TableBody>
                   {table.getRowModel().rows.map((row) => (
                     <ChickenTableRow
