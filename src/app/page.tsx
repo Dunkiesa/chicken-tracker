@@ -225,25 +225,27 @@ function DashboardContent() {
                   sx={{ flex: 1, minWidth: 0 }}
                 />
               </Stack>
-              <Stack direction="row" spacing={1}>
+              <Stack direction="row" spacing={1} justifyContent="center">
                 <Button
                   variant="outlined"
                   size="small"
                   aria-label="Export CSV"
-                  startIcon={<FileDownloadIcon />}
                   onClick={() => {
                     const url = `/api/analytics?from=${dateFrom}&to=${dateTo}&format=csv`;
                     window.open(url, "_blank");
                   }}
-                />
+                >
+                  <FileDownloadIcon />
+                </Button>
                 <Button
                   variant="outlined"
                   size="small"
                   aria-label={isRefetching ? "Loading..." : "Refresh"}
-                  startIcon={<RefreshIcon />}
                   disabled={isRefetching}
                   onClick={() => refetch()}
-                />
+                >
+                  <RefreshIcon />
+                </Button>
               </Stack>
             </Stack>
           </CardContent>
