@@ -1,7 +1,12 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import Providers from "./providers";
 import AppShell from "../components/AppShell";
+
+export const viewport: Viewport = {
+  initialScale: 1,
+  width: "device-width",
+};
 
 export const metadata: Metadata = {
   title: "ChickenTrack",

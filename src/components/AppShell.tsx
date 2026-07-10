@@ -125,7 +125,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         component="main"
         sx={{
           flexGrow: 1,
-          minHeight: "100vh",
+          minHeight: "100dvh",
+          maxWidth: "100%",
           bgcolor: "background.default",
         }}
       >
