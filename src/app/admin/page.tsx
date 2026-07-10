@@ -476,7 +476,7 @@ function AdminContent() {
           value={tabIndex}
           onChange={(_, v) => setTabIndex(v)}
           aria-label="Admin sections"
-          variant={isMobile ? "scrollable" : "standard"}
+          variant="fullWidth"
           sx={{ mb: 2 }}
         >
           <Tab label="Users" id={tabLabelId(0)} aria-controls={tabPanelId(0)} />
@@ -632,15 +632,14 @@ function AdminContent() {
                           </TableCell>
                           <TableCell sx={{ py: { xs: 0.5, sm: 1 } }} align="right">
                             {row.original.email !== session?.user?.email && (
-                              <Button
+                              <IconButton
                                 size="small"
                                 color="error"
-                                variant="outlined"
                                 onClick={() => setRemoveUserEmail(row.original.email)}
-                                startIcon={<DeleteIcon />}
+                                aria-label="Remove user"
                               >
-                                Remove
-                              </Button>
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
                             )}
                           </TableCell>
                         </TableRow>
