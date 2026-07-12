@@ -34,10 +34,7 @@ import {
   MenuItem,
   Chip,
   IconButton,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
+
   List,
   ListItem,
   ListItemText,
@@ -55,6 +52,7 @@ import CloseIcon from "@mui/icons-material/Close";
 import MergeTypeIcon from "@mui/icons-material/MergeType";
 import DeleteForeverIcon from "@mui/icons-material/DeleteForever";
 import TableSortLabel from "@mui/material/TableSortLabel";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 type User = {
   email: string;
@@ -207,42 +205,6 @@ const userColumns = [
   }),
 ];
 
-function ConfirmDialog({
-  open,
-  title,
-  message,
-  confirmLabel,
-  confirmIcon,
-  onConfirm,
-  onCancel,
-  pending,
-}: {
-  open: boolean;
-  title: string;
-  message: string;
-  confirmLabel: string;
-  confirmIcon?: React.ReactNode;
-  onConfirm: () => void;
-  onCancel: () => void;
-  pending?: boolean;
-}) {
-  return (
-    <Dialog open={open} onClose={onCancel} maxWidth="xs" fullWidth>
-      <DialogTitle>{title}</DialogTitle>
-      <DialogContent>
-        <Typography>{message}</Typography>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onCancel} disabled={pending} aria-label="Cancel">
-          <CloseIcon />
-        </Button>
-        <Button onClick={onConfirm} variant="contained" color="error" disabled={pending} aria-label={confirmLabel}>
-          {pending ? <CircularProgress size={20} /> : (confirmIcon ?? <CheckIcon />)}
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-}
 
 export default function AdminPage() {
   return (

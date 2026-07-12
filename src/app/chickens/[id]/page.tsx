@@ -40,6 +40,7 @@ import {
   Checkbox,
 } from "@mui/material";
 import { alpha } from "@mui/material/styles";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -316,6 +317,8 @@ function ProfileContent() {
   const [lightboxPhoto, setLightboxPhoto] = useState<Photo | null>(null);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [fileInputKey, setFileInputKey] = useState(0);
+  const [deleteNoteDialogId, setDeleteNoteDialogId] = useState<number | null>(null);
+  const [deletePhotoDialogId, setDeletePhotoDialogId] = useState<number | null>(null);
 
   const {
     data: chicken,
@@ -501,8 +504,7 @@ function ProfileContent() {
   };
 
   const handleDeleteNote = (noteId: number) => {
-    if (!confirm("Delete this note?")) return;
-    deleteNoteMutation.mutate(noteId);
+    setDeleteNoteDialogId(noteId);
   };
 
   const handleOpenUploadDialog = () => {
@@ -519,8 +521,7 @@ function ProfileContent() {
   };
 
   const handleDeletePhoto = (photoId: number) => {
-    if (!confirm("Delete this photo?")) return;
-    deletePhotoMutation.mutate(photoId);
+    setDeletePhotoDialogId(photoId);
   };
 
   const canModifyNote = (note: Note) =>
@@ -964,6 +965,36 @@ function ProfileContent() {
           </DialogActions>
         </Dialog>
       )}
+
+      <ConfirmDialog
+        open={deleteNoteDialogId !== null}
+        title="Delete Note"
+        message="Delete this note?"
+        confirmLabel="Delete"
+        onConfirm={() => {
+          if (deleteNoteDialogId !== null) {
+            deleteNoteMutation.mutate(deleteNoteDialogId);
+          }
+          setDeleteNoteDialogId(null);
+        }}
+        onCancel={() => setDeleteNoteDialogId(null)}
+        pending={deleteNoteMutation.isPending}
+      />
+
+      <ConfirmDialog
+        open={deletePhotoDialogId !== null}
+        title="Delete Photo"
+        message="Delete this photo?"
+        confirmLabel="Delete"
+        onConfirm={() => {
+          if (deletePhotoDialogId !== null) {
+            deletePhotoMutation.mutate(deletePhotoDialogId);
+          }
+          setDeletePhotoDialogId(null);
+        }}
+        onCancel={() => setDeletePhotoDialogId(null)}
+        pending={deletePhotoMutation.isPending}
+      />
     </Box>
   );
 }

@@ -43,6 +43,7 @@ import {
   formatDateForApi,
   formatDateForDisplay,
 } from "@/lib/dateUtils";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 type Chicken = {
   id: number;
@@ -173,6 +174,7 @@ function LogEggContent() {
   const [editingEggId, setEditingEggId] = useState<number | null>(null);
   const [editWeight, setEditWeight] = useState("");
   const [editDate, setEditDate] = useState("");
+  const [deleteDialogEgg, setDeleteDialogEgg] = useState<Egg | null>(null);
 
   const {
     control,
@@ -336,8 +338,7 @@ function LogEggContent() {
   };
 
   const handleDelete = (egg: Egg) => {
-    if (!confirm(`Delete egg for ${egg.chicken_name} on ${egg.date}?`)) return;
-    deleteMutation.mutate(egg.id);
+    setDeleteDialogEgg(egg);
   };
 
   if (status === "loading") {
@@ -609,6 +610,20 @@ function LogEggContent() {
           </Alert>
         )}
       </Card>
+      <ConfirmDialog
+        open={deleteDialogEgg !== null}
+        title="Delete Egg"
+        message={deleteDialogEgg ? `Delete egg for ${deleteDialogEgg.chicken_name} on ${deleteDialogEgg.date}?` : ""}
+        confirmLabel="Delete"
+        onConfirm={() => {
+          if (deleteDialogEgg) {
+            deleteMutation.mutate(deleteDialogEgg.id);
+          }
+          setDeleteDialogEgg(null);
+        }}
+        onCancel={() => setDeleteDialogEgg(null)}
+        pending={deleteMutation.isPending}
+      />
     </Box>
   );
 }

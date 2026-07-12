@@ -1,5 +1,5 @@
 "use client";
-import { memo } from "react";
+import { memo, useState } from "react";
 import {
   TableRow,
   TableCell,
@@ -18,6 +18,7 @@ import SwapHorizIcon from "@mui/icons-material/SwapHoriz";
 import CheckIcon from "@mui/icons-material/Check";
 import CloseIcon from "@mui/icons-material/Close";
 import { formatDateForDisplay } from "@/lib/dateUtils";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 type Chicken = {
   id: number;
@@ -77,6 +78,8 @@ function ChickenTableRowInner({
   onDepartureOtherReasonChange,
 }: ChickenTableRowProps) {
   const sexSx = sexBadgeSx[chicken.sex] ?? defaultSexBadgeSx;
+
+  const [reinstateDialogOpen, setReinstateDialogOpen] = useState(false);
 
   return (
     <>
@@ -140,9 +143,7 @@ function ChickenTableRowInner({
                 variant="outlined"
                 onClick={() => {
                   if (chicken.departed) {
-                    if (confirm("Reinstate this chicken?")) {
-                      onReinstate();
-                    }
+                    setReinstateDialogOpen(true);
                   } else {
                     onStartDepart();
                   }
@@ -228,6 +229,18 @@ function ChickenTableRowInner({
           </TableCell>
         </TableRow>
       )}
+
+      <ConfirmDialog
+        open={reinstateDialogOpen}
+        title="Reinstate Chicken"
+        message="Reinstate this chicken?"
+        confirmLabel="Reinstate"
+        onConfirm={() => {
+          setReinstateDialogOpen(false);
+          onReinstate();
+        }}
+        onCancel={() => setReinstateDialogOpen(false)}
+      />
     </>
   );
 }

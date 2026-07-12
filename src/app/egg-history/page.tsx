@@ -36,6 +36,7 @@ import {
   todayStr,
   oneMonthAgoStr,
 } from "@/lib/dateUtils";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 type Egg = {
   id: number;
@@ -107,6 +108,7 @@ function EggHistoryContent() {
   const [editDate, setEditDate] = useState("");
   const [fromDate, setFromDate] = useState(oneMonthAgoStr());
   const [toDate, setToDate] = useState(todayStr());
+  const [deleteDialogEgg, setDeleteDialogEgg] = useState<Egg | null>(null);
 
   const {
     data: eggs,
@@ -158,8 +160,7 @@ function EggHistoryContent() {
   };
 
   const handleDelete = (egg: Egg) => {
-    if (!confirm(`Delete egg for ${egg.chicken_name} on ${egg.date}?`)) return;
-    deleteMutation.mutate(egg.id);
+    setDeleteDialogEgg(egg);
   };
 
   if (status === "loading") {
@@ -337,6 +338,20 @@ function EggHistoryContent() {
           </Alert>
         )}
       </Card>
+      <ConfirmDialog
+        open={deleteDialogEgg !== null}
+        title="Delete Egg"
+        message={deleteDialogEgg ? `Delete egg for ${deleteDialogEgg.chicken_name} on ${deleteDialogEgg.date}?` : ""}
+        confirmLabel="Delete"
+        onConfirm={() => {
+          if (deleteDialogEgg) {
+            deleteMutation.mutate(deleteDialogEgg.id);
+          }
+          setDeleteDialogEgg(null);
+        }}
+        onCancel={() => setDeleteDialogEgg(null)}
+        pending={deleteMutation.isPending}
+      />
     </Box>
   );
 }

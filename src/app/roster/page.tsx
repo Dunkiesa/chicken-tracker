@@ -35,6 +35,7 @@ import AddIcon from "@mui/icons-material/Add";
 import Link from "next/link";
 import { ChickenTableRow } from "@/components/ChickenTableRow";
 import { todayStr } from "@/lib/dateUtils";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 type Chicken = {
   id: number;
@@ -119,6 +120,8 @@ function RosterContent() {
   const [departureDate, setDepartureDate] = useState(todayStr());
   const [departureReason, setDepartureReason] = useState("died/illness");
   const [departureOtherReason, setDepartureOtherReason] = useState("");
+  const [discardDialogOpen, setDiscardDialogOpen] = useState(false);
+  const [discardTargetChicken, setDiscardTargetChicken] = useState<number | null>(null);
 
   const {
     data: chickens,
@@ -194,9 +197,15 @@ function RosterContent() {
       departingChickenId !== null &&
       departingChickenId !== chicken.id
     ) {
-      if (!confirm("Discard unsaved departure details?")) return;
+      setDiscardTargetChicken(chicken.id);
+      setDiscardDialogOpen(true);
+      return;
     }
-    setDepartingChickenId(chicken.id);
+    startDepartingChicken(chicken.id);
+  };
+
+  const startDepartingChicken = (chickenId: number) => {
+    setDepartingChickenId(chickenId);
     setDepartureDate(todayStr());
     setDepartureReason("died/illness");
     setDepartureOtherReason("");
@@ -352,6 +361,24 @@ function RosterContent() {
           )}
         </Stack>
       </Card>
+
+      <ConfirmDialog
+        open={discardDialogOpen}
+        title="Discard Departure"
+        message="Discard unsaved departure details?"
+        confirmLabel="Discard"
+        onConfirm={() => {
+          setDiscardDialogOpen(false);
+          if (discardTargetChicken !== null) {
+            startDepartingChicken(discardTargetChicken);
+          }
+          setDiscardTargetChicken(null);
+        }}
+        onCancel={() => {
+          setDiscardDialogOpen(false);
+          setDiscardTargetChicken(null);
+        }}
+      />
     </Box>
   );
 }
