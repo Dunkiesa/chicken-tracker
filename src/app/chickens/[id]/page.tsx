@@ -41,6 +41,7 @@ import {
 } from "@mui/material";
 import { alpha } from "@mui/material/styles";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import CropDialog from "@/components/CropDialog";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -72,6 +73,7 @@ type Chicken = {
   created_at: string;
   primary_photo_id: number | null;
   primary_photo_path: string | null;
+  primary_thumbnail_path: string | null;
 };
 
 type Note = {
@@ -89,6 +91,7 @@ type Photo = {
   id: number;
   chicken_id: number;
   file_path: string;
+  thumbnail_path: string | null;
   description: string | null;
   recorded_by: string;
   created_at: string;
@@ -216,10 +219,15 @@ async function deletePhotoApi(data: {
 async function setPrimaryPhotoApi(data: {
   chickenId: number;
   photoId: number;
+  crop?: { x: number; y: number; width: number; height: number };
 }): Promise<void> {
   const res = await fetch(
     `/api/chickens/${data.chickenId}/photos/${data.photoId}/primary`,
-    { method: "PUT" }
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data.crop ? { crop: data.crop } : {}),
+    }
   );
   if (!res.ok) {
     const result = await res.json();
@@ -319,6 +327,9 @@ function ProfileContent() {
   const [fileInputKey, setFileInputKey] = useState(0);
   const [deleteNoteDialogId, setDeleteNoteDialogId] = useState<number | null>(null);
   const [deletePhotoDialogId, setDeletePhotoDialogId] = useState<number | null>(null);
+  const [cropDialogPhoto, setCropDialogPhoto] = useState<Photo | null>(null);
+  const [cropPending, setCropPending] = useState(false);
+  const [uploadSetPrimary, setUploadSetPrimary] = useState(false);
 
   const {
     data: chicken,
@@ -399,11 +410,15 @@ function ProfileContent() {
   const uploadPhotoMutation = useMutation({
     mutationFn: (data: { file: File; description?: string }) =>
       uploadPhotoApi({ chickenId, ...data }),
-    onSuccess: () => {
+    onSuccess: (photo: Photo) => {
       queryClient.invalidateQueries({ queryKey: ["chicken-photos", chickenId] });
       queryClient.invalidateQueries({ queryKey: ["chicken", chickenId] });
       setUploadDialogOpen(false);
       setFileInputKey((k) => k + 1);
+      if (uploadSetPrimary) {
+        setUploadSetPrimary(false);
+        setCropDialogPhoto(photo);
+      }
     },
   });
 
@@ -416,9 +431,15 @@ function ProfileContent() {
   });
 
   const setPrimaryPhotoMutation = useMutation({
-    mutationFn: (photoId: number) => setPrimaryPhotoApi({ chickenId, photoId }),
+    mutationFn: (data: { photoId: number; crop?: { x: number; y: number; width: number; height: number } }) =>
+      setPrimaryPhotoApi({ chickenId, ...data }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["chicken", chickenId] });
+      setCropDialogPhoto(null);
+      setCropPending(false);
+    },
+    onError: () => {
+      setCropPending(false);
     },
   });
 
@@ -516,8 +537,18 @@ function ProfileContent() {
     uploadPhotoMutation.mutate({ file, description });
   };
 
-  const handleSetPrimary = (photoId: number) => {
-    setPrimaryPhotoMutation.mutate(photoId);
+  const handleSetPrimary = (photo: Photo) => {
+    setCropDialogPhoto(photo);
+  };
+
+  const handleCropConfirm = (crop: { x: number; y: number; width: number; height: number }) => {
+    if (!cropDialogPhoto) return;
+    setCropPending(true);
+    setPrimaryPhotoMutation.mutate({ photoId: cropDialogPhoto.id, crop });
+  };
+
+  const handleCropCancel = () => {
+    setCropDialogPhoto(null);
   };
 
   const handleDeletePhoto = (photoId: number) => {
@@ -923,7 +954,10 @@ function ProfileContent() {
 
       <Dialog
         open={uploadDialogOpen}
-        onClose={() => setUploadDialogOpen(false)}
+        onClose={() => {
+          setUploadDialogOpen(false);
+          setUploadSetPrimary(false);
+        }}
         maxWidth="sm"
         fullWidth
       >
@@ -932,8 +966,20 @@ function ProfileContent() {
           onUpload={handleUploadPhoto}
           isPending={uploadPhotoMutation.isPending}
           error={uploadPhotoMutation.isError ? uploadPhotoMutation.error.message : null}
+          setPrimary={uploadSetPrimary}
+          onSetPrimaryChange={setUploadSetPrimary}
         />
       </Dialog>
+
+      {cropDialogPhoto && (
+        <CropDialog
+          open={!!cropDialogPhoto}
+          imageUrl={`/api/photos/${cropDialogPhoto.file_path}`}
+          onCrop={handleCropConfirm}
+          onCancel={handleCropCancel}
+          pending={cropPending}
+        />
+      )}
 
       {lightboxPhoto && (
         <Dialog
@@ -1007,7 +1053,11 @@ function ChickenInfoCard({ chicken }: { chicken: Chicken }) {
       <CardContent>
         <Stack direction="row" spacing={2} alignItems="center" mb={2}>
           <Avatar
-            src={chicken.primary_photo_path ? `/api/photos/${chicken.primary_photo_path}` : undefined}
+            src={
+              (chicken.primary_thumbnail_path || chicken.primary_photo_path)
+                ? `/api/photos/${chicken.primary_thumbnail_path || chicken.primary_photo_path}`
+                : undefined
+            }
             alt={chicken.name}
             sx={{ width: 80, height: 80 }}
           />
@@ -1083,7 +1133,7 @@ function PhotoGallery({
   primaryPhotoId: number | null;
   isAdmin: boolean;
   onPhotoClick: (photo: Photo) => void;
-  onSetPrimary: (photoId: number) => void;
+  onSetPrimary: (photo: Photo) => void;
   onDeletePhoto: (photoId: number) => void;
 }) {
   if (photos.length === 0) {
@@ -1153,7 +1203,7 @@ function PhotoGallery({
                   {!isPrimary && (
                     <IconButton
                       size="small"
-                      onClick={() => onSetPrimary(photo.id)}
+                      onClick={() => onSetPrimary(photo)}
                       sx={{
                         color: "success.contrastText",
                         bgcolor: (theme) => alpha(theme.palette.success.main, 0.5),
@@ -1198,11 +1248,15 @@ function UploadPhotoForm({
   onUpload,
   isPending,
   error,
+  setPrimary,
+  onSetPrimaryChange,
 }: {
   fileInputKey: number;
   onUpload: (file: File, description: string) => void;
   isPending: boolean;
   error: string | null;
+  setPrimary: boolean;
+  onSetPrimaryChange: (value: boolean) => void;
 }) {
   const [file, setFile] = useState<File | null>(null);
   const [description, setDescription] = useState("");
@@ -1232,6 +1286,16 @@ function UploadPhotoForm({
             disabled={isPending}
             fullWidth
             size="small"
+          />
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={setPrimary}
+                onChange={(e) => onSetPrimaryChange(e.target.checked)}
+                disabled={isPending}
+              />
+            }
+            label="Set as primary (crop after upload)"
           />
           {error && <Alert severity="error">{error}</Alert>}
         </Stack>

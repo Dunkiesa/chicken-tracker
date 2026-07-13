@@ -52,6 +52,7 @@ type Chicken = {
   departed: boolean;
   primary_photo_id: number | null;
   primary_photo_path: string | null;
+  primary_thumbnail_path: string | null;
 };
 
 type Egg = {

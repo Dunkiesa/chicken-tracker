@@ -32,6 +32,7 @@ type Chicken = {
   departure_reason: string | null;
   primary_photo_id: number | null;
   primary_photo_path: string | null;
+  primary_thumbnail_path: string | null;
 };
 
 const DEPARTURE_REASONS = ["died/illness", "sold", "predator", "gave away", "Other"] as const;
@@ -92,7 +93,11 @@ function ChickenTableRowInner({
         <TableCell sx={{ py: { xs: 0.5, sm: 1 }, pl: 0, width: { xs: 80, sm: 100 } }}>
           <Stack alignItems="center" spacing={0.5}>
             <Avatar
-              src={chicken.primary_photo_path ? `/api/photos/${chicken.primary_photo_path}` : undefined}
+              src={
+                (chicken.primary_thumbnail_path || chicken.primary_photo_path)
+                  ? `/api/photos/${chicken.primary_thumbnail_path || chicken.primary_photo_path}`
+                  : undefined
+              }
               alt=""
               sx={{
                 width: { xs: 28, sm: 36 },

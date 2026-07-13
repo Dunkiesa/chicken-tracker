@@ -21,6 +21,7 @@ export type Chicken = {
   created_at: string;
   primary_photo_id: number | null;
   primary_photo_path: string | null;
+  primary_thumbnail_path: string | null;
 };
 
 export type CreateChickenInput = {
@@ -55,7 +56,8 @@ const LIST_JOIN_SQL = `
     c.acquisition_type_id, atv.value AS acquisition_type_name,
     CONVERT(varchar, c.acquisition_date, 23) AS acquisition_date,
     c.primary_photo_id,
-    pp.file_path AS primary_photo_path
+    pp.file_path AS primary_photo_path,
+    pp.thumbnail_path AS primary_thumbnail_path
   FROM chickens c
   LEFT JOIN breeds b ON c.breed_id = b.id
   LEFT JOIN origin_sources os ON c.origin_source_id = os.id

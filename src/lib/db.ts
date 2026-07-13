@@ -229,6 +229,11 @@ export async function runMigrations(): Promise<void> {
       EXEC('ALTER TABLE dbo.chickens ADD CONSTRAINT FK_chickens_primary_photo FOREIGN KEY (primary_photo_id) REFERENCES dbo.photos(id)')
   `);
 
+  await p.request().query(`
+    IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('photos') AND name = 'thumbnail_path')
+      ALTER TABLE photos ADD thumbnail_path NVARCHAR(500) NULL
+  `);
+
   const seedEmail = process.env.SEED_ADMIN_EMAIL;
   if (seedEmail) {
     const countResult = await p

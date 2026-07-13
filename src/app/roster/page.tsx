@@ -49,6 +49,7 @@ type Chicken = {
   departure_reason: string | null;
   primary_photo_id: number | null;
   primary_photo_path: string | null;
+  primary_thumbnail_path: string | null;
 };
 
 async function fetchChickensApi(includeDeparted: boolean): Promise<Chicken[]> {

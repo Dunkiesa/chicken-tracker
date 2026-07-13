@@ -2,10 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getChicken } from "@/lib/chickens";
-import { getPhoto, setPrimaryPhoto } from "@/lib/photos";
+import { getPhoto, setPrimaryPhoto, setPhotoThumbnail, getImageDirectory } from "@/lib/photos";
+import sharp from "sharp";
+import { writeFile, mkdir, readFile } from "fs/promises";
+import { join } from "path";
+import { randomUUID } from "crypto";
 
 export async function PUT(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: { id: string; photoId: string } }
 ) {
   try {
@@ -34,6 +38,51 @@ export async function PUT(
     const photo = await getPhoto(photoId);
     if (!photo || photo.chicken_id !== chickenId) {
       return NextResponse.json({ message: "Photo not found" }, { status: 404 });
+    }
+
+    let body: { crop?: { x: number; y: number; width: number; height: number } } = {};
+    try {
+      body = await request.json();
+    } catch {
+      // no body, just set primary without cropping
+    }
+
+    if (body.crop) {
+      const { x, y, width, height } = body.crop;
+
+      if (
+        typeof x !== "number" || typeof y !== "number" ||
+        typeof width !== "number" || typeof height !== "number" ||
+        width <= 0 || height <= 0
+      ) {
+        return NextResponse.json(
+          { message: "Invalid crop parameters" },
+          { status: 400 }
+        );
+      }
+
+      const imageDir = getImageDirectory();
+      const sourcePath = join(imageDir, photo.file_path);
+
+      const thumbFilename = `thumb_${randomUUID()}.webp`;
+      const thumbPath = join(imageDir, thumbFilename);
+
+      await mkdir(imageDir, { recursive: true });
+
+      const sourceBuffer = await readFile(sourcePath);
+
+      await sharp(sourceBuffer)
+        .extract({
+          left: Math.round(x),
+          top: Math.round(y),
+          width: Math.round(width),
+          height: Math.round(height),
+        })
+        .resize(300, 300, { fit: "cover" })
+        .webp({ quality: 85 })
+        .toFile(thumbPath);
+
+      await setPhotoThumbnail(photoId, thumbFilename);
     }
 
     await setPrimaryPhoto(chickenId, photoId);

@@ -5,6 +5,7 @@ export type Photo = {
   id: number;
   chicken_id: number;
   file_path: string;
+  thumbnail_path: string | null;
   description: string | null;
   recorded_by: string;
   created_at: string;
@@ -23,7 +24,7 @@ export type UpdatePhotoInput = {
 
 const PHOTO_SELECT_SQL = `
   SELECT
-    p.id, p.chicken_id, p.file_path, p.description, p.recorded_by,
+    p.id, p.chicken_id, p.file_path, p.thumbnail_path, p.description, p.recorded_by,
     CONVERT(varchar, p.created_at, 20) AS created_at
   FROM photos p
 `;
@@ -104,6 +105,18 @@ export async function setPrimaryPhoto(
     .input("chicken_id", sql.Int, chicken_id)
     .input("photo_id", sql.Int, photo_id)
     .query("UPDATE chickens SET primary_photo_id = @photo_id WHERE id = @chicken_id");
+}
+
+export async function setPhotoThumbnail(
+  photo_id: number,
+  thumbnail_path: string
+): Promise<void> {
+  const pool = await getPool();
+  await pool
+    .request()
+    .input("id", sql.Int, photo_id)
+    .input("thumbnail_path", sql.NVarChar(500), thumbnail_path)
+    .query("UPDATE photos SET thumbnail_path = @thumbnail_path WHERE id = @id");
 }
 
 export function getImageDirectory(): string {

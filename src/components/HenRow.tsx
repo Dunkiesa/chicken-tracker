@@ -7,7 +7,7 @@ import TextField from "@mui/material/TextField";
 import CheckIcon from "@mui/icons-material/Check";
 
 type HenRowProps = {
-  hen: { id: number; name: string; primary_photo_path: string | null };
+  hen: { id: number; name: string; primary_photo_path: string | null; primary_thumbnail_path?: string | null };
   weight: string;
   existing: { id: number; weight: number } | undefined;
   warning: { type: string; message: string }[] | undefined;
@@ -31,7 +31,7 @@ function HenRowInner({ hen, weight, existing, warning, error, disabled, onWeight
       }}
     >
       <Avatar
-        src={hen.primary_photo_path ? `/api/photos/${hen.primary_photo_path}` : undefined}
+        src={(hen.primary_thumbnail_path || hen.primary_photo_path) ? `/api/photos/${hen.primary_thumbnail_path || hen.primary_photo_path}` : undefined}
         alt=""
         sx={{
           width: 32,
