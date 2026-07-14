@@ -43,7 +43,11 @@ export default function ThemeToggle() {
 
   const handlePaletteClick = () => {
     handleClose();
-    colorInputRef.current?.click();
+    const input = colorInputRef.current;
+    if (input) {
+      input.value = sourceColor;
+      input.click();
+    }
   };
 
   const CurrentIcon = options.find((o) => o.value === mode)?.icon ?? BrightnessAutoIcon;
@@ -103,7 +107,6 @@ export default function ThemeToggle() {
         component="input"
         type="color"
         ref={colorInputRef}
-        value={sourceColor}
         onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
           setSourceColor(e.target.value)
         }
