@@ -1,8 +1,8 @@
 import { createTheme, Theme } from "@mui/material/styles";
 import { getLightPalette, getDarkPalette } from "./palette";
 
-export function createMD3Theme(mode: "light" | "dark"): Theme {
-  const palette = mode === "light" ? getLightPalette() : getDarkPalette();
+export function createMD3Theme(mode: "light" | "dark", sourceColor?: string): Theme {
+  const palette = mode === "light" ? getLightPalette(sourceColor) : getDarkPalette(sourceColor);
 
   return createTheme({
     palette: {

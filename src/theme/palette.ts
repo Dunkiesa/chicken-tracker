@@ -4,7 +4,7 @@ import {
   Theme,
 } from "@material/material-color-utilities";
 
-const SOURCE_COLOR = "#AE9965";
+const DEFAULT_SOURCE_COLOR = "#AE9965";
 
 export interface MD3Palette {
   primary: string;
@@ -105,21 +105,27 @@ function extractPalette(theme: Theme, isDark: boolean): MD3Palette {
   };
 }
 
-let cachedLightPalette: MD3Palette | null = null;
-let cachedDarkPalette: MD3Palette | null = null;
+const lightCache = new Map<string, MD3Palette>();
+const darkCache = new Map<string, MD3Palette>();
 
-export function getLightPalette(): MD3Palette {
-  if (!cachedLightPalette) {
-    const theme = themeFromSourceColor(argbFromHex(SOURCE_COLOR));
-    cachedLightPalette = extractPalette(theme, false);
+export function getLightPalette(sourceColor?: string): MD3Palette {
+  const key = sourceColor ?? DEFAULT_SOURCE_COLOR;
+  let cached = lightCache.get(key);
+  if (!cached) {
+    const theme = themeFromSourceColor(argbFromHex(key));
+    cached = extractPalette(theme, false);
+    lightCache.set(key, cached);
   }
-  return cachedLightPalette;
+  return cached;
 }
 
-export function getDarkPalette(): MD3Palette {
-  if (!cachedDarkPalette) {
-    const theme = themeFromSourceColor(argbFromHex(SOURCE_COLOR));
-    cachedDarkPalette = extractPalette(theme, true);
+export function getDarkPalette(sourceColor?: string): MD3Palette {
+  const key = sourceColor ?? DEFAULT_SOURCE_COLOR;
+  let cached = darkCache.get(key);
+  if (!cached) {
+    const theme = themeFromSourceColor(argbFromHex(key));
+    cached = extractPalette(theme, true);
+    darkCache.set(key, cached);
   }
-  return cachedDarkPalette;
+  return cached;
 }

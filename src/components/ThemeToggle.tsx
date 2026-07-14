@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import BrightnessAutoIcon from "@mui/icons-material/BrightnessAuto";
 import LightModeIcon from "@mui/icons-material/LightMode";
 import DarkModeIcon from "@mui/icons-material/DarkMode";
@@ -11,6 +11,8 @@ import {
   ListItemIcon,
   ListItemText,
   Tooltip,
+  Divider,
+  Box,
 } from "@mui/material";
 import { useThemeMode } from "@/theme";
 
@@ -21,9 +23,10 @@ const options = [
 ];
 
 export default function ThemeToggle() {
-  const { mode, setMode } = useThemeMode();
+  const { mode, setMode, sourceColor, setSourceColor } = useThemeMode();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
+  const colorInputRef = useRef<HTMLInputElement>(null);
 
   const handleClick = (e: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(e.currentTarget);
@@ -36,6 +39,11 @@ export default function ThemeToggle() {
   const handleSelect = (value: "system" | "light" | "dark") => {
     setMode(value);
     handleClose();
+  };
+
+  const handlePaletteClick = () => {
+    handleClose();
+    colorInputRef.current?.click();
   };
 
   const CurrentIcon = options.find((o) => o.value === mode)?.icon ?? BrightnessAutoIcon;
@@ -74,7 +82,34 @@ export default function ThemeToggle() {
             <ListItemText>{label}</ListItemText>
           </MenuItem>
         ))}
+        <Divider />
+        <MenuItem onClick={handlePaletteClick}>
+          <ListItemIcon>
+            <Box
+              sx={{
+                width: 20,
+                height: 20,
+                borderRadius: "50%",
+                backgroundColor: sourceColor,
+                border: "1px solid",
+                borderColor: "divider",
+              }}
+            />
+          </ListItemIcon>
+          <ListItemText>Palette color</ListItemText>
+        </MenuItem>
       </Menu>
+      <Box
+        component="input"
+        type="color"
+        ref={colorInputRef}
+        value={sourceColor}
+        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+          setSourceColor(e.target.value)
+        }
+        sx={{ display: "none" }}
+        aria-label="select palette color"
+      />
     </>
   );
 }
