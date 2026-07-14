@@ -27,7 +27,8 @@ export default function HealthIndicator() {
     retry: false,
   });
 
-  const isHealthy = data?.status === "ok" && data?.database === "connected";
+  const isHealthy =
+    !isError && data?.status === "ok" && data?.database === "connected";
 
   return (
     <>
