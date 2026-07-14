@@ -100,7 +100,7 @@ export default function ThemeToggle() {
               }}
             />
           </ListItemIcon>
-          <ListItemText>Palette color</ListItemText>
+          <ListItemText>Base Colour</ListItemText>
         </MenuItem>
       </Menu>
       <Box
