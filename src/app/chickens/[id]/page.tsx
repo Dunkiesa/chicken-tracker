@@ -1176,6 +1176,10 @@ function PhotoGallery({
                   icon={<StarIcon sx={{ fontSize: 14 }} />}
                   label="Primary"
                   size="small"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSetPrimary(photo);
+                  }}
                   sx={{
                     position: "absolute",
                     top: 4,
@@ -1183,6 +1187,7 @@ function PhotoGallery({
                     bgcolor: "success.main",
                     color: "success.contrastText",
                     fontSize: "0.7rem",
+                    cursor: "pointer",
                   }}
                 />
               )}
