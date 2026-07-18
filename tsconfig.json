@@ -5,6 +5,7 @@
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
+    "noUncheckedIndexedAccess": true,
     "noUncheckedSideEffectImports": false,
     "noEmit": true,
     "esModuleInterop": true,

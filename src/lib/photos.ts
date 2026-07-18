@@ -92,7 +92,7 @@ export async function deletePhoto(id: number): Promise<boolean> {
     .request()
     .input("id", sql.Int, id)
     .query("DELETE FROM photos WHERE id = @id");
-  return result.rowsAffected[0] > 0;
+  return result.rowsAffected[0]! > 0;
 }
 
 export async function setPrimaryPhoto(

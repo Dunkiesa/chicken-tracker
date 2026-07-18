@@ -97,7 +97,7 @@ describe("Egg CRUD", () => {
     expect(henEggs.length).toBeGreaterThanOrEqual(2);
 
     for (let i = 1; i < henEggs.length; i++) {
-      expect(henEggs[i - 1].date >= henEggs[i].date).toBe(true);
+      expect(henEggs[i - 1]!.date >= henEggs[i]!.date).toBe(true);
     }
   }, 15000);
 
@@ -113,7 +113,7 @@ describe("Egg CRUD", () => {
     const filtered = await listEggs({ date: "2026-06-05" });
     const matches = filtered.filter((e: Egg) => e.chicken_id === hen.id);
     expect(matches.length).toBeGreaterThanOrEqual(1);
-    expect(matches[0].date).toBe("2026-06-05");
+    expect(matches[0]!.date).toBe("2026-06-05");
   }, 15000);
 
   it("updates an egg's weight, date, and chicken", async () => {
@@ -424,12 +424,12 @@ describe("Batch Create (createEggs)", () => {
 
     expect(result.eggs.length).toBe(2);
     expect(result.warnings.length).toBe(2);
-    expect(result.eggs[0].chicken_id).toBe(hen1.id);
-    expect(result.eggs[0].weight).toBe(55.00);
-    expect(result.eggs[0].date).toBe("2026-07-10");
-    expect(result.eggs[1].chicken_id).toBe(hen2.id);
-    expect(result.eggs[1].weight).toBe(60.00);
-    expect(result.eggs[1].date).toBe("2026-07-10");
+    expect(result.eggs[0]!.chicken_id).toBe(hen1.id);
+    expect(result.eggs[0]!.weight).toBe(55.00);
+    expect(result.eggs[0]!.date).toBe("2026-07-10");
+    expect(result.eggs[1]!.chicken_id).toBe(hen2.id);
+    expect(result.eggs[1]!.weight).toBe(60.00);
+    expect(result.eggs[1]!.date).toBe("2026-07-10");
   }, 15000);
 
   it("returns warnings per-entry for duplicate dates", async () => {
@@ -452,8 +452,8 @@ describe("Batch Create (createEggs)", () => {
     ]);
 
     expect(result.eggs.length).toBe(1);
-    expect(result.warnings[0].some((w) => w.type === "duplicate_date")).toBe(true);
-    expect(result.eggs[0].weight).toBe(56.00);
+    expect(result.warnings[0]!.some((w) => w.type === "duplicate_date")).toBe(true);
+    expect(result.eggs[0]!.weight).toBe(56.00);
   }, 15000);
 
   it("returns warnings per-entry for out-of-range weight", async () => {
@@ -469,8 +469,8 @@ describe("Batch Create (createEggs)", () => {
     ]);
 
     expect(result.eggs.length).toBe(1);
-    expect(result.warnings[0].some((w) => w.type === "weight_out_of_range")).toBe(true);
-    expect(result.eggs[0].weight).toBe(15.00);
+    expect(result.warnings[0]!.some((w) => w.type === "weight_out_of_range")).toBe(true);
+    expect(result.eggs[0]!.weight).toBe(15.00);
   }, 15000);
 
   it("overrideDuplicate=true suppresses duplicate warnings", async () => {
@@ -496,7 +496,7 @@ describe("Batch Create (createEggs)", () => {
     );
 
     expect(result.eggs.length).toBe(1);
-    expect(result.warnings[0].some((w) => w.type === "duplicate_date")).toBe(false);
+    expect(result.warnings[0]!.some((w) => w.type === "duplicate_date")).toBe(false);
   }, 15000);
 
   it("returns empty arrays for empty input", async () => {

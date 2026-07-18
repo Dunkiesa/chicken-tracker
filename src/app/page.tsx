@@ -132,7 +132,7 @@ function DashboardContent() {
 
   const displayGranularity = useMemo(() => {
     if (drillStack.length === 0) return granularity;
-    const lastDrill = drillStack[drillStack.length - 1];
+    const lastDrill = drillStack[drillStack.length - 1]!;
     if (lastDrill.granularity === "monthly") return "weekly";
     return "daily";
   }, [granularity, drillStack]);
@@ -144,7 +144,7 @@ function DashboardContent() {
       if (granularity === "weekly") return data.production_weekly;
       return data.production_monthly;
     }
-    const lastDrill = drillStack[drillStack.length - 1];
+    const lastDrill = drillStack[drillStack.length - 1]!;
     if (lastDrill.granularity === "monthly") {
       const prefix = lastDrill.date + "-";
       return data.production_weekly.filter((w) => w.date.startsWith(prefix));
@@ -669,7 +669,7 @@ function DashboardContent() {
                         {data.seasonal_trends.map((s, i) => (
                           <TableRow key={i}>
                             <TableCell>
-                              {i === 0 || s.year !== data.seasonal_trends[i - 1].year
+                              {i === 0 || s.year !== data.seasonal_trends[i - 1]!.year
                                 ? s.year
                                 : ""}
                             </TableCell>

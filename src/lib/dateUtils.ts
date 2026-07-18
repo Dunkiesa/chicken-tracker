@@ -122,7 +122,7 @@ export function getDateFnsLocale(): Locale {
   const lang = navigator.language.toLowerCase();
   if (LOCALE_MAP[lang]) return LOCALE_MAP[lang];
   const base = lang.split("-")[0];
-  if (LOCALE_MAP[base]) return LOCALE_MAP[base];
+  if (base && LOCALE_MAP[base]) return LOCALE_MAP[base];
   return enUS;
 }
 
@@ -154,7 +154,7 @@ export function oneMonthAgoStr(): string {
 
 export function formatDateForPicker(dateStr: string): Date {
   const [y, m, d] = dateStr.split("-").map(Number);
-  return new Date(y, m - 1, d);
+  return new Date(y!, m! - 1, d!);
 }
 
 export function formatDateForApi(date: Date | null): string {
