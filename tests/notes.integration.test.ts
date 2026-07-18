@@ -83,7 +83,7 @@ describe("Note CRUD", () => {
     expect(henNotes.length).toBeGreaterThanOrEqual(2);
 
     for (let i = 1; i < henNotes.length; i++) {
-      expect(henNotes[i - 1].date >= henNotes[i].date).toBe(true);
+      expect(henNotes[i - 1]!.date >= henNotes[i]!.date).toBe(true);
     }
   }, 15000);
 

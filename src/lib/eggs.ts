@@ -249,7 +249,7 @@ export async function deleteEgg(id: number): Promise<boolean> {
     .request()
     .input("id", sql.Int, id)
     .query("DELETE FROM eggs WHERE id = @id");
-  return result.rowsAffected[0] > 0;
+  return result.rowsAffected[0]! > 0;
 }
 
 export async function checkDuplicate(

@@ -469,7 +469,7 @@ async function getSeasonalTrends(
   }
   return Array.from(aggregated.values()).sort((a, b) => {
     if (a.year !== b.year) return a.year - b.year;
-    return seasonOrder[a.season] - seasonOrder[b.season];
+    return seasonOrder[a.season]! - seasonOrder[b.season]!;
   });
 }
 
@@ -508,7 +508,7 @@ async function getAttrition(
       WHERE sex IN ('Hen', 'Unknown')
     `);
 
-  const total = countResult.recordset[0].total;
+  const total = countResult.recordset[0]!.total; // COUNT(*) always returns one row
   const departedCount = byReason.reduce((sum, r) => sum + r.count, 0);
   const rate = total > 0 ? Math.round((departedCount / total) * 10000) / 100 : null;
 

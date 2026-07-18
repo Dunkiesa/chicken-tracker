@@ -105,5 +105,5 @@ export async function deleteNote(id: number): Promise<boolean> {
     .request()
     .input("id", sql.Int, id)
     .query("DELETE FROM notes WHERE id = @id");
-  return result.rowsAffected[0] > 0;
+  return result.rowsAffected[0]! > 0;
 }

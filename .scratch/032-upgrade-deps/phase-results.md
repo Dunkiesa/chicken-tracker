@@ -5,6 +5,8 @@ Phases 1â€“5 worktree: `C:\Users\dunca\Documents\code\Chicken-upgrade-deps`
 Phases 1â€“5 branch: `improve/032-major-deps`
 Phase 6 worktree: `C:\Users\dunca\Documents\code\Chicken-loading-error`
 Phase 6 branch: `improve/032-loading-error`
+Phase 7 worktree: `C:\Users\dunca\Documents\code\Chicken-no-unchecked-indexed-access`
+Phase 7 branch: `improve/032-no-unchecked-indexed-access`
 
 Track green-build evidence at the end of each phase. Paste the final 10 lines of `npm run build` and the `Tests: X passed` line from `npm run test:all`.
 
@@ -33,7 +35,7 @@ Per user direction (2026-07-18), the plan was reworked to **one major version le
 | 4 | `date-fns` 2 â†’ 3 + `@mui/x-date-pickers` adapter split | complete |
 | 5 | Cleanup â€” Dockerfile, compose, .env, .dockerignore, docs | complete |
 | 6 | Per-route `loading.tsx` / `error.tsx` + root `not-found.tsx` / `global-error.tsx` | complete (2026-07-18) |
-| 7 | Enable `noUncheckedIndexedAccess` + sweep `recordset[0]` sites | pending |
+| 7 | Enable `noUncheckedIndexedAccess` + sweep `recordset[0]` sites | complete (2026-07-18) |
 
 **Dropped (project is already at the rework's target version):**
 
@@ -466,7 +468,7 @@ Risks tracked in the plan ("Risks that may require a follow-up plan") are deferr
 
 ---
 
-## Phase 6 — Per-route loading.tsx / error.tsx + root 
+## Phase 6 ï¿½ Per-route loading.tsx / error.tsx + root 
 ot-found.tsx / global-error.tsx
 
 **Date:** 2026-07-18
@@ -479,24 +481,24 @@ ot-found.tsx / global-error.tsx
 
 **Shared helpers (2 files, src/components/):**
 
-- RouteLoading.tsx — server component. Centered MUI CircularProgress + small Typography ("Loading…") in a Box with minHeight: 60vh. Carries ole="status" and ria-live="polite" for screen readers.
-- RouteError.tsx — "use client". Accepts the standard Next error: Error & { digest?: string } + eset: () => void props. Renders an MUI Alert severity="error" with a "Something went wrong" AlertTitle. In NODE_ENV !== "production" it shows the actual error.message; in production it shows a generic message and surfaces the error.digest as a small monospace reference. A "Try again" Button calls eset(). Logs the error to console.error in dev.
+- RouteLoading.tsx ï¿½ server component. Centered MUI CircularProgress + small Typography ("Loadingï¿½") in a Box with minHeight: 60vh. Carries ole="status" and ria-live="polite" for screen readers.
+- RouteError.tsx ï¿½ "use client". Accepts the standard Next error: Error & { digest?: string } + eset: () => void props. Renders an MUI Alert severity="error" with a "Something went wrong" AlertTitle. In NODE_ENV !== "production" it shows the actual error.message; in production it shows a generic message and surfaces the error.digest as a small monospace reference. A "Try again" Button calls eset(). Logs the error to console.error in dev.
 
 **Root-level files (4 files, src/app/):**
 
 - 
-ot-found.tsx — server component. Centered Container with Typography h4 ("Page not found"), an explanatory line, and a Button component={Link} href="/" ("Go home"). Same visual treatment as the existing unauthorized/page.tsx and uth/error/page.tsx for consistency.
-- global-error.tsx — "use client". Last-resort boundary; **must** ship its own <html lang="en"><body>…</body></html> because it replaces the root layout. Self-contained inline styles (no MUI, no Providers, no theme — none of those are guaranteed to be on the page when this boundary fires). Renders a styled alert box + a "Try again" button.
-- loading.tsx — root fallback. One-liner that re-exports RouteLoading. Fires for any cold-start navigation the App Router has not yet rendered.
-- error.tsx — root boundary. "use client" wrapper that re-exports RouteError. Receives the same error/eset props from Next as per-route files; the shared helper accepts them as-is.
+ot-found.tsx ï¿½ server component. Centered Container with Typography h4 ("Page not found"), an explanatory line, and a Button component={Link} href="/" ("Go home"). Same visual treatment as the existing unauthorized/page.tsx and uth/error/page.tsx for consistency.
+- global-error.tsx ï¿½ "use client". Last-resort boundary; **must** ship its own <html lang="en"><body>ï¿½</body></html> because it replaces the root layout. Self-contained inline styles (no MUI, no Providers, no theme ï¿½ none of those are guaranteed to be on the page when this boundary fires). Renders a styled alert box + a "Try again" button.
+- loading.tsx ï¿½ root fallback. One-liner that re-exports RouteLoading. Fires for any cold-start navigation the App Router has not yet rendered.
+- error.tsx ï¿½ root boundary. "use client" wrapper that re-exports RouteError. Receives the same error/eset props from Next as per-route files; the shared helper accepts them as-is.
 
 **Per-route loading.tsx (8 files, one per page directory):**
 
-src/app/{admin,dashboard,dashboard/eggs,egg-history,log-egg,roster,roster/enrol,chickens/[id]}/loading.tsx — each is export { default } from "@/components/RouteLoading";. No "use client", so these stay server-rendered (a static spinner is the right shape for a fallback).
+src/app/{admin,dashboard,dashboard/eggs,egg-history,log-egg,roster,roster/enrol,chickens/[id]}/loading.tsx ï¿½ each is export { default } from "@/components/RouteLoading";. No "use client", so these stay server-rendered (a static spinner is the right shape for a fallback).
 
 **Per-route error.tsx (8 files, one per page directory):**
 
-src/app/{admin,dashboard,dashboard/eggs,egg-history,log-egg,roster,roster/enrol,chickens/[id]}/error.tsx — each is the three-line "use client" re-export of RouteError. The "use client" directive is required because RouteError is a client component.
+src/app/{admin,dashboard,dashboard/eggs,egg-history,log-egg,roster,roster/enrol,chickens/[id]}/error.tsx ï¿½ each is the three-line "use client" re-export of RouteError. The "use client" directive is required because RouteError is a client component.
 
 ### Files added (20)
 
@@ -525,39 +527,39 @@ src/app/{admin,dashboard,dashboard/eggs,egg-history,log-egg,roster,roster/enrol,
 | src/app/chickens/[id]/loading.tsx | per-route |
 | src/app/chickens/[id]/error.tsx | per-route |
 
-(22 listed; the two shared helpers and the four root files = 6, the 8×2 per-route = 16. Total 22 new files. The "20" figure in the plan undercounts the root files; the helper files are part of the 6 in the root, not part of the per-route 16.)
+(22 listed; the two shared helpers and the four root files = 6, the 8ï¿½2 per-route = 16. Total 22 new files. The "20" figure in the plan undercounts the root files; the helper files are part of the 6 in the root, not part of the per-route 16.)
 
 ### Final verification
 
 
-pm install — no new packages, no peer-dep regressions.
+pm install ï¿½ no new packages, no peer-dep regressions.
 
 
-pm run build — green. All 12 page routes still present (? /, ? /admin, ? /auth/error, ? /dashboard, ? /dashboard/eggs, ? /egg-history, ? /log-egg, ? /roster, ? /roster/enrol, ? /unauthorized, ƒ /chickens/[id], ƒ /api/* x N). New entry in the route table: ? /_not-found  175 B  102 kB — Next enumerates the new 404 route. Tail of output:
+pm run build ï¿½ green. All 12 page routes still present (? /, ? /admin, ? /auth/error, ? /dashboard, ? /dashboard/eggs, ? /egg-history, ? /log-egg, ? /roster, ? /roster/enrol, ? /unauthorized, ï¿½ /chickens/[id], ï¿½ /api/* x N). New entry in the route table: ? /_not-found  175 B  102 kB ï¿½ Next enumerates the new 404 route. Tail of output:
 
 `
 Route (app)                                         Size  First Load JS
 + ? /                                            69.4 kB         390 kB
 + ? /_not-found                                    175 B         102 kB
 + ? /admin                                       11.6 kB         255 kB
-+ ƒ /api/admin/users                               175 B         102 kB
-+ ƒ /api/analytics                                 175 B         102 kB
-+ ƒ /api/auth/[...nextauth]                        175 B         102 kB
-+ ƒ /api/chickens                                  175 B         102 kB
-+ ƒ /api/chickens/[id]                             175 B         102 kB
-+ ƒ /api/chickens/[id]/notes                       175 B         102 kB
-+ ƒ /api/chickens/[id]/notes/[noteId]              175 B         102 kB
-+ ƒ /api/chickens/[id]/photos                      175 B         102 kB
-+ ƒ /api/chickens/[id]/photos/[photoId]            175 B         102 kB
-+ ƒ /api/chickens/[id]/photos/[photoId]/primary    175 B         102 kB
-+ ƒ /api/dynamic-lists/[type]                      175 B         102 kB
-+ ƒ /api/dynamic-lists/[type]/merge                175 B         102 kB
-+ ƒ /api/eggs                                      175 B         102 kB
-+ ƒ /api/eggs/[id]                                 175 B         102 kB
-+ ƒ /api/health                                    175 B         102 kB
-+ ƒ /api/photos/[filename]                         175 B         102 kB
++ ï¿½ /api/admin/users                               175 B         102 kB
++ ï¿½ /api/analytics                                 175 B         102 kB
++ ï¿½ /api/auth/[...nextauth]                        175 B         102 kB
++ ï¿½ /api/chickens                                  175 B         102 kB
++ ï¿½ /api/chickens/[id]                             175 B         102 kB
++ ï¿½ /api/chickens/[id]/notes                       175 B         102 kB
++ ï¿½ /api/chickens/[id]/notes/[noteId]              175 B         102 kB
++ ï¿½ /api/chickens/[id]/photos                      175 B         102 kB
++ ï¿½ /api/chickens/[id]/photos/[photoId]            175 B         102 kB
++ ï¿½ /api/chickens/[id]/photos/[photoId]/primary    175 B         102 kB
++ ï¿½ /api/dynamic-lists/[type]                      175 B         102 kB
++ ï¿½ /api/dynamic-lists/[type]/merge                175 B         102 kB
++ ï¿½ /api/eggs                                      175 B         102 kB
++ ï¿½ /api/eggs/[id]                                 175 B         102 kB
++ ï¿½ /api/health                                    175 B         102 kB
++ ï¿½ /api/photos/[filename]                         175 B         102 kB
 + ? /auth/error                                   2.2 kB         144 kB
-+ ƒ /chickens/[id]                               16.4 kB         385 kB
++ ï¿½ /chickens/[id]                               16.4 kB         385 kB
 + ? /dashboard                                     487 B         103 kB
 + ? /dashboard/eggs                              4.87 kB         226 kB
 + ? /egg-history                                 4.19 kB         323 kB
@@ -572,11 +574,11 @@ Route (app)                                         Size  First Load JS
 `
 
 
-pm run test:all — Tests: 82 passed, 82 total (unit/integration, 7 suites) and Tests: 20 passed, 20 total (component, 5 suites). 102 total. No regressions. Component tests that use enderWithProviders (	ests/components/test-utils.tsx) do not exercise the new files (they render specific page components, not the App Router), so no test updates were required.
+pm run test:all ï¿½ Tests: 82 passed, 82 total (unit/integration, 7 suites) and Tests: 20 passed, 20 total (component, 5 suites). 102 total. No regressions. Component tests that use enderWithProviders (	ests/components/test-utils.tsx) do not exercise the new files (they render specific page components, not the App Router), so no test updates were required.
 
 
-pm run lint — exit code 0. 0 errors. Same 1 pre-existing warning on eslint.config.mjs:12:1 (the 
-ext/core-web-vitals preset's import/no-anonymous-default-export) as Phases 1–5; no new lint signals from the 22 new files.
+pm run lint ï¿½ exit code 0. 0 errors. Same 1 pre-existing warning on eslint.config.mjs:12:1 (the 
+ext/core-web-vitals preset's import/no-anonymous-default-export) as Phases 1ï¿½5; no new lint signals from the 22 new files.
 
 ### Commit
 
@@ -587,11 +589,11 @@ feat(ux): add loading.tsx, error.tsx, and not-found.tsx for all routes
 ### STOP condition met
 
 - 
-pm run build — green
+pm run build ï¿½ green
 - 
-pm run test:all — green (102 tests across 12 suites)
+pm run test:all ï¿½ green (102 tests across 12 suites)
 - 
-pm run lint — green (0 errors)
+pm run lint ï¿½ green (0 errors)
 - 8 page directories each have loading.tsx + error.tsx
 - App root has 
 ot-found.tsx, global-error.tsx, loading.tsx, error.tsx
@@ -599,3 +601,76 @@ ot-found.tsx, global-error.tsx, loading.tsx, error.tsx
 - No source code outside the 22 new files was modified
 
 The improve/032-loading-error branch is ready for review and merge.
+
+---
+
+## Phase 7 â€” Enable `noUncheckedIndexedAccess` + sweep indexed-access sites
+
+**Branch:** `improve/032-no-unchecked-indexed-access`
+**Worktree:** `C:\Users\dunca\Documents\code\Chicken-no-unchecked-indexed-access`
+**Date:** 2026-07-18
+
+### What changed
+
+`tsconfig.json` (1 line) + 7 source files (lib Ã— 6, app Ã— 2) + 2 test files.
+
+| File | Lines changed | Why |
+|---|---|---|
+| `tsconfig.json` | +1 | add `"noUncheckedIndexedAccess": true` between `strict` and `noUncheckedSideEffectImports` |
+| `src/lib/analytics.ts` | 2 | `seasonOrder[a.season]!` (Ã—2 in same sort callback); `recordset[0]!.total` (COUNT(*) row) |
+| `src/lib/dateUtils.ts` | 2 | `lang.split("-")[0]` could be `undefined` â†’ guard with `if (base && â€¦)`; `formatDateForPicker` destructured `[y, m, d]` are `number \| undefined` â†’ `!` (preserves NaN behaviour) |
+| `src/lib/eggs.ts` | 1 | `result.rowsAffected[0]! > 0` |
+| `src/lib/photos.ts` | 1 | `result.rowsAffected[0]! > 0` |
+| `src/lib/notes.ts` | 1 | `result.rowsAffected[0]! > 0` |
+| `src/app/log-egg/page.tsx` | 1 | `weights[h.id]!` â€” `h.id` is from the same array that was filtered by the same check, the `!` documents the invariant |
+| `src/app/page.tsx` | 3 | `drillStack[drillStack.length - 1]!` (Ã—2 sites); `data.seasonal_trends[i - 1]!.year` (i=0 short-circuits the same expression, the `!` documents the invariant) |
+| `tests/eggs.integration.test.ts` | 9 | `result.eggs[0]!`, `result.warnings[0]!`, `henEggs[i]!` for in-loop date comparisons |
+| `tests/notes.integration.test.ts` | 1 | `henNotes[i]!` for in-loop date comparisons |
+
+The plan's expected ~35â€“40 sites came in at 21 across lib + app + tests. The discrepancy is because (a) several `recordset[0]` sites already have an `as T` cast that masks the undefined from the type system (the `|| null` runtime fallback still works), and (b) the lib files have evolved slightly since the plan's reference line numbers were pinned (Phase 2 work reshuffled some functions).
+
+### Why the patterns in the plan still apply
+
+- **Pattern A** (`recordset[0]!` for INSERT OUTPUT rows): used at `src/lib/analytics.ts` (the `total` COUNT row).
+- **Pattern D** (aggregate `recordset[0]!` for COUNT(\*)): same site, same fix.
+- **Patterns B and C** from the plan: the `recordset[0] as T` cast masks the `undefined`, so the type-checker didn't surface those sites. The runtime semantics are unchanged from the pre-flag code.
+- **New pattern not in the plan**: `rowsAffected[0]!` (eggs/photos/notes `delete*` functions). Same SQL contract as COUNT â€” DELETE always reports a row count.
+- **New pattern not in the plan**: `Record<string, T>` access. Three sites â€” `seasonOrder[a.season]!`, `LOCALE_MAP[base]` (guarded with `if (base && â€¦)`), and `weights[h.id]!` (with the upstream filter guard).
+
+### Build, test, and lint evidence
+
+`npx tsc --noEmit` after the flag went on, before any fixes: **32 type errors** (full log at `.scratch/032-upgrade-deps/tsc-no-unchecked-indexed-access-errors.log`). After fixes: **0 type errors**.
+
+`npm run build` final 10 lines:
+
+```
+â”œ Æ’ /api/dynamic-lists/[type]                      175 B         102 kB
+â”œ Æ’ /api/dynamic-lists/[type]/merge                175 B         102 kB
+â”œ Æ’ /api/eggs                                      175 B         102 kB
+â”œ Æ’ /api/eggs/[id]                                 175 B         102 kB
+â”œ Æ’ /api/health                                    175 B         102 kB
+â”œ Æ’ /api/photos/[filename]                         175 B         102 kB
+â”œ â—‹ /auth/error                                  2.19 kB         144 kB
+â”œ Æ’ /chickens/[id]                               16.4 kB         385 kB
+â”œ â—‹ /dashboard                                     487 B         103 kB
+â”œ â—‹ /dashboard/eggs                              4.87 kB         226 kB
+```
+
+`npm run test:all` â€” `Tests: 82 passed, 82 total` (unit/integration, 7 suites) and `Tests: 20 passed, 20 total` (component, 5 suites). 102 total. No regressions.
+
+`npm run lint` â€” exit code 0, 0 errors. Same 1 pre-existing warning on `eslint.config.mjs:12:1` (the `next/core-web-vitals` preset's `import/no-anonymous-default-export`) as Phases 1â€“6; no new lint signals from the changes.
+
+### Commit
+
+`chore(types): enable noUncheckedIndexedAccess and narrow indexed-access sites`
+
+### STOP condition met
+
+- `npm run build` â€” green
+- `npm run test:all` â€” green (102 tests across 12 suites)
+- `npm run lint` â€” green (0 errors)
+- `tsconfig.json` has `"noUncheckedIndexedAccess": true` on line 8
+- 21 indexed-access sites across 7 lib/app files and 2 test files are narrowed with the `!` operator (or a guard) that documents the runtime invariant
+- The 12 other `recordset[0]` sites in `src/lib/*.ts` that have an `as T` cast (the type system already trusted them) are left untouched â€” their runtime semantics were already correct
+
+The `improve/032-no-unchecked-indexed-access` branch is ready for review and merge.

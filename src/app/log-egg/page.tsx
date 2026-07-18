@@ -305,7 +305,7 @@ function LogEggContent() {
       })
       .map((h) => ({
         chicken_id: h.id,
-        weight: Math.round(parseFloat(weights[h.id]) * 100) / 100,
+        weight: Math.round(parseFloat(weights[h.id]!) * 100) / 100,
         date: batchDate,
       }));
 
