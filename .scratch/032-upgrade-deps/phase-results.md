@@ -6,29 +6,40 @@ Branch: `improve/032-major-deps`
 
 Track green-build evidence at the end of each phase. Paste the final 10 lines of `npm run build` and the `Tests: X passed` line from `npm run test:all`.
 
-## Phase reordering
+## Why the plan was reworked mid-execution
 
-The plan as written ordered Phase 1 (TypeScript 7) before Phase 3 (Next 16). **This is unworkable**: TypeScript 7.0.2 is incompatible with Next.js 14.2.35. The Next TS plugin's type analysis fails under TS 7, which breaks webpack module resolution — the `@/` path alias stops resolving, and the build dies on the first import of any local module.
+The original plan targeted the **absolute-latest** stack: Next 16, React 19, TypeScript 7, ESLint 10, MUI 9, x-charts 8, x-date-pickers 8, Jest 30, date-fns 4, mssql 12, next-auth 5. Two failures during Phase 1 of execution proved the plugin ecosystem is not caught up with that target stack:
 
-Confirmed by bisect on a fresh worktree at `4c20204`:
+**Failure 1: TypeScript 7.0.2 is incompatible with Next.js 14.2.35.** The Next TS plugin's type analysis fails under TS 7, which breaks webpack module resolution — the `@/` path alias stops resolving, and the build dies on the first import of any local module. Confirmed by bisect on a fresh worktree at `4c20204`:
 
 | typescript | next     | `npm run build` |
 |------------|----------|-----------------|
 | 5.6.3      | 14.2.35  | green           |
 | 7.0.2      | 14.2.35  | red             |
 
-The worktree was reset to clean before reordering. **The new phase order is:**
+**Failure 2: ESLint 10 is incompatible with `eslint-plugin-react@7.37.5`.** The latest `eslint-plugin-react` caps its peer dep at `eslint ^9.7`, so ESLint 10 cannot load `react/display-name`. Confirmed by bisect: eslint 9.36.0 works, eslint 10.7.0 throws `contextOrFilename.getFilename is not a function`.
 
-- **Phase 1 (was 3):** Next.js 14 → 16 + ESLint 8 → 10 + `eslint-config-next` 14 → 16
-- **Phase 2 (was 1):** TypeScript 5 → 7 + `@types/node` 20 → 26
-- **Phase 3 (was 4):** MUI 6 → 9 + x-charts 7 → 8 + x-date-pickers 7 → 8
-- **Phase 4 (was 5):** `date-fns` 2 → 4 + picker adapter split
-- **Phase 5 (was 6):** `mssql` 11 → 12, drop `@types/mssql`
-- **Phase 6 (was 7):** Jest 29 → 30
-- **Phase 7 (was 8):** `next-auth` v4 → v5
-- **Phase 8 (was 9):** Cleanup — Dockerfile, compose, .dockerignore, docs
+Per user direction (2026-07-18), the plan was reworked to **one major version less than the latest stable** for every component, and the absolute-latest target was dropped. Where the rework lands on a version the project is already on, that phase is a no-op and was dropped.
 
-The plan's prose phase numbers in `plans/032-major-deps-upgrade.md` are now out of date. They have not been edited — this scratch doc is the source of truth for what was actually executed.
+## Final reworked plan (source of truth for execution)
+
+| Phase | What | Status |
+|-------|------|--------|
+| 1 | Next 14 → 15 + ESLint 8 → 9 + `eslint-config-next` 14 → 15 | in progress |
+| 2 | TypeScript 5.6 → 6 + `@types/node` 20 → 24 | pending |
+| 3 | MUI 6 → 7; `@mui/x-charts` and `@mui/x-date-pickers` already at 7 | pending |
+| 4 | `date-fns` 2 → 3 + `@mui/x-date-pickers` adapter split | pending |
+| 5 | Cleanup — Dockerfile, compose, .env, .dockerignore, docs | pending |
+
+**Dropped (project is already at the rework's target version):**
+
+- React 18 → 19 — project is on 18.3.1 (latest 18.x).
+- Jest 29 → 30 — project is on 29.7.0 (latest 29.x).
+- mssql 11 → 12 — project is on 11.0.1 (latest 11.x; staying on 11 is fine).
+- next-auth 4 → 5 — `next-auth@5.0.0-beta.31` is still beta in 2026-07; project stays on stable 4.24.14.
+- `@mui/x-charts` 7 → 8 and `@mui/x-date-pickers` 7 → 8 — project is already on the latest 7.x of both.
+
+The plan file `plans/032-major-deps-upgrade.md` has been edited in-place to reflect the rework. Its header now records the rework rationale, the original vs. reworked target stacks, and the dropped phases.
 
 ---
 
@@ -84,7 +95,7 @@ The plan's prose phase numbers in `plans/032-major-deps-upgrade.md` are now out 
 }
 ```
 
-Node 22 LTS is the runtime target. Local env already runs Node 26.5.0, well above the floor. Dockerfile `node:22-alpine` bump is queued for Phase 8 (cleanup).
+Node 22 LTS is the runtime target. Local env already runs Node 26.5.0, well above the floor. Dockerfile `node:22-alpine` bump is queued for Phase 5 (cleanup).
 
 ### 0.4 Verification scratch
 
