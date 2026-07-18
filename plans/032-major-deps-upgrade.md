@@ -1,10 +1,11 @@
 # Plan 032 — Major-version dependency upgrade
 
 **Generated:** 2026-07-18
-**Status:** IN PROGRESS — reworked mid-execution (2026-07-18)
+**Status:** Phases 1–5 complete (merged 2026-07-18 in `b2bdaec`). Phases 6–7 added post-completion (2026-07-18) — UX completeness + type-safety follow-ups, to be implemented in fresh sessions.
 **Original target stack:** Next 16, React 19, TypeScript 7, MUI 9 (+ x-charts 8, x-date-pickers 8), ESLint 10, Jest 30, date-fns 4, mssql 12, next-auth 5
 **Reworked target stack (latest-1):** Next 15, React 18.3 (no upgrade), TypeScript 6, MUI 7 (+ x-charts 7, x-date-pickers 7 — already at 7), ESLint 9, Jest 29 (no upgrade), date-fns 3, mssql 11 (no upgrade), next-auth 4 (no upgrade), @types/node 24
-**Current stack:** Next 14.2, React 18.3, TypeScript 5.6, MUI 6.5 (+ x-charts 7, x-date-pickers 7), ESLint 8.57, Jest 29, date-fns 2.30, mssql 11, next-auth 4.24
+**Final stack (post Phases 1–5):** Next 15.5, React 18.3, TypeScript 6, MUI 7.3 (+ x-charts 7, x-date-pickers 7), ESLint 9.39 (flat config), Jest 29, date-fns 3, mssql 11, next-auth 4.24, @types/node 24, Node 22-alpine
+**Current stack:** same as Final stack (Phases 6–7 are pending; not yet executed)
 
 > **Read this first.** This plan is the result of `npx npm-check-updates` + a full codebase survey. The survey findings live in the planning notes — every "Ref" below is `file:line`. The plan deliberately sequences work so each phase ends at a green build + green tests. Do not collapse phases into a single commit; the diff would be un-reviewable.
 >
@@ -63,6 +64,10 @@ Phase 1 (Next 14 → 15 + ESLint 8 → 9 + eslint-config-next 14 → 15)
         └─> Phase 3 (MUI 6 → 7; x-charts/x-date-pickers already at 7)
               └─> Phase 4 (date-fns 2 → 3 + picker adapter split)
                     └─> Phase 5 (Cleanup: Dockerfile, compose, .env, .dockerignore, docs)
+                          ├─> Phase 6 (Per-route loading.tsx / error.tsx + root not-found.tsx / global-error.tsx)
+                          └─> Phase 7 (Enable noUncheckedIndexedAccess + sweep recordset[0] sites)
+
+Phases 6 and 7 are independent of each other and of the upgrade work above; they were added post-completion as follow-ups. They can land in either order. Each gets its own branch + worktree (per CLAUDE.md `improve` workflow) since each runs in a fresh session.
 ```
 
 **Dropped from the original plan because the project is already at the rework's target version:**
@@ -280,15 +285,194 @@ Phases 3 and 4 are independent of Phase 2 (TypeScript 6) in principle — the MU
 
 ---
 
+## Phase 6 — Per-route `loading.tsx` / `error.tsx` + root `not-found.tsx` / `global-error.tsx`
+
+**Why now:** The Next 15 App Router gives every route four free UX upgrades if the right files are present in the directory: a `loading.tsx` shows during data fetches, an `error.tsx` catches uncaught server-component errors, a root `not-found.tsx` renders on unknown URLs, and a root `global-error.tsx` is the last-resort catch. Without them, errors are silent and navigations are blank. The dep upgrade is done; the App Router is the runtime. Adding the files now is the smallest-possible UX win and is decoupled from any future work.
+
+**Scope:** 4 root-level files + 8 page directories × 2 files each = 20 new files, plus 2 shared helper components (`RouteLoading`, `RouteError`) to keep the per-route files one-liners. No new dependencies. No changes to existing code.
+
+**Steps**
+
+1. **Pre-flight.** Confirm the current `main`/`upgrade` is green. In a fresh session, start from the most-recent commit on the working branch (the `b2bdaec` merge, or `HEAD` if subsequent work has landed):
+   ```bash
+   git fetch
+   git checkout <branch>
+   git pull
+   npm install
+   npm run build
+   npm run test:all
+   npm run lint
+   ```
+   If any fail, fix them first.
+
+2. **Worktree per CLAUDE.md `improve` workflow.** Fresh session → fresh worktree:
+   ```bash
+   git branch improve/032-loading-error HEAD
+   git worktree add ../Chicken-loading-error improve/032-loading-error
+   Copy-Item "$(git rev-parse --show-toplevel)\.env" "$(Resolve-Path '..\Chicken-loading-error')\.env"
+   ```
+   All Phase 6 work happens in that worktree. Do **not** delete it after review.
+
+3. **Shared helpers** (2 files):
+   - `src/components/RouteLoading.tsx` — server component. Renders a centered MUI `CircularProgress` with top padding. No `"use client"` directive (server components are fine for static spinners).
+   - `src/components/RouteError.tsx` — client component (`"use client"`). Takes `error: Error & { digest?: string }` and `reset: () => void` as props. Renders a MUI `Alert severity="error"` with the error message (production: a generic "Something went wrong" with the digest shown if present; dev: the actual error message) and a "Try again" Button that calls `reset()`.
+
+4. **Root-level files** (4 files in `src/app/`):
+   - `src/app/not-found.tsx` — server component. Centered MUI `Container` with a `Typography h4` ("Page not found") and a `Button` (`component={Link} href="/"`) that says "Go home". No `"use client"`.
+   - `src/app/global-error.tsx` — root error boundary. **Must** include its own `<html><body>` because it replaces the root layout on the last-resort error path. `"use client"`. Renders the same content as the per-route `error.tsx` but without the layout chrome.
+   - `src/app/loading.tsx` — root loading fallback. Re-exports `RouteLoading`. This is what shows during a cold start of any route the App Router has not yet rendered.
+   - `src/app/error.tsx` — root error boundary. `"use client"`. Re-exports `RouteError` (receives the same `error` and `reset` props from Next).
+
+5. **Per-route `loading.tsx` (8 files).** One for each page directory. Each is a one-liner that re-exports the shared helper:
+   - `src/app/admin/loading.tsx`
+   - `src/app/dashboard/loading.tsx`
+   - `src/app/dashboard/eggs/loading.tsx`
+   - `src/app/egg-history/loading.tsx`
+   - `src/app/log-egg/loading.tsx`
+   - `src/app/roster/loading.tsx`
+   - `src/app/roster/enrol/loading.tsx`
+   - `src/app/chickens/[id]/loading.tsx`
+   
+   Body of each: `export { default } from "@/components/RouteLoading";`
+
+6. **Per-route `error.tsx` (8 files).** One for each page directory. Same 8 paths as step 5, with `error.tsx` instead of `loading.tsx`. Each is a `"use client"` component that re-exports the shared helper:
+   ```tsx
+   "use client";
+   import RouteError from "@/components/RouteError";
+   export default RouteError;
+   ```
+
+7. **Verify the route map.** After adding the files, the build output should still show the same 12 page routes (`○ /admin`, `○ /dashboard`, etc.) — the new files are UX boundaries, not new routes. A root-level `not-found` and `global-error` marker will appear if Next enumerates them. If a route disappears from the output, check that the new file is well-formed:
+   ```bash
+   npm run build 2>&1 | Select-String " /"
+   ```
+
+8. **Run the full verification:**
+   ```bash
+   npm run build
+   npm run test:all
+   npm run lint
+   ```
+   Component tests that use `renderWithProviders` (`tests/components/test-utils.tsx`) do **not** exercise these new files (they render specific page components, not the App Router), so no test updates are required.
+
+9. **Manual smoke test (optional but recommended).** Start `npm run dev` and confirm:
+   - `http://localhost:3000/admin` (and the other 7 routes) still render the same UI they did before.
+   - `http://localhost:3000/this-does-not-exist` renders the new 404 page.
+   - To exercise `error.tsx` without a real bug, temporarily add `throw new Error("test")` at the top of any `page.tsx`, navigate to it, see the error UI, then revert.
+
+**Commit message:** `feat(ux): add loading.tsx, error.tsx, and not-found.tsx for all routes`
+
+**STOP condition:** `npm run build`, `npm run test:all`, and `npm run lint` all green. The 8 page directories each have a `loading.tsx` and `error.tsx`; the app root has `not-found.tsx`, `global-error.tsx`, `loading.tsx`, and `error.tsx`. The smoke test confirms the 404 UI renders at an unknown URL. The `improve/032-loading-error` branch is ready for review and merge.
+
+---
+
+## Phase 7 — Enable `noUncheckedIndexedAccess` + sweep `recordset[0]` sites
+
+**Why now:** With the dep upgrade complete, the codebase compiles clean under TS 6 strict. The remaining 35-40 `recordset[0]` access sites (verified per `.scratch/032-upgrade-deps/phase-results.md:196` — TS 6 does not enable `noUncheckedIndexedAccess` by default, so the project is not currently protected) are an unchecked class of bug: every site implicitly assumes the array has a row at index 0. For `INSERT OUTPUT` rows this is true by SQL contract, but for `SELECT` queries that may return zero rows, the runtime throws "Cannot read property 'foo' of undefined" — the very class of bug type-safety is meant to prevent.
+
+**Scope:** 1 config change (`tsconfig.json`) + ~35-40 type-narrowing edits across 8 lib files (`src/lib/{analytics,chickens,db,dynamic-lists,eggs,notes,photos,users}.ts`). No new dependencies. No changes to API routes, no changes to test fixtures, no runtime behaviour change.
+
+**Steps**
+
+1. **Pre-flight.** Confirm the current `main`/`upgrade` is green:
+   ```bash
+   git fetch
+   git checkout <branch>
+   git pull
+   npm install
+   npm run build
+   npm run test:all
+   npm run lint
+   ```
+   If any fail, fix them first.
+
+2. **Worktree per CLAUDE.md `improve` workflow.** Fresh session → fresh worktree:
+   ```bash
+   git branch improve/032-no-unchecked-indexed-access HEAD
+   git worktree add ../Chicken-no-unchecked-indexed-access improve/032-no-unchecked-indexed-access
+   Copy-Item "$(git rev-parse --show-toplevel)\.env" "$(Resolve-Path '..\Chicken-no-unchecked-indexed-access')\.env"
+   ```
+   All Phase 7 work happens in that worktree. Do **not** delete it after review.
+
+3. **Enable the flag in `tsconfig.json`.** Add `"noUncheckedIndexedAccess": true` to `compilerOptions` (after `"strict": true` at `tsconfig.json:7`, before `"noEmit": true` at `tsconfig.json:9`). The current `tsconfig.json:1-26` does not have it.
+
+4. **Run the build to surface errors:**
+   ```bash
+   npm run build 2>&1 | Tee-Object .scratch/032-upgrade-deps/no-unchecked-indexed-access-errors.log
+   ```
+   Expect ~35-40 errors, all in `src/lib/*.ts`. Sites that are *not* `recordset[0]` access (e.g. `args[0]`, `row.idx`, an array literal in a test) may also surface — handle them too but they're rare.
+
+5. **Sweep the lib files in priority order.** The `recordset[0]` sites fall into 4 patterns; each has a different fix. Use `git grep -nE "recordset\[0\]" src/lib/` to enumerate the exact sites at execution time (the line numbers in this plan are pinned to the post-Phase-2 codebase; if anything has moved, follow the grep).
+
+   **Pattern A: `INSERT OUTPUT` results** (safe — SQL guarantees a row). Files affected: `src/lib/chickens.ts:89`, `src/lib/eggs.ts:94, 154`, `src/lib/notes.ts:52`, `src/lib/photos.ts:46`. Fix: add `!` (the safe-bang):
+   ```ts
+   // before
+   const id = result.recordset[0].id;
+   // after
+   const id = result.recordset[0]!.id;
+   ```
+
+   **Pattern B: `getBy*` functions** that cast `recordset[0] as T` and return it. Files affected: `src/lib/chickens.ts:113`, `src/lib/eggs.ts:159, 214, 290`, `src/lib/notes.ts:74`, `src/lib/photos.ts:67`, `src/lib/users.ts:20`. Fix: add a runtime guard before the cast:
+   ```ts
+   // before
+   return (result.recordset[0] as Chicken) || null;
+   // after
+   const row = result.recordset[0] as Chicken | undefined;
+   return row ?? null;
+   ```
+   The semantic is unchanged (the function already returned `null` when the row was missing); the type now matches.
+
+   **Pattern C: `if (existing.recordset.length > 0) { ... existing.recordset[0] ... }`** — the length check doesn't narrow the indexed-access type. Files affected: `src/lib/dynamic-lists.ts:49, 69, 98`, `src/lib/eggs.ts:67, 127`, `src/lib/db.ts:242` (the `cnt` counter via `recordset[0].cnt`). Fix: destructure the checked row, or use the `!` on the inner use:
+   ```ts
+   // before
+   if (existing.recordset.length > 0) return existing.recordset[0].id;
+   // after
+   if (existing.recordset.length > 0) return existing.recordset[0]!.id;
+   ```
+   The destructure alternative is sometimes cleaner:
+   ```ts
+   const [row] = existing.recordset;
+   if (row) return row.id;
+   ```
+
+   **Pattern D: aggregate counts** — `src/lib/db.ts:242` (`countResult.recordset[0].cnt`), `src/lib/eggs.ts:511` (`countResult.recordset[0].total`). The SQL is `SELECT COUNT(*) AS cnt FROM ...`; the row is always present (COUNT of an empty set is 0, returned as one row). Add `!` and a comment:
+   ```ts
+   const count = countResult.recordset[0]!.cnt; // COUNT(*) always returns one row
+   ```
+
+   **Pattern E: `recordset.map(...)`** — these return arrays and are unaffected by `noUncheckedIndexedAccess`. No change needed. Sites: `src/lib/{analytics,chickens,dynamic-lists,eggs,notes,photos,users}.ts:*.map(...)`.
+
+6. **Run again to confirm zero new errors:**
+   ```bash
+   npm run build
+   ```
+
+7. **Run the test suite to confirm no runtime regressions.** The integration tests in `tests/integration/` exercise the data layer; tightening the types should not change runtime behaviour, but verify:
+   ```bash
+   npm run test:all
+   ```
+
+8. **Run lint:**
+   ```bash
+   npm run lint
+   ```
+
+9. **Verify the flag is on.** Open `tsconfig.json` and confirm `"noUncheckedIndexedAccess": true` is present. (The build itself is the proof — if the flag were off, the build would not have caught the 35-40 sites in step 4. But the file check is the durable record.)
+
+**Commit message:** `chore(types): enable noUncheckedIndexedAccess and narrow recordset[0] sites`
+
+**STOP condition:** `npm run build` shows 0 errors. `npm run test:all` is green. `npm run lint` is green. `tsconfig.json` has `"noUncheckedIndexedAccess": true`. The 35-40 sites across 8 lib files are narrowed with one of the four patterns above (A, B, C, or D). The `improve/032-no-unchecked-indexed-access` branch is ready for review and merge.
+
+---
+
 ## Risks that may require a follow-up plan
 
 The following are **not** in the plan above because they're either speculative or out-of-scope for a dependency upgrade. Flag them in the PR if they materialize during execution:
 
-1. **TypeScript 6 enables `noUncheckedIndexedAccess` by default** in `strict` mode. If Phase 2's opt-out doesn't work, ~47 `result.recordset[0]` sites in the 8 mssql lib files will need non-null assertions or guard-clause refactors. Estimated effort: 2-4 hours. Best done as a follow-up plan.
-2. **MUI 7 deprecates `Grid2 as Grid` in favour of plain `Grid`** — handled in Phase 3 step 2. The 7 `<Grid size={{ xs, sm }}>` call sites work as-is. If a later MUI 7 patch changes the `size` prop syntax, those 7 sites need an update. Quick fix.
-3. **Next 15's default caching interacts badly with the existing API routes.** The 7 dynamic GET handlers depend on the DB (`/api/eggs`, `/api/chickens`, `/api/analytics`, `/api/dynamic-lists/*`, etc.) and must opt out of caching with `export const dynamic = "force-dynamic";` (Phase 1 step 8). If any are missed, stale-data symptoms will appear at runtime, not at build time.
-4. **`react-easy-crop@6` may break under MUI 7's Emotion 11 version bump** (MUI 7 still uses Emotion 11, so this is unlikely — but worth a smoke test on `/chickens/[id]` after Phase 3 lands). The CropDialog at `src/components/CropDialog.tsx:1-120` is the only consumer.
-5. **The `migrationsPromise` top-level call at `src/lib/db.ts:269-271` may be flagged by Next 15's server runtime** as a disallowed top-level await. If so, refactor to a `beforeRequest`-style pattern or move to `middleware.ts`. Out of scope here.
+1. **MUI 7 deprecates `Grid2 as Grid` in favour of plain `Grid`** — handled in Phase 3 step 2. The 7 `<Grid size={{ xs, sm }}>` call sites work as-is. If a later MUI 7 patch changes the `size` prop syntax, those 7 sites need an update. Quick fix.
+2. **Next 15's default caching interacts badly with the existing API routes.** The 7 dynamic GET handlers depend on the DB (`/api/eggs`, `/api/chickens`, `/api/analytics`, `/api/dynamic-lists/*`, etc.) and must opt out of caching with `export const dynamic = "force-dynamic";` (Phase 1 step 8). If any are missed, stale-data symptoms will appear at runtime, not at build time.
+3. **`react-easy-crop@6` may break under MUI 7's Emotion 11 version bump** (MUI 7 still uses Emotion 11, so this is unlikely — but worth a smoke test on `/chickens/[id]` after Phase 3 lands). The CropDialog at `src/components/CropDialog.tsx:1-120` is the only consumer.
+4. **The `migrationsPromise` top-level call at `src/lib/db.ts:269-271` may be flagged by Next 15's server runtime** as a disallowed top-level await. If so, refactor to a `beforeRequest`-style pattern or move to `middleware.ts`. Out of scope here.
 
 ---
 
@@ -296,12 +480,10 @@ The following are **not** in the plan above because they're either speculative o
 
 To keep scope focused, the plan deliberately excludes:
 
-- **Adding `loading.tsx` / `error.tsx` / `not-found.tsx`** to the 8 page directories that lack them. The survey flagged their absence; a separate plan can address it.
-- **Enabling `noUncheckedIndexedAccess`** as a quality improvement. The Phase 2 opt-out keeps the upgrade on rails; adopting `noUncheckedIndexedAccess` is its own piece of work.
-- **Adding `src/middleware.ts` for edge-auth.** The project does per-route `getServerSession` checks today; introducing middleware is a refactor, not an upgrade.
-- **Upgrading to Next 16 / React 19 / TypeScript 7 / ESLint 10 / MUI 9** (the absolute-latest stack this plan originally targeted). Deferred because the plugin ecosystem is not caught up — see the rework note in the header.
+- **Adding `src/middleware.ts` for edge-auth.** The project does per-route `getServerSession` checks today; introducing middleware is a refactor, not an upgrade. Pairs naturally with the next-auth 4 → 5 jump (still beta as of 2026-07; defer until stable).
+- **Upgrading to Next 16 / React 19 / TypeScript 7 / ESLint 10 / MUI 9** (the absolute-latest stack this plan originally targeted). Deferred because the plugin ecosystem is not caught up — see the rework note in the header. Re-evaluate in 2026-Q4 / 2027-Q1.
 - **Switching from CJS to ESM at the package level** (`"type": "module"`). Not needed for any of the reworked targets.
-- **Migrating the `palette.ts` MD3 system to MUI 7's built-in tokens.** Major refactor; out of scope.
+- **Migrating the `palette.ts` MD3 system to MUI 7's built-in tokens.** MUI 7 has no built-in MD3 system (that's MUI Joy UI's `extendTheme`, a separate package). The current `palette.ts:1-131` (which uses `@material/material-color-utilities` to generate MD3 colours and `theme.ts:1-169` to map them into MUI 7's palette shape) is the right architecture. The broader MD3 work is in flight at `.scratch/mui-md3-migration/` (11 tickets, `ready-for-agent`).
 
 ---
 
