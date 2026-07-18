@@ -29,7 +29,7 @@ Per user direction (2026-07-18), the plan was reworked to **one major version le
 | 2 | TypeScript 5.6 → 6 + `@types/node` 20 → 24 | complete |
 | 3 | MUI 6 → 7; `@mui/x-charts` and `@mui/x-date-pickers` already at 7 | complete |
 | 4 | `date-fns` 2 → 3 + `@mui/x-date-pickers` adapter split | complete |
-| 5 | Cleanup — Dockerfile, compose, .env, .dockerignore, docs | pending |
+| 5 | Cleanup — Dockerfile, compose, .env, .dockerignore, docs | complete |
 
 **Dropped (project is already at the rework's target version):**
 
@@ -374,4 +374,88 @@ No other packages changed. `@mui/x-date-pickers@7.29.4` was already installed; i
 ```
 chore(deps): upgrade date-fns 2 → 3 and switch x-date-pickers to v3 adapter
 ```
+
+---
+
+## Phase 5 — Cleanup: Dockerfile, .dockerignore, docs
+
+**Date:** 2026-07-18
+
+### Scope of changes
+
+1. **`Dockerfile`** (`Dockerfile:1, 12`)
+   - `FROM node:20-alpine` → `FROM node:22-alpine` (matches the `>=20.9.0` floor in `package.json:engines` and the Node 22 LTS target set in Phase 0.3).
+   - `COPY tsconfig.json next.config.js ./` → `COPY tsconfig.json next.config.js eslint.config.mjs ./`. The flat-config file is not required by `next build` itself, but mirroring the local dev environment into the build context makes in-container `npm run lint` reproducible and gives the build context a self-documenting "what config files does this project use" list.
+2. **`.dockerignore`** (6 lines → 9 lines)
+   - Added `.scratch/`, `plans/`, `coverage/`. `*.md` already covers the markdown content, but the directory entries are explicit so any future non-markdown file in those folders (e.g. a `.json` export in `.scratch/`, or a `.png` diagram in `plans/`) is also excluded without having to think about it.
+3. **`package.json` `engines` field** — already present (added in Phase 0.3 / commit `4c20204`). Verified in this phase, no change.
+
+### Out of scope (verified not present, no work needed)
+
+- **`README.md`** — the project has no top-level `README.md`. The plan called for updating a "Stack" section if one existed; it does not.
+- **`package.json` `description`** — not present. No work needed.
+- **`CONTEXT.md` / `CLAUDE.md`** — both describe patterns and decisions, not versions. Per the plan, left untouched.
+- **`docs/adr/0001-sql-server-express-in-docker.md`** — discusses the SQL Server Express choice, no version-specific references. Left untouched.
+- **`docker-compose.yml.example`** — references the `chicken-tracker` image and env vars only; no Node or framework version pins. Left untouched.
+- **`.env.example`** — env var template, no version info. Left untouched.
+- **`plans/README.md`** — tracks plan execution status, not versions. Left untouched.
+
+### Final verification (post-Phase 5)
+
+`npm install` — `up to date, audited 902 packages in 5s` (no new installs, no peer-dep regressions from the Phase 3 `@mui/*` devDep cleanup).
+
+`npm run build` — green. Tail of output:
+
+```
+├ ƒ /api/chickens/[id]/photos/[photoId]/primary    172 B         102 kB
+├ ƒ /api/dynamic-lists/[type]                      172 B         102 kB
+├ ƒ /api/dynamic-lists/[type]/merge                172 B         102 kB
+├ ƒ /api/eggs                                      172 B         102 kB
+├ ƒ /api/eggs/[id]                                 172 B         102 kB
+├ ƒ /api/health                                    172 B         102 kB
+├ ƒ /api/photos/[filename]                         172 B         102 kB
+├ ○ /auth/error                                  2.19 kB         143 kB
+├ ƒ /chickens/[id]                               16.4 kB         385 kB
+├ ○ /dashboard                                     487 B         103 kB
+├ ○ /dashboard/eggs                              4.86 kB         225 kB
+├ ○ /egg-history                                 4.18 kB         322 kB
+├ ○ /log-egg                                     5.87 kB         358 kB
+├ ○ /roster                                      7.78 kB         293 kB
+├ ○ /roster/enrol                                5.63 kB         356 kB
+└ ○ /unauthorized                                1.05 kB         142 kB
++ First Load JS shared by all                     102 kB
+  ├ chunks/1255-13d973e0759ea6d6.js              45.8 kB
+  ├ chunks/4bd1b696-182b6b13bdad92e3.js          54.2 kB
+  └ other shared chunks (total)                  1.95 kB
+```
+
+`npm run test:all` — `Tests: 82 passed, 82 total` (unit/integration, 7 suites) and `Tests: 20 passed, 20 total` (component, 5 suites). 102 total. No regressions.
+
+`npm run lint` — exit code 0. 0 errors, 1 pre-existing warning on `eslint.config.mjs:12:1` (the `next/core-web-vitals` preset's `import/no-anonymous-default-export` — same as Phases 1/2/3/4).
+
+### Commit
+
+```
+chore(infra): update Dockerfile to Node 22, refresh .dockerignore, add eslint.config.mjs to build context
+```
+
+### Plan closeout
+
+The `improve/032-major-deps` branch is ready for review and merge. Final stack:
+
+| Component | From | To |
+|-----------|------|-----|
+| Next.js | 14.2.35 | 15.5.20 |
+| ESLint | 8.57.0 | 9.39.5 (flat config) |
+| `eslint-config-next` | 14.2.35 | 15.5.20 |
+| TypeScript | 5.6.3 | 6.0.3 |
+| `@types/node` | 20.17.0 | 24.13.3 |
+| `@mui/material` | 6.5.0 | 7.3.11 |
+| `@mui/icons-material` | 6.5.0 | 7.3.11 |
+| `date-fns` | 2.30.0 | 3.6.0 |
+| Node runtime | 20-alpine | 22-alpine |
+
+Components dropped from the original plan (project was already at the rework's target version): React 18.3.1, Jest 29.7.0, mssql 11.0.1, next-auth 4.24.14, `@mui/x-charts` 7.29.1, `@mui/x-date-pickers` 7.29.4.
+
+Risks tracked in the plan ("Risks that may require a follow-up plan") are deferred to a separate planning round. None materialized during execution.
 
