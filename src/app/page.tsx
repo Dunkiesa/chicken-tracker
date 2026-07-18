@@ -422,8 +422,8 @@ function DashboardContent() {
                         <line x1={L} y1={T} x2={L} y2={T + innerH} stroke="#ccc" strokeWidth={1} />
                         <line x1={totalW - R} y1={T} x2={totalW - R} y2={T + innerH} stroke="#ccc" strokeWidth={1} />
                         <line x1={L} y1={T + innerH} x2={totalW - R} y2={T + innerH} stroke="#ccc" strokeWidth={1} />
-                        {yTicks.map((t) => (
-                          <g key={t}>
+                        {yTicks.map((t, i) => (
+                          <g key={i}>
                             <line x1={L} y1={yPos(t)} x2={totalW - R} y2={yPos(t)} stroke="#eee" strokeWidth={1} />
                             <text x={L - 8} y={yPos(t)} textAnchor="end" dominantBaseline="central" fontSize={10} fill="#888">
                               {t}g
