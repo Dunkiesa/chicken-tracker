@@ -6,4 +6,4 @@ node_modules/
 next-env.d.ts
 .claude/
 .vscode/chrome-profile/
-images/
+/images/

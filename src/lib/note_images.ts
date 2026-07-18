@@ -1,6 +1,19 @@
 import sql from "mssql";
+import { mkdir, readFile, writeFile } from "fs/promises";
+import { join } from "path";
+import { randomUUID } from "crypto";
 import { getPool } from "./db";
-import { deleteImageFile } from "./image-storage";
+import {
+  ALLOWED_MIME_TYPES,
+  MAX_FILE_SIZE_BYTES,
+  deleteImageFile,
+  generateThumbnail,
+  getNotesImageDirectory,
+  getPendingImageDirectory,
+  readImageDimensions,
+  resolveImagePath,
+  validateImageMagicBytes,
+} from "./image-storage";
 
 export type NoteImageStatus = "pending" | "processing" | "succeeded" | "failed";
 
@@ -14,6 +27,31 @@ export class NoteImageNotPendingError extends Error {
     this.name = "NoteImageNotPendingError";
     this.code = "NOTE_IMAGE_NOT_PENDING";
     this.note_image_id = note_image_id;
+  }
+}
+
+export type NoteImageUploadErrorCode =
+  | "FILE_TOO_LARGE"
+  | "INVALID_MIME_TYPE"
+  | "INVALID_MAGIC_BYTES";
+
+export class NoteImageUploadError extends Error {
+  readonly code: NoteImageUploadErrorCode;
+  constructor(code: NoteImageUploadErrorCode, message: string) {
+    super(message);
+    this.name = "NoteImageUploadError";
+    this.code = code;
+  }
+}
+
+export type NoteImageReadErrorCode = "NOT_FOUND" | "INVALID_PATH";
+
+export class NoteImageReadError extends Error {
+  readonly code: NoteImageReadErrorCode;
+  constructor(code: NoteImageReadErrorCode, message: string) {
+    super(message);
+    this.name = "NoteImageReadError";
+    this.code = code;
   }
 }
 
@@ -63,6 +101,35 @@ export type UpdateNoteImageStatusInput = {
   ai_suggestion?: string | null;
   ai_error?: string | null;
 };
+
+export type UpdateNoteImageCropInput = {
+  crop_x_min: number;
+  crop_y_min: number;
+  crop_x_max: number;
+  crop_y_max: number;
+};
+
+export type CreatePendingNoteImageFromUploadInput = {
+  chicken_id: number;
+  buffer: Buffer;
+  original_filename: string;
+  mime_type: string;
+  recorded_by: string;
+};
+
+export type ReadNoteImageBytesResult = {
+  buffer: Buffer;
+  content_type: string;
+};
+
+function isAllowedMimeType(type: string): boolean {
+  return (ALLOWED_MIME_TYPES as readonly string[]).includes(type);
+}
+
+function extFromFilename(filename: string): string {
+  const ext = filename.split(".").pop() ?? "";
+  return ext.toLowerCase() || "jpg";
+}
 
 const NOTE_IMAGE_SELECT_SQL = `
   SELECT
@@ -197,6 +264,29 @@ export async function updateNoteImageStatus(
   return getNoteImage(note_image_id);
 }
 
+export async function updateNoteImageCrop(
+  note_image_id: number,
+  input: UpdateNoteImageCropInput
+): Promise<NoteImage | null> {
+  const pool = await getPool();
+  await pool
+    .request()
+    .input("id", sql.Int, note_image_id)
+    .input("crop_x_min", sql.Decimal(5, 4), input.crop_x_min)
+    .input("crop_y_min", sql.Decimal(5, 4), input.crop_y_min)
+    .input("crop_x_max", sql.Decimal(5, 4), input.crop_x_max)
+    .input("crop_y_max", sql.Decimal(5, 4), input.crop_y_max)
+    .query(`
+      UPDATE note_images SET
+        crop_x_min = @crop_x_min,
+        crop_y_min = @crop_y_min,
+        crop_x_max = @crop_x_max,
+        crop_y_max = @crop_y_max
+      WHERE id = @id
+    `);
+  return getNoteImage(note_image_id);
+}
+
 export async function getNoteImage(id: number): Promise<NoteImage | null> {
   const pool = await getPool();
   const result = await pool
@@ -288,4 +378,106 @@ async function deleteNoteImageRowsAndUnlink(
   }
 
   return result.rowsAffected[0]!;
+}
+
+const READ_MIME_TYPES: Record<string, string> = {
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  gif: "image/gif",
+  webp: "image/webp",
+  bmp: "image/bmp",
+};
+
+const PENDING_SUBDIR = "_pending";
+
+function contentTypeFor(filename: string): string {
+  const ext = filename.split(".").pop()?.toLowerCase() ?? "";
+  return READ_MIME_TYPES[ext] || "application/octet-stream";
+}
+
+export async function createPendingNoteImageFromUpload(
+  input: CreatePendingNoteImageFromUploadInput
+): Promise<NoteImage> {
+  if (!isAllowedMimeType(input.mime_type)) {
+    throw new NoteImageUploadError(
+      "INVALID_MIME_TYPE",
+      `File type ${input.mime_type || "unknown"} is not allowed. Accepted: ${ALLOWED_MIME_TYPES.join(", ")}`
+    );
+  }
+  if (input.buffer.length > MAX_FILE_SIZE_BYTES) {
+    throw new NoteImageUploadError(
+      "FILE_TOO_LARGE",
+      "File size exceeds 10 MB limit"
+    );
+  }
+  if (!validateImageMagicBytes(input.buffer)) {
+    throw new NoteImageUploadError(
+      "INVALID_MAGIC_BYTES",
+      "File content does not match allowed image types"
+    );
+  }
+
+  const ext = extFromFilename(input.original_filename);
+  const filename = `${randomUUID()}.${ext}`;
+  const pendingDir = getPendingImageDirectory();
+  const absoluteFilePath = join(pendingDir, filename);
+
+  await mkdir(getNotesImageDirectory(), { recursive: true });
+  await mkdir(pendingDir, { recursive: true });
+  await writeFile(absoluteFilePath, input.buffer);
+
+  const baseName = filename.replace(/\.[^.]+$/, "");
+  const thumbnailFilename = `${baseName}_thumb.webp`;
+  const absoluteThumbnailPath = join(pendingDir, thumbnailFilename);
+  await generateThumbnail(absoluteFilePath, absoluteThumbnailPath);
+
+  const dims = await readImageDimensions(absoluteFilePath);
+
+  return createPendingNoteImage({
+    chicken_id: input.chicken_id,
+    file_path: `notes/${PENDING_SUBDIR}/${filename}`,
+    original_width: dims.width,
+    original_height: dims.height,
+    recorded_by: input.recorded_by,
+  });
+}
+
+function isPathSafeForRead(filename: string): boolean {
+  if (filename.length === 0) return false;
+  if (filename.includes("..")) return false;
+  if (filename.includes("/")) return false;
+  if (filename.includes("\\")) return false;
+  return true;
+}
+
+export async function readNoteImageBytesByFilename(
+  filename: string
+): Promise<ReadNoteImageBytesResult> {
+  if (!isPathSafeForRead(filename)) {
+    throw new NoteImageReadError("INVALID_PATH", "Invalid filename");
+  }
+
+  const candidates = [
+    `notes/${filename}`,
+    `notes/${PENDING_SUBDIR}/${filename}`,
+  ];
+
+  for (const rel of candidates) {
+    let abs: string;
+    try {
+      abs = resolveImagePath(rel);
+    } catch {
+      continue;
+    }
+    try {
+      const buffer = await readFile(abs);
+      return { buffer, content_type: contentTypeFor(filename) };
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === "ENOENT") continue;
+      throw err;
+    }
+  }
+
+  throw new NoteImageReadError("NOT_FOUND", "Not found");
 }
