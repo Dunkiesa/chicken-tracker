@@ -27,7 +27,7 @@ Per user direction (2026-07-18), the plan was reworked to **one major version le
 |-------|------|--------|
 | 1 | Next 14 → 15 + ESLint 8 → 9 + `eslint-config-next` 14 → 15 | complete |
 | 2 | TypeScript 5.6 → 6 + `@types/node` 20 → 24 | complete |
-| 3 | MUI 6 → 7; `@mui/x-charts` and `@mui/x-date-pickers` already at 7 | pending |
+| 3 | MUI 6 → 7; `@mui/x-charts` and `@mui/x-date-pickers` already at 7 | complete |
 | 4 | `date-fns` 2 → 3 + `@mui/x-date-pickers` adapter split | pending |
 | 5 | Cleanup — Dockerfile, compose, .env, .dockerignore, docs | pending |
 
@@ -228,4 +228,97 @@ No application code changes were required. The plan's callouts (`src/lib/auth.ts
 
 ```
 chore(deps): upgrade typescript 5.6 → 6 and @types/node 20 → 24
+```
+
+---
+
+## Phase 3 — MUI 6 → 7
+
+**Date:** 2026-07-18
+
+### Dependency upgrades
+
+| Package | From | To |
+|---------|------|----|
+| `@mui/material` | `^6.5.0` | `^7.3.11` |
+| `@mui/icons-material` | `^6.5.0` | `^7.3.11` |
+| `@mui/material-nextjs` | (not installed) | `^7.3.10` |
+| `@mui/system` (devDep) | `^9.2.0` | **removed** (transitively from `@mui/material@7`) |
+| `@mui/utils` (devDep) | `^9.2.0` | **removed** (transitively from `@mui/material@7`) |
+| `@mui/private-theming` (devDep) | `^9.2.0` | **removed** (transitively from `@mui/material@7`) |
+| `@mui/styled-engine` (devDep) | `^9.1.1` | **removed** (transitively from `@mui/material@7`) |
+
+The four `@mui/*` devDeps at v9.2.0 — flagged in the Phase 2 risk note as a pre-existing peer-dep conflict (`invalid` peer range against `@mui/x-charts@7.29.1` / `@mui/x-date-pickers@7.29.4`) — were removed. They were never imported by project source; they were a misplaced attempt to fix a peer-dep issue from Phase 1. With them removed, the dep tree resolves cleanly: `@mui/system@7.3.11`, `@mui/utils@7.3.11`, `@mui/private-theming@7.3.11`, `@mui/styled-engine@7.3.10` are all transitive deps of `@mui/material@7.3.11`. `npm ls` shows no `invalid` markers.
+
+### Code changes
+
+1. **`Grid2 as Grid` → `Grid` rename** (3 files). In MUI 7, the v6 `Grid2` is the default `Grid`; the alias is no longer needed.
+   - `src/app/page.tsx:18`
+   - `src/app/log-egg/page.tsx:21`
+   - `src/app/chickens/[id]/page.tsx:38`
+
+2. **MUI v6→v7 codemod** (`npx @mui/codemod deprecations/all src/`). The `v7.0.0/preset-safe` transform named in the plan is not in `@mui/codemod@9.1.0` (the version available in 2026-07); the codemod was renamed to `deprecations/all`. The codemod processed 10 files; the changes were:
+   - **`inputProps` → `slotProps.htmlInput`** on `TextField` (4 sites):
+     - `src/components/HenRow.tsx:73-77`
+     - `src/app/egg-history/page.tsx:256-260` and `:267`
+     - `src/app/log-egg/page.tsx:529-533` and `:540`
+   - **`InputLabelProps` → `slotProps.inputLabel`** on `TextField` (1 site):
+     - `src/components/ChickenTableRow.tsx:186`
+   - **`MenuListProps` → `slotProps.list`** on `Menu` (2 sites):
+     - `src/components/UserMenu.tsx:55` (merged into the existing `slotProps` block)
+     - `src/components/ThemeToggle.tsx:75`
+   - **`Typography paragraph` → `Typography sx={{ marginBottom: "16px" }}`** (2 sites, bonus migration surfaced by the codemod). The `paragraph` prop was deprecated in MUI 7 in favour of the explicit `sx` override. These two files were not flagged in the plan's survey but the codemod caught them.
+     - `src/app/auth/error/page.tsx:23`
+     - `src/app/unauthorized/page.tsx:22`
+   - Minor whitespace cleanup (empty-line removal around `<Stack>` blocks) in `egg-history/page.tsx`, `log-egg/page.tsx`, `ChickenTableRow.tsx`.
+
+3. **Manual deprecation fixes** (the codemod does not handle these — they are MUI 7 deprecations without an automated transform):
+   - **`Drawer` `ModalProps` → `slotProps.root`** (`src/components/AppShell.tsx:111`): the v6 `ModalProps` on a temporary Drawer was a way to pass props through to the underlying `Modal`. In v7, the Drawer's outer wrapper is a `root` slot; props go there. `ModalProps={{ keepMounted: true }}` → `slotProps={{ root: { keepMounted: true } }}`.
+   - **`ListItem` `secondaryAction` → `slotProps.secondaryAction`** (`src/app/chickens/[id]/page.tsx:1402`). The v6 `secondaryAction` shorthand is deprecated in v7 in favour of the slotProps-driven pattern.
+
+4. **`AppRouterCacheProvider`** added to `src/app/providers.tsx`. The plan's step 7 — required for MUI/Emotion SSR styles to flush correctly under Next 15's App Router. The provider is the outermost wrapper, wrapping `SessionProvider`. Installed `@mui/material-nextjs@^7.3.10` to get `@mui/material-nextjs/v15-appRouter`.
+
+5. **Server/client component warning** (plan step 8): the warning at `src/app/auth/error/page.tsx` and `src/app/unauthorized/page.tsx` (server components importing `@mui/icons-material/ArrowBackIcon`) was a Next 16 / React 19 issue. Under Next 15 + React 18 it does **not** surface — the build completed without warnings. A `BackButton.tsx` client wrapper is therefore not required.
+
+6. **`src/lib/db.ts` touched by the codemod** — reverted. The codemod's pretty-printer re-encoded this 444-line file with CRLF line endings (the rest of the codebase is LF); since the file has no MUI deprecations, the codemod was a no-op semantically. The CRLF mangling is unrelated to MUI 7 and reverted with `git checkout HEAD -- src/lib/db.ts`.
+
+### Verification
+
+`npm run build` — green. Tail of output:
+
+```
+├ ○ /egg-history                                 4.11 kB         325 kB
+├ ○ /log-egg                                     5.81 kB         360 kB
+├ ○ /roster                                      7.71 kB         296 kB
+├ ○ /roster/enrol                                5.57 kB         358 kB
+└ ○ /unauthorized                                1.05 kB         142 kB
++ First Load JS shared by all                     102 kB
+  ├ chunks/1255-13d973e0759ea6d6.js              45.8 kB
+  ├ chunks/4bd1b696-182b6b13bdad92e3.js          54.2 kB
+  └ other shared chunks (total)                  1.95 kB
+
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+```
+
+`npm run test:all` — `Tests: 82 passed, 82 total` (unit/integration, 7 suites) and `Tests: 20 passed, 20 total` (component, 5 suites). 102 total.
+
+`npm run lint` — exit code 0. Same self-warning on `eslint.config.mjs:12:1` as Phase 1/2 (the `next/core-web-vitals` preset's `import/no-anonymous-default-export`).
+
+### Codemod notes
+
+- `npx @mui/codemod v7.0.0/preset-safe src/` (the plan's command) does not exist in `@mui/codemod@9.1.0`. The MUI 7 deprecations are now under `npx @mui/codemod deprecations/all <path>`.
+- The codemod's `index.js` runs 30+ individual transforms (`drawer-props`, `input-props`, `menu-props`, `typography-props`, etc.) — and not all of them cover every MUI 7 deprecation. The Drawer `ModalProps` and ListItem `secondaryAction` cases are not in the codemod's drawer-props / list-item-props transforms. These were done by hand in step 3.
+- The codemod's `index.js` runs a `postcss` step on `*.css` files at the end. It processed `src/app/globals.css` with no changes (the only CSS file in the project).
+
+### Risks worth flagging
+
+- **`nextConfig from "eslint-config-next/core-web-vitals"`** (Phase 1's flat config) emits a self-warning on `eslint.config.mjs:12:1` — same warning as Phase 1/2, not a Phase 3 regression.
+- **Two pre-existing MUI 7 deprecations were not in the plan's survey** (the `<Typography paragraph>` sites in `auth/error/page.tsx:23` and `unauthorized/page.tsx:22`). The codemod caught them automatically. Future audits should sweep the codebase for other props that the v7 deprecations affected but the codemod missed.
+
+### Commit
+
+```
+chore(deps): upgrade @mui/material 6 → 7 (x-charts and x-date-pickers already at 7)
 ```

@@ -19,7 +19,9 @@ export default function UnauthorizedPage() {
         <Typography variant="h4" gutterBottom>
           Not Authorized
         </Typography>
-        <Typography color="text.secondary" paragraph>
+        <Typography color="text.secondary" sx={{
+          marginBottom: "16px"
+        }}>
           Your Google account was authenticated, but your email is not in the
           allowlist for this app. Contact an admin to gain access.
         </Typography>

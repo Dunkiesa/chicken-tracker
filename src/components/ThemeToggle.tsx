@@ -72,7 +72,9 @@ export default function ThemeToggle() {
         anchorEl={anchorEl}
         open={open}
         onClose={handleClose}
-        MenuListProps={{ "aria-label": "theme options" }}
+        slotProps={{
+          list: { "aria-label": "theme options" }
+        }}
       >
         {options.map(({ value, label, icon: Icon }) => (
           <MenuItem

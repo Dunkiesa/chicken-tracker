@@ -20,7 +20,9 @@ export default function AuthErrorPage() {
         <Typography variant="h4" gutterBottom>
           Authentication Error
         </Typography>
-        <Typography color="text.secondary" paragraph>
+        <Typography color="text.secondary" sx={{
+          marginBottom: "16px"
+        }}>
           Something went wrong during sign-in. Please try again.
         </Typography>
         <Box sx={{ display: "flex", justifyContent: "flex-end" }}>

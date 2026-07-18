@@ -52,11 +52,11 @@ export default function UserMenu() {
         anchorEl={anchorEl}
         open={open}
         onClose={handleClose}
-        MenuListProps={{ "aria-label": "user options" }}
         slotProps={{
           paper: {
             sx: { minWidth: 220, mt: 1 },
           },
+          list: { "aria-label": "user options" },
         }}
       >
         <Box sx={{ px: 2, py: 1 }}>

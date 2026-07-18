@@ -18,7 +18,7 @@ import {
   CircularProgress,
   FormControlLabel,
   Checkbox,
-  Grid2 as Grid,
+  Grid,
   Skeleton,
   Stack,
   Table,
@@ -363,7 +363,6 @@ function LogEggContent() {
       <Typography variant="h5" gutterBottom>
         Log
       </Typography>
-
       <Card sx={{ p: 2, mb: 2, overflow: "hidden" }}>
         <Stack spacing={2}>
           <Controller
@@ -468,7 +467,6 @@ function LogEggContent() {
           /> 
         </Stack>
       </Card>
-
       <Card sx={{ p: 2 }}>
         <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
           <Typography variant="h6">
@@ -526,10 +524,12 @@ function LogEggContent() {
                             size="small"
                             value={editWeight}
                             onChange={(e) => setEditWeight(e.target.value)}
-                            inputProps={{
-                              step: 0.01,
-                              min: 0,
-                              style: { width: 70, textAlign: "right" },
+                            slotProps={{
+                              htmlInput: {
+                                step: 0.01,
+                                min: 0,
+                                style: { width: 70, textAlign: "right" },
+                              }
                             }}
                           />
                           <TextField
@@ -537,7 +537,9 @@ function LogEggContent() {
                             size="small"
                             value={editDate}
                             onChange={(e) => setEditDate(e.target.value)}
-                            inputProps={{ style: { width: 130 } }}
+                            slotProps={{
+                              htmlInput: { style: { width: 130 } }
+                            }}
                           />
                           <IconButton
                             size="small"

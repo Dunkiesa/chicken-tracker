@@ -108,7 +108,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           variant="temporary"
           open={mobileOpen}
           onClose={handleMobileClose}
-          ModalProps={{ keepMounted: true }}
+          slotProps={{ root: { keepMounted: true } }}
           sx={{
             "& .MuiDrawer-paper": {
               width: DRAWER_EXPANDED,

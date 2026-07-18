@@ -70,17 +70,19 @@ function HenRowInner({ hen, weight, existing, warning, error, disabled, onWeight
           disabled={disabled}
           error={!!error}
           helperText={error}
-          inputProps={{
-            step: 0.01,
-            min: 0,
-            style: { textAlign: "right" },
-          }}
           sx={{
             width: 110,
             flexShrink: 0,
             "& .MuiOutlinedInput-root": {
               fontSize: "0.9rem",
             },
+          }}
+          slotProps={{
+            htmlInput: {
+              step: 0.01,
+              min: 0,
+              style: { textAlign: "right" },
+            }
           }}
         />
       )}

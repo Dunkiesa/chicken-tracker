@@ -190,7 +190,6 @@ function EggHistoryContent() {
           <ArrowBackIcon />
         </Button>
       </Stack>
-
       <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
         <DatePicker
           label="From"
@@ -209,7 +208,6 @@ function EggHistoryContent() {
           sx={{ flex: 1 }}
         />
       </Stack>
-
       <Card sx={{ p: 2 }}>
         {isLoading ? (
           <Stack spacing={1}>
@@ -253,10 +251,12 @@ function EggHistoryContent() {
                             size="small"
                             value={editWeight}
                             onChange={(e) => setEditWeight(e.target.value)}
-                            inputProps={{
-                              step: 0.01,
-                              min: 0,
-                              style: { width: 70, textAlign: "right" },
+                            slotProps={{
+                              htmlInput: {
+                                step: 0.01,
+                                min: 0,
+                                style: { width: 70, textAlign: "right" },
+                              }
                             }}
                           />
                           <TextField
@@ -264,7 +264,9 @@ function EggHistoryContent() {
                             size="small"
                             value={editDate}
                             onChange={(e) => setEditDate(e.target.value)}
-                            inputProps={{ style: { width: 130 } }}
+                            slotProps={{
+                              htmlInput: { style: { width: 130 } }
+                            }}
                           />
                           <IconButton
                             size="small"

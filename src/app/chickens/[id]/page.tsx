@@ -35,7 +35,7 @@ import {
   List,
   ListItem,
   ListItemText,
-  Grid2 as Grid,
+  Grid,
   FormControlLabel,
   Checkbox,
 } from "@mui/material";
@@ -1399,8 +1399,8 @@ const NoteItem = memo(function NoteItem({
           mb: 1,
           bgcolor: "action.hover",
         }}
-        secondaryAction={
-          canModify && (
+        slotProps={{
+          secondaryAction: canModify && (
             <Stack direction="row" spacing={0.5}>
               <IconButton size="small" onClick={() => setEditDialogOpen(true)}>
                 <EditIcon fontSize="small" />
@@ -1409,8 +1409,8 @@ const NoteItem = memo(function NoteItem({
                 <DeleteIcon fontSize="small" />
               </IconButton>
             </Stack>
-          )
-        }
+          ),
+        }}
       >
         <ListItemText
           primary={

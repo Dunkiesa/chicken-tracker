@@ -15,7 +15,7 @@ import {
   Button,
   Alert,
   CircularProgress,
-  Grid2 as Grid,
+  Grid,
   Stack,
   Table,
   TableBody,

@@ -183,7 +183,9 @@ function ChickenTableRowInner({
                 value={departureDate}
                 onChange={(e) => onDepartureDateChange(e.target.value)}
                 disabled={departingSave}
-                InputLabelProps={{ shrink: true }}
+                slotProps={{
+                  inputLabel: { shrink: true }
+                }}
               />
               <TextField
                 select
@@ -234,7 +236,6 @@ function ChickenTableRowInner({
           </TableCell>
         </TableRow>
       )}
-
       <ConfirmDialog
         open={reinstateDialogOpen}
         title="Reinstate Chicken"

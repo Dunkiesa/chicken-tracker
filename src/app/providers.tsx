@@ -7,6 +7,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
+import { AppRouterCacheProvider } from "@mui/material-nextjs/v15-appRouter";
 import { getDateFnsLocale } from "@/lib/dateUtils";
 
 export default function Providers({ children }: { children: React.ReactNode }) {
@@ -23,13 +24,15 @@ export default function Providers({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <SessionProvider>
-      <ThemeModeProvider>
-        <CssBaseline />
-        <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={getDateFnsLocale()}>
-          <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-        </LocalizationProvider>
-      </ThemeModeProvider>
-    </SessionProvider>
+    <AppRouterCacheProvider>
+      <SessionProvider>
+        <ThemeModeProvider>
+          <CssBaseline />
+          <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={getDateFnsLocale()}>
+            <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+          </LocalizationProvider>
+        </ThemeModeProvider>
+      </SessionProvider>
+    </AppRouterCacheProvider>
   );
 }
