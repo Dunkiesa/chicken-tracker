@@ -4,7 +4,7 @@ import { useState, useMemo, Suspense, memo } from "react";
 import { useSession } from "next-auth/react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, useQueries } from "@tanstack/react-query";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -42,6 +42,10 @@ import {
 import { alpha } from "@mui/material/styles";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import CropDialog from "@/components/CropDialog";
+import NoteImageManager from "@/components/NoteImageManager";
+import NoteImagesInline from "@/components/NoteImagesInline";
+import type { NoteImageEntry, CropRegion } from "@/components/NoteImageManager";
+import type { NoteImageForDisplay } from "@/components/NoteImagesInline";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -97,6 +101,17 @@ type Photo = {
   created_at: string;
 };
 
+type NoteImage = {
+  id: number;
+  note_id: number | null;
+  chicken_id: number;
+  file_path: string;
+  thumbnail_path: string | null;
+  status: string;
+  recorded_by: string;
+  created_at: string;
+};
+
 type DynamicListEntry = {
   id: number;
   value: string;
@@ -138,11 +153,18 @@ async function createNoteApi(data: {
   chickenId: number;
   content: string;
   date: string;
+  imageIds?: number[];
+  crops?: Record<string, CropRegion>;
 }): Promise<Note> {
   const res = await fetch(`/api/chickens/${data.chickenId}/notes`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ content: data.content, date: data.date }),
+    body: JSON.stringify({
+      content: data.content,
+      date: data.date,
+      imageIds: data.imageIds,
+      crops: data.crops,
+    }),
   });
   if (!res.ok) {
     const result = await res.json();
@@ -156,11 +178,18 @@ async function updateNoteApi(data: {
   noteId: number;
   content: string;
   date: string;
+  imageIds?: number[];
+  crops?: Record<string, CropRegion>;
 }): Promise<Note> {
   const res = await fetch(`/api/chickens/${data.chickenId}/notes/${data.noteId}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ content: data.content, date: data.date }),
+    body: JSON.stringify({
+      content: data.content,
+      date: data.date,
+      imageIds: data.imageIds,
+      crops: data.crops,
+    }),
   });
   if (!res.ok) {
     const result = await res.json();
@@ -180,6 +209,12 @@ async function deleteNoteApi(data: {
     const result = await res.json();
     throw new Error(result.message || "Failed to delete note");
   }
+}
+
+async function fetchNoteImagesApi(chickenId: number, noteId: number): Promise<NoteImage[]> {
+  const res = await fetch(`/api/chickens/${chickenId}/notes/images?noteId=${noteId}`);
+  if (!res.ok) throw new Error("Failed to fetch note images");
+  return res.json();
 }
 
 async function uploadPhotoApi(data: {
@@ -265,6 +300,23 @@ const editNoteSchema = z.object({
 
 type EditNoteFormValues = z.infer<typeof editNoteSchema>;
 
+function buildImagePayload(images: NoteImageEntry[]): {
+  imageIds?: number[];
+  crops?: Record<string, CropRegion>;
+} {
+  const imageIds = images.map((i) => i.id);
+  const crops: Record<string, CropRegion> = {};
+  for (const img of images) {
+    if (img.crop) {
+      crops[String(img.id)] = img.crop;
+    }
+  }
+  return {
+    imageIds: imageIds.length > 0 ? imageIds : undefined,
+    crops: Object.keys(crops).length > 0 ? crops : undefined,
+  };
+}
+
 const uploadPhotoSchema = z.object({
   description: z.string(),
 });
@@ -330,6 +382,7 @@ function ProfileContent() {
   const [cropDialogPhoto, setCropDialogPhoto] = useState<Photo | null>(null);
   const [cropPending, setCropPending] = useState(false);
   const [uploadSetPrimary, setUploadSetPrimary] = useState(false);
+  const [addNoteImages, setAddNoteImages] = useState<NoteImageEntry[]>([]);
 
   const {
     data: chicken,
@@ -346,6 +399,29 @@ function ProfileContent() {
     queryFn: () => fetchNotesApi(chickenId),
     enabled: status === "authenticated" && !isNaN(chickenId),
   });
+
+  const noteImageResults = useQueries({
+    queries: (notes ?? []).map((note) => ({
+      queryKey: ["note-images", chickenId, note.id],
+      queryFn: () => fetchNoteImagesApi(chickenId, note.id),
+      enabled: status === "authenticated" && !isNaN(chickenId),
+    })),
+  });
+
+  const noteImagesMap = useMemo(() => {
+    const map: Record<number, NoteImageForDisplay[]> = {};
+    (notes ?? []).forEach((note, i) => {
+      const data = noteImageResults[i]?.data;
+      if (data) {
+        map[note.id] = data.map((img) => ({
+          id: img.id,
+          file_path: img.file_path,
+          thumbnail_path: img.thumbnail_path,
+        }));
+      }
+    });
+    return map;
+  }, [notes, noteImageResults]);
 
   const { data: photos } = useQuery({
     queryKey: ["chicken-photos", chickenId],
@@ -381,11 +457,12 @@ function ProfileContent() {
   });
 
   const addNoteMutation = useMutation({
-    mutationFn: (data: { content: string; date: string }) =>
+    mutationFn: (data: { content: string; date: string; imageIds?: number[]; crops?: Record<string, CropRegion> }) =>
       createNoteApi({ chickenId, ...data }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["chicken-notes", chickenId] });
       setAddNoteDialogOpen(false);
+      setAddNoteImages([]);
     },
   });
 
@@ -394,6 +471,8 @@ function ProfileContent() {
       noteId: number;
       content: string;
       date: string;
+      imageIds?: number[];
+      crops?: Record<string, CropRegion>;
     }) => updateNoteApi({ chickenId, ...data }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["chicken-notes", chickenId] });
@@ -517,11 +596,16 @@ function ProfileContent() {
       content: "",
       date: todayStr(),
     });
+    setAddNoteImages([]);
+    addNoteMutation.reset();
     setAddNoteDialogOpen(true);
   };
 
   const handleAddNote = (data: AddNoteFormValues) => {
-    addNoteMutation.mutate(data);
+    addNoteMutation.mutate({
+      ...data,
+      ...buildImagePayload(addNoteImages),
+    });
   };
 
   const handleDeleteNote = (noteId: number) => {
@@ -667,6 +751,8 @@ function ProfileContent() {
                 onDeleteNote={handleDeleteNote}
                 onUpdateNote={(noteId, data) => updateNoteMutation.mutate({ noteId, ...data })}
                 updateNotePending={updateNoteMutation.isPending}
+                noteImagesMap={noteImagesMap}
+                chickenId={chickenId}
               />
             </CardContent>
           </Card>
@@ -935,6 +1021,12 @@ function ProfileContent() {
                     }}
                   />
                 )}
+              />
+              <NoteImageManager
+                chickenId={chickenId}
+                images={addNoteImages}
+                onChange={setAddNoteImages}
+                disabled={addNoteMutation.isPending}
               />
               {addNoteMutation.isError && (
                 <Alert severity="error">{addNoteMutation.error.message}</Alert>
@@ -1324,13 +1416,17 @@ function NotesList({
   onDeleteNote,
   onUpdateNote,
   updateNotePending,
+  noteImagesMap,
+  chickenId,
 }: {
   notes: Note[];
   isAdmin: boolean;
   canModifyNote: (note: Note) => boolean;
   onDeleteNote: (noteId: number) => void;
-  onUpdateNote: (noteId: number, data: { content: string; date: string }) => void;
+  onUpdateNote: (noteId: number, data: { content: string; date: string; imageIds?: number[]; crops?: Record<string, CropRegion> }) => void;
   updateNotePending: boolean;
+  noteImagesMap: Record<number, NoteImageForDisplay[]>;
+  chickenId: number;
 }) {
   if (notes.length === 0) {
     return (
@@ -1351,6 +1447,8 @@ function NotesList({
           onDelete={() => onDeleteNote(note.id)}
           onSave={(data) => onUpdateNote(note.id, data)}
           savePending={updateNotePending}
+          images={noteImagesMap[note.id] ?? []}
+          chickenId={chickenId}
         />
       ))}
     </List>
@@ -1364,15 +1462,20 @@ const NoteItem = memo(function NoteItem({
   onDelete,
   onSave,
   savePending,
+  images,
+  chickenId,
 }: {
   note: Note;
   isAdmin: boolean;
   canModify: boolean;
   onDelete: () => void;
-  onSave: (data: { content: string; date: string }) => void;
+  onSave: (data: { content: string; date: string; imageIds?: number[]; crops?: Record<string, CropRegion> }) => void;
   savePending: boolean;
+  images: NoteImageForDisplay[];
+  chickenId: number;
 }) {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editNoteImages, setEditNoteImages] = useState<NoteImageEntry[]>([]);
 
   const form = useForm<EditNoteFormValues>({
     resolver: zodResolver(editNoteSchema),
@@ -1383,8 +1486,18 @@ const NoteItem = memo(function NoteItem({
     },
   });
 
+  const handleOpenEdit = () => {
+    setEditNoteImages(
+      images.map((img) => ({ id: img.id, file_path: img.file_path, crop: null }))
+    );
+    setEditDialogOpen(true);
+  };
+
   const handleSubmit = (data: EditNoteFormValues) => {
-    onSave(data);
+    onSave({
+      ...data,
+      ...buildImagePayload(editNoteImages),
+    });
     setEditDialogOpen(false);
   };
 
@@ -1402,7 +1515,7 @@ const NoteItem = memo(function NoteItem({
         slotProps={{
           secondaryAction: canModify && (
             <Stack direction="row" spacing={0.5}>
-              <IconButton size="small" onClick={() => setEditDialogOpen(true)}>
+              <IconButton size="small" onClick={handleOpenEdit}>
                 <EditIcon fontSize="small" />
               </IconButton>
               <IconButton size="small" onClick={onDelete} color="error">
@@ -1424,12 +1537,15 @@ const NoteItem = memo(function NoteItem({
             </Stack>
           }
           secondary={
-            <Typography
-              variant="body2"
-              sx={{ whiteSpace: "pre-wrap", lineHeight: 1.5 }}
-            >
-              {note.content}
-            </Typography>
+            <>
+              <Typography
+                variant="body2"
+                sx={{ whiteSpace: "pre-wrap", lineHeight: 1.5 }}
+              >
+                {note.content}
+              </Typography>
+              <NoteImagesInline images={images} />
+            </>
           }
         />
       </ListItem>
@@ -1477,6 +1593,12 @@ const NoteItem = memo(function NoteItem({
                     }}
                   />
                 )}
+              />
+              <NoteImageManager
+                chickenId={chickenId}
+                images={editNoteImages}
+                onChange={setEditNoteImages}
+                disabled={savePending}
               />
             </Stack>
           </DialogContent>
