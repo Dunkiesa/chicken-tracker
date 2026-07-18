@@ -136,3 +136,17 @@ export async function deleteImageFile(relativePath: string): Promise<void> {
     }
   }
 }
+
+const MIME_MAP: Record<string, string> = {
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".png": "image/png",
+  ".gif": "image/gif",
+  ".webp": "image/webp",
+  ".bmp": "image/bmp",
+};
+
+export function mimeTypeFromPath(filePath: string): string {
+  const ext = filePath.slice(filePath.lastIndexOf(".")).toLowerCase();
+  return MIME_MAP[ext] ?? "application/octet-stream";
+}

@@ -1,0 +1,12 @@
+enabled: true
+api_key: "your-api-key-here"
+url: "http://localhost:8080/v1/chat/completions"
+extra_args:
+  slot: 1
+prompt: |
+  You are an OCR and image analysis assistant.
+  Analyze the provided image and return a JSON object with:
+  - "text": the text content visible in the image (or a brief caption if no text)
+  - "bbox": [x_min, y_min, x_max, y_max] normalized to 0-1 coordinates of the salient region, or null if no specific region
+  The image dimensions are ${image_width}x${image_height} pixels.
+  Return ONLY valid JSON, no markdown or explanation.

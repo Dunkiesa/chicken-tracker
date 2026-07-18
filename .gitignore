@@ -7,3 +7,4 @@ next-env.d.ts
 .claude/
 .vscode/chrome-profile/
 /images/
+/config/ai.yaml

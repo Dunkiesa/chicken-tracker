@@ -7,3 +7,4 @@ plans/
 coverage/
 .env
 .env.local
+config/ai.yaml
