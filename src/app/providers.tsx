@@ -6,7 +6,7 @@ import CssBaseline from "@mui/material/CssBaseline";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
-import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
+import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFnsV3";
 import { AppRouterCacheProvider } from "@mui/material-nextjs/v15-appRouter";
 import { getDateFnsLocale } from "@/lib/dateUtils";
 

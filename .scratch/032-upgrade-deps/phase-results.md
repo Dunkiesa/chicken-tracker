@@ -28,7 +28,7 @@ Per user direction (2026-07-18), the plan was reworked to **one major version le
 | 1 | Next 14 → 15 + ESLint 8 → 9 + `eslint-config-next` 14 → 15 | complete |
 | 2 | TypeScript 5.6 → 6 + `@types/node` 20 → 24 | complete |
 | 3 | MUI 6 → 7; `@mui/x-charts` and `@mui/x-date-pickers` already at 7 | complete |
-| 4 | `date-fns` 2 → 3 + `@mui/x-date-pickers` adapter split | pending |
+| 4 | `date-fns` 2 → 3 + `@mui/x-date-pickers` adapter split | complete |
 | 5 | Cleanup — Dockerfile, compose, .env, .dockerignore, docs | pending |
 
 **Dropped (project is already at the rework's target version):**
@@ -322,3 +322,56 @@ The four `@mui/*` devDeps at v9.2.0 — flagged in the Phase 2 risk note as a pr
 ```
 chore(deps): upgrade @mui/material 6 → 7 (x-charts and x-date-pickers already at 7)
 ```
+
+---
+
+## Phase 4 — `date-fns` 2 → 3 + `@mui/x-date-pickers` adapter split
+
+**Date:** 2026-07-18
+
+### Dependency upgrades
+
+| Package | From | To |
+|---------|------|----|
+| `date-fns` | `^2.30.0` | `^3.6.0` |
+
+No other packages changed. `@mui/x-date-pickers@7.29.4` was already installed; it ships both `AdapterDateFns` (date-fns v2) and `AdapterDateFnsV3` (date-fns v3) as subpath modules.
+
+### Code changes
+
+1. **`src/app/providers.tsx:9`** and **`tests/components/test-utils.tsx:5`** — adapter import switched from `@mui/x-date-pickers/AdapterDateFns` (v2) to `@mui/x-date-pickers/AdapterDateFnsV3` (v3). The named export is still `AdapterDateFns`; only the module path changes. Both sites updated.
+
+2. **Locale imports in `src/lib/dateUtils.ts:1-58`** — verified unchanged. date-fns v3 renamed the locale *file paths* from camelCase (`zhCN.js`) to kebab-case (`zh-CN.js`) but kept the *exported identifiers* in camelCase (`export declare const zhCN: Locale` in `node_modules/date-fns/locale/zh-CN.d.ts:13`). All 57 named imports (`enUS`, `enGB`, ..., `et`) resolve correctly under v3 — no source edit needed.
+
+3. **`Locale` type import** (`src/lib/dateUtils.ts:59`) — unchanged. The `Locale` interface is structurally identical between v2 and v3.
+
+4. **`Intl.DateTimeFormat` usage** (`src/lib/dateUtils.ts:168-193`) — unchanged. That helper is native `Intl`, not date-fns.
+
+### Verification
+
+`npm run build` — green. Tail of output:
+
+```
+├ ○ /roster                                      7.78 kB         293 kB
+├ ○ /roster/enrol                                5.63 kB         356 kB
+└ ○ /unauthorized                                1.05 kB         142 kB
++ First Load JS shared by all                     102 kB
+  ├ chunks/1255-13d973e0759ea6d6.js              45.8 kB
+  ├ chunks/4bd1b696-182b6b13bdad92e3.js          54.2 kB
+  └ other shared chunks (total)                  1.95 kB
+
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+```
+
+`npm run test:all` — `Tests: 82 passed, 82 total` (unit/integration, 7 suites) and `Tests: 20 passed, 20 total` (component, 5 suites). 102 total.
+
+`npm run lint` — exit code 0. Same self-warning on `eslint.config.mjs:12:1` as Phases 1/2/3 (the `next/core-web-vitals` preset's `import/no-anonymous-default-export`).
+
+### Commit
+
+```
+chore(deps): upgrade date-fns 2 → 3 and switch x-date-pickers to v3 adapter
+```
+
