@@ -26,7 +26,7 @@ Per user direction (2026-07-18), the plan was reworked to **one major version le
 | Phase | What | Status |
 |-------|------|--------|
 | 1 | Next 14 → 15 + ESLint 8 → 9 + `eslint-config-next` 14 → 15 | complete |
-| 2 | TypeScript 5.6 → 6 + `@types/node` 20 → 24 | pending |
+| 2 | TypeScript 5.6 → 6 + `@types/node` 20 → 24 | complete |
 | 3 | MUI 6 → 7; `@mui/x-charts` and `@mui/x-date-pickers` already at 7 | pending |
 | 4 | `date-fns` 2 → 3 + `@mui/x-date-pickers` adapter split | pending |
 | 5 | Cleanup — Dockerfile, compose, .env, .dockerignore, docs | pending |
@@ -172,4 +172,60 @@ WIP commit `b3ca16d` (next 15 + eslint 9 installed, route params made async) squ
 
 ```
 chore(deps): upgrade next 14 → 15, eslint 8 → 9 (flat config)
+```
+
+---
+
+## Phase 2 — TypeScript 5.6 → 6 + `@types/node` 20 → 24
+
+**Date:** 2026-07-18
+
+### Dependency upgrades
+
+| Package | From | To |
+|---------|------|----|
+| `typescript` | `^5.6.3` | `^6.0.3` |
+| `@types/node` | `^20.17.0` | `^24.13.3` |
+
+### Code changes (`tsconfig.json`)
+
+1. **`target`**: `es2017` → `es2022`. TS 6's recommended baseline; needed for `Array.prototype.at` and `Object.hasOwn` used elsewhere in the codebase.
+2. **`noUncheckedSideEffectImports: false`** added. TS 6 enables this flag by default under `strict`; it rejected `import "./globals.css"` at `src/app/layout.tsx:2` because the CSS file has no module declaration. Opted out (the same way the plan opted out of `noUncheckedIndexedAccess`): a separate quality-of-types improvement, not part of this upgrade.
+3. **`rootDir: "."`** added. TS 6 introduced **TS5011** ("The common source directory of 'tsconfig.json' is './tests'. The 'rootDir' setting must be explicitly set to this or another path to adjust your output's file layout.") — the implicit-rootDir detection saw `tests/` (a deeper subdir than the project sources under `src/`) and refused to compile. Setting `rootDir: "."` is the documented fix; see the `https://aka.ms/ts6` migration link in the error message.
+
+No application code changes were required. The plan's callouts (`src/lib/auth.ts:40` `Record<string, unknown>` cast, the `as Chicken`/`as Photo[]` double-`as` chains in `src/lib/{chickens,eggs,photos,notes,users}.ts`, and the 12 `recordset[0]` access sites in `src/lib/analytics.ts`) all type-check cleanly under TS 6 strict mode without intervention.
+
+### Verification
+
+`npm run build` — green. Tail of output:
+
+```
+├ ƒ /api/photos/[filename]                         172 B         102 kB
+├ ○ /auth/error                                   2.2 kB         142 kB
+├ ƒ /chickens/[id]                               16.3 kB         391 kB
+├ ○ /dashboard                                     461 B         102 kB
+├ ○ /dashboard/eggs                               4.8 kB         227 kB
+├ ○ /egg-history                                 4.11 kB         329 kB
+├ ○ /log-egg                                     5.81 kB         365 kB
+├ ○ /roster                                      7.66 kB         294 kB
+├ ○ /roster/enrol                                5.56 kB         362 kB
+└ ○ /unauthorized                                1.04 kB         141 kB
++ First Load JS shared by all                     102 kB
+  ├ chunks/1255-13d973e0759ea6d6.js              45.8 kB
+  ├ chunks/4bd1b696-182b6b13bdad92e3.js          54.2 kB
+  └ other shared chunks (total)                  1.95 kB
+```
+
+`npm run test:all` — `Tests: 82 passed, 82 total` (unit/integration, 7 suites) and `Tests: 20 passed, 20 total` (component, 5 suites). 102 total.
+
+`npm run lint` — exit code 0. Same self-warning on `eslint.config.mjs:12:1` as Phase 1.
+
+### Risks worth flagging
+
+- **Pre-existing peer-dep conflict on `@mui/system` / `@mui/utils` / `@mui/private-theming` / `@mui/styled-engine`** (all pinned at `^9.2.0` in `devDependencies`, but `@mui/x-charts@7.29.1` and `@mui/x-date-pickers@7.29.4` only allow `@mui/system@^5.15.14 || ^6.0.0 || ^7.0.0`). This was introduced in Phase 1 and was not caught there. `npm ls` reports `invalid` for those four packages. The actual transitive resolution — `@mui/system@6.5.0` from `@mui/material@6.5.0` — is what the runtime uses, and none of the four are referenced directly from project source, so the build is green. A future `npm install` without `--legacy-peer-deps` will fail with `ERESOLVE`. **Not in scope for this phase** — fixing it would be a Phase 1 follow-up.
+
+### Commit
+
+```
+chore(deps): upgrade typescript 5.6 → 6 and @types/node 20 → 24
 ```
