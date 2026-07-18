@@ -6,6 +6,7 @@ import { getPool } from "./db";
 import {
   ALLOWED_MIME_TYPES,
   MAX_FILE_SIZE_BYTES,
+  applyCrop,
   deleteImageFile,
   generateThumbnail,
   getNotesImageDirectory,
@@ -91,6 +92,7 @@ export type CreatePendingNoteImageInput = {
 
 export type AttachNoteImageInput = {
   cropped_file_path: string;
+  thumbnail_path?: string;
   crop_x_min: number;
   crop_y_min: number;
   crop_x_max: number;
@@ -209,7 +211,7 @@ export async function attachPendingNoteImageToNote(
   }
 
   const pool = await getPool();
-  await pool
+  const request = pool
     .request()
     .input("id", sql.Int, note_image_id)
     .input("note_id", sql.Int, note_id)
@@ -217,18 +219,28 @@ export async function attachPendingNoteImageToNote(
     .input("crop_x_min", sql.Decimal(5, 4), input.crop_x_min)
     .input("crop_y_min", sql.Decimal(5, 4), input.crop_y_min)
     .input("crop_x_max", sql.Decimal(5, 4), input.crop_x_max)
-    .input("crop_y_max", sql.Decimal(5, 4), input.crop_y_max)
-    .query(`
-      UPDATE note_images SET
-        note_id = @note_id,
-        file_path = @file_path,
-        crop_x_min = @crop_x_min,
-        crop_y_min = @crop_y_min,
-        crop_x_max = @crop_x_max,
-        crop_y_max = @crop_y_max,
-        status = 'succeeded'
-      WHERE id = @id
-    `);
+    .input("crop_y_max", sql.Decimal(5, 4), input.crop_y_max);
+
+  if (input.thumbnail_path !== undefined) {
+    request.input("thumbnail_path", sql.NVarChar(500), input.thumbnail_path);
+  }
+
+  const sets = [
+    "note_id = @note_id",
+    "file_path = @file_path",
+    "crop_x_min = @crop_x_min",
+    "crop_y_min = @crop_y_min",
+    "crop_x_max = @crop_x_max",
+    "crop_y_max = @crop_y_max",
+    "status = 'succeeded'",
+  ];
+  if (input.thumbnail_path !== undefined) {
+    sets.push("thumbnail_path = @thumbnail_path");
+  }
+
+  await request.query(
+    `UPDATE note_images SET ${sets.join(", ")} WHERE id = @id`
+  );
 
   if (existing.file_path && existing.file_path !== input.cropped_file_path) {
     await deleteImageFile(existing.file_path);
@@ -346,6 +358,106 @@ export async function sweepOrphanNoteImages(
     "note_id IS NULL AND created_at < @threshold",
     { threshold: { type: sql.DateTime2, value: threshold } }
   );
+}
+
+function extFromPath(imagePath: string): string {
+  const ext = imagePath.split(".").pop() ?? "";
+  return ext.toLowerCase() || "jpg";
+}
+
+export async function finalizeNoteImageForSave(
+  note_image_id: number,
+  note_id: number,
+  crop_override?: CropRegion | null
+): Promise<NoteImage | null> {
+  const existing = await getNoteImage(note_image_id);
+  if (!existing) return null;
+  if (existing.note_id !== null) {
+    throw new NoteImageNotPendingError(note_image_id);
+  }
+
+  const crop: CropRegion =
+    crop_override ??
+    (existing.crop_x_min != null &&
+    existing.crop_y_min != null &&
+    existing.crop_x_max != null &&
+    existing.crop_y_max != null
+      ? {
+          x_min: existing.crop_x_min,
+          y_min: existing.crop_y_min,
+          x_max: existing.crop_x_max,
+          y_max: existing.crop_y_max,
+        }
+      : { x_min: 0, y_min: 0, x_max: 1, y_max: 1 });
+
+  const ext = extFromPath(existing.file_path);
+  const persistedFilename = `${randomUUID()}.${ext}`;
+  const persistedFilePath = `notes/${persistedFilename}`;
+  const persistedThumbFilename = `${randomUUID()}_thumb.webp`;
+  const persistedThumbPath = `notes/${persistedThumbFilename}`;
+
+  const transientBaseName = existing.file_path
+    .split("/")
+    .pop()!
+    .replace(/\.[^.]+$/, "");
+  const transientThumbPath = `notes/_pending/${transientBaseName}_thumb.webp`;
+  await deleteImageFile(transientThumbPath);
+
+  await applyCrop(existing.file_path, persistedFilePath, crop, {
+    width: existing.original_width ?? 1,
+    height: existing.original_height ?? 1,
+  });
+
+  await generateThumbnail(persistedFilePath, persistedThumbPath);
+
+  return attachPendingNoteImageToNote(note_image_id, note_id, {
+    cropped_file_path: persistedFilePath,
+    thumbnail_path: persistedThumbPath,
+    crop_x_min: crop.x_min,
+    crop_y_min: crop.y_min,
+    crop_x_max: crop.x_max,
+    crop_y_max: crop.y_max,
+  });
+}
+
+export async function discardUnreferencedPendingImages(
+  chicken_id: number,
+  referenced_image_ids: number[]
+): Promise<number> {
+  const pending = await listPendingNoteImagesByChicken(chicken_id);
+  const refSet = new Set(referenced_image_ids);
+  let discarded = 0;
+  for (const img of pending) {
+    if (!refSet.has(img.id)) {
+      const ok = await discardNoteImage(img.id);
+      if (ok) discarded++;
+    }
+  }
+  return discarded;
+}
+
+export async function deleteNoteImageFilesForChicken(
+  chicken_id: number
+): Promise<number> {
+  const pool = await getPool();
+  const result = await pool
+    .request()
+    .input("chicken_id", sql.Int, chicken_id)
+    .query(
+      `SELECT file_path, thumbnail_path FROM note_images WHERE chicken_id = @chicken_id`
+    );
+
+  const paths: string[] = [];
+  for (const row of result.recordset) {
+    if (row.file_path) paths.push(row.file_path as string);
+    if (row.thumbnail_path) paths.push(row.thumbnail_path as string);
+  }
+
+  for (const p of paths) {
+    await deleteImageFile(p);
+  }
+
+  return paths.length;
 }
 
 type NoteImageParam = {

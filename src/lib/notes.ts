@@ -1,5 +1,6 @@
 import sql from "mssql";
 import { getPool } from "./db";
+import { deleteNoteImagesForNote } from "./note_images";
 
 export type Note = {
   id: number;
@@ -100,6 +101,7 @@ export async function updateNote(
 }
 
 export async function deleteNote(id: number): Promise<boolean> {
+  await deleteNoteImagesForNote(id);
   const pool = await getPool();
   const result = await pool
     .request()

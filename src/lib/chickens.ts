@@ -1,6 +1,7 @@
 import sql from "mssql";
 import { getPool } from "./db";
 import { getOrCreateValue } from "./dynamic-lists";
+import { deleteNoteImageFilesForChicken } from "./note_images";
 
 export type Sex = "Hen" | "Rooster" | "Unknown";
 
@@ -163,4 +164,22 @@ export async function updateChicken(id: number, input: UpdateChickenInput): Prom
   await request.query(`UPDATE chickens SET ${sets.join(", ")} WHERE id = @id`);
 
   return getChicken(id);
+}
+
+export async function deleteChicken(id: number): Promise<boolean> {
+  await deleteNoteImageFilesForChicken(id);
+  const pool = await getPool();
+  await pool.request().input("id", sql.Int, id)
+    .query("UPDATE chickens SET primary_photo_id = NULL WHERE id = @id AND primary_photo_id IS NOT NULL");
+  await pool.request().input("id", sql.Int, id)
+    .query("DELETE FROM photos WHERE chicken_id = @id");
+  await pool.request().input("id", sql.Int, id)
+    .query("DELETE FROM eggs WHERE chicken_id = @id");
+  await pool.request().input("id", sql.Int, id)
+    .query("DELETE FROM notes WHERE chicken_id = @id");
+  const result = await pool
+    .request()
+    .input("id", sql.Int, id)
+    .query("DELETE FROM chickens WHERE id = @id");
+  return result.rowsAffected[0]! > 0;
 }

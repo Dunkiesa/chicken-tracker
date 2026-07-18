@@ -3,8 +3,60 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getChicken } from "@/lib/chickens";
 import { createNote, listNotes } from "@/lib/notes";
+import {
+  finalizeNoteImageForSave,
+  discardUnreferencedPendingImages,
+  getNoteImage,
+  NoteImageNotPendingError,
+  type CropRegion,
+} from "@/lib/note_images";
 
 export const dynamic = "force-dynamic";
+
+export async function processNoteImages(
+  chickenId: number,
+  noteId: number,
+  userEmail: string,
+  isAdmin: boolean,
+  imageIds: unknown,
+  crops: unknown
+): Promise<NextResponse | null> {
+  const ids: number[] = Array.isArray(imageIds) ? imageIds : [];
+  const cropMap: Record<string, CropRegion> =
+    crops && typeof crops === "object" ? (crops as Record<string, CropRegion>) : {};
+
+  try {
+    for (const imageId of ids) {
+      const img = await getNoteImage(imageId);
+      if (!img || img.chicken_id !== chickenId) {
+        return NextResponse.json(
+          { message: `Image ${imageId} not found` },
+          { status: 404 }
+        );
+      }
+      if (!isAdmin && img.recorded_by !== userEmail) {
+        return NextResponse.json(
+          { message: "You can only attach your own images" },
+          { status: 403 }
+        );
+      }
+      const cropOverride = cropMap[String(imageId)] ?? null;
+      await finalizeNoteImageForSave(imageId, noteId, cropOverride);
+    }
+
+    await discardUnreferencedPendingImages(chickenId, ids);
+  } catch (err: unknown) {
+    if (err instanceof NoteImageNotPendingError) {
+      return NextResponse.json(
+        { message: err.message },
+        { status: 409 }
+      );
+    }
+    throw err;
+  }
+
+  return null;
+}
 
 export async function GET(
   _request: NextRequest,
@@ -59,7 +111,7 @@ export async function POST(
     }
 
     const body = await request.json();
-    const { content, date } = body;
+    const { content, date, imageIds, crops } = body;
 
     if (!content || typeof content !== "string" || content.trim().length === 0) {
       return NextResponse.json(
@@ -81,6 +133,16 @@ export async function POST(
       date,
       recorded_by: session.user.email,
     });
+
+    const imgError = await processNoteImages(
+      chickenId,
+      note.id,
+      session.user.email,
+      session.user.role === "Admin",
+      imageIds,
+      crops
+    );
+    if (imgError) return imgError;
 
     return NextResponse.json(note, { status: 201 });
   } catch (error: unknown) {

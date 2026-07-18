@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getNote, updateNote, deleteNote } from "@/lib/notes";
+import { processNoteImages } from "../route";
 
 export const dynamic = "force-dynamic";
 
@@ -66,7 +67,7 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const { content, date } = body;
+    const { content, date, imageIds, crops } = body;
     const updateInput: { content?: string; date?: string } = {};
 
     if (content !== undefined) updateInput.content = content;
@@ -76,6 +77,16 @@ export async function PUT(
     if (!updated) {
       return NextResponse.json({ message: "Not found" }, { status: 404 });
     }
+
+    const imgError = await processNoteImages(
+      note.chicken_id,
+      noteId,
+      session.user.email,
+      isAdmin,
+      imageIds,
+      crops
+    );
+    if (imgError) return imgError;
 
     return NextResponse.json(updated);
   } catch (error) {
