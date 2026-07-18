@@ -32,3 +32,4 @@ Unit tests (no DB, no real HTTP) cover: `loadAIConfig` missing file / valid file
 ## Blocked by
 
 - Issue 01 - Data foundation + storage helpers
+- Issue 01b - Data layer refinements (strict attach, row-first unlink, sweep index)

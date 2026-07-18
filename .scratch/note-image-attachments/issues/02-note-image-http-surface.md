@@ -28,3 +28,4 @@ Integration tests cover: upload with auth, size rejection, MIME rejection, magic
 ## Blocked by
 
 - Issue 01 - Data foundation + storage helpers
+- Issue 01b - Data layer refinements (strict attach, row-first unlink, sweep index)

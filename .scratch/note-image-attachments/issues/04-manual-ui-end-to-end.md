@@ -26,5 +26,6 @@ Component tests cover: the Add Note dialog accepts an image and shows it in the 
 ## Blocked by
 
 - Issue 01 - Data foundation + storage helpers
+- Issue 01b - Data layer refinements (strict attach, row-first unlink, sweep index)
 - Issue 02 - Note-image HTTP surface
 - Issue 03 - Note-save integration + cascading deletes

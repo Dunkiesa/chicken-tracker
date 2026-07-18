@@ -82,7 +82,7 @@ Allow notes to carry zero or more cropped note images (ADR 0006), with optional 
 **Cascading deletes**
 
 40. As a user, when I delete a note, all of its note images are deleted (DB rows plus the files on disk), so that I don't leave dangling files behind.
-41. As a user, when a chicken is deleted, all of its notes and note images are deleted (consistent with the existing photo behavior).
+41. As a user, when a chicken is deleted, all of its notes and note images are deleted (consistent with the existing photo behavior). **Note:** the chicken `DELETE` route does not exist prior to this feature; it is added in this slice. The route performs a hard delete (no soft-delete column on `chickens`); the SQL FK cascade removes the chicken's notes and their note images, and a pre-delete walk in the data layer unlinks every note-image file the chicken owns so the `images/` folder stays clean.
 
 **Image constraints**
 
@@ -100,23 +100,38 @@ Allow notes to carry zero or more cropped note images (ADR 0006), with optional 
 
 ### Database
 
-- A new `note_images` table mirrors the `photos` table's structure for the columns they share, plus columns specific to note images: nullable `note_id` (FK to `notes`, with cascade), `chicken_id` (FK to `chickens`, with cascade), the AI status enum (`pending` / `processing` / `succeeded` / `failed`), the AI's last-suggested text (kept for retry/repro), the AI error text (set on failure), the normalized 0–1 crop region (`crop_x_min`, `crop_y_min`, `crop_x_max`, `crop_y_max`, all nullable), and the original image dimensions (`original_width`, `original_height`) used to scale the crop.
-- A migration creates the table, indexes on `note_id`, `chicken_id`, and `(status, created_at)` for the orphan sweep, and foreign keys to `notes` and `chickens` with `ON DELETE CASCADE` (so deleting a note or a chicken cleans up note images).
+- A new `note_images` table mirrors the `photos` table's structure for the columns they share, plus columns specific to note images: nullable `note_id` (FK to `notes`, with cascade), `chicken_id` (FK to `chickens`, with cascade), the AI status enum (`pending` / `processing` / `succeeded` / `failed`), the AI's last-suggested text (kept for retry/repro), the AI error text (set on failure), the normalized 0–1 crop region (`crop_x_min`, `crop_y_min`, `crop_x_max`, `crop_y_max`, all nullable), the original image dimensions (`original_width`, `original_height`) used to scale the crop, and a nullable `thumbnail_path` for the persisted thumbnail (mirroring `photos.thumbnail_path`).
+- A migration creates the table, indexes on `note_id`, `chicken_id`, and `(note_id, created_at)` to serve the orphan sweep, and foreign keys to `notes` and `chickens` with `ON DELETE CASCADE` (so deleting a note or a chicken cleans up note images). The index chosen for the sweep matches the sweep's actual filter (`note_id IS NULL AND created_at < threshold`); a `(status, created_at)` index would not serve that query.
 - `note_id` is nullable so an image can exist transiently (uploaded but not yet attached to a saved note).
 - The orphan sweep deletes rows where `note_id IS NULL AND created_at < now() - interval 24 hour`, scheduled by a periodic job (cron-style invocation; the implementation detail of *how* it's scheduled is out of scope for the data layer).
 
 ### Data layer (`@/lib/note_images.ts`)
 
-- Mirrors the shape of `@/lib/notes.ts` and `@/lib/photos.ts`: typed CRUD functions, no knowledge of AI, no knowledge of HTTP. All file deletion happens here (via `fs.unlink` on the persisted and transient paths).
+- Mirrors the shape of `@/lib/notes.ts` and `@/lib/photos.ts`: typed CRUD functions, no knowledge of AI, no knowledge of HTTP. The data layer never calls `fs.unlink` directly — it delegates to `@/lib/image-storage.ts` (below) for every file operation. The data layer is the only caller of image-storage for note-image files; the API routes never touch the image-storage module directly for note images.
 - Functions exposed:
   - `createPendingNoteImage({ chicken_id, file_path, original_width, original_height, recorded_by })` — inserts a row with `note_id = NULL`, `status = 'pending'`. The transient file lives at `IMAGE_DIR/notes/_pending/{file_path}`; the persisted file path recorded in the row is also the transient path at this stage.
-  - `attachPendingNoteImageToNote(note_image_id, note_id, { cropped_file_path, crop_x_min, crop_y_min, crop_x_max, crop_y_max })` — called by the note-save API after it has applied the crop to disk; updates the row to set `note_id`, the persisted (cropped) `file_path`, the crop region, and `status = 'succeeded'` (the AI is done by the time the user hits Save).
+  - `attachPendingNoteImageToNote(note_image_id, note_id, { cropped_file_path, crop_x_min, crop_y_min, crop_x_max, crop_y_max })` — called by the note-save API after it has applied the crop to disk; updates the row to set `note_id`, the persisted (cropped) `file_path`, the crop region, and `status = 'succeeded'`. **Strict one-shot:** the function throws if the row is not currently in `pending` state (already attached, processing, succeeded, or failed) so a buggy code path that calls it twice is caught loudly rather than silently no-op'd.
   - `updateNoteImageStatus(note_image_id, status, { ai_suggestion?, ai_error? })` — moves the row through the AI lifecycle.
   - `getNoteImage(note_image_id)`, `listNoteImagesByNote(note_id)`, `listPendingNoteImagesByChicken(chicken_id)` — read paths.
   - `discardNoteImage(note_image_id)` — deletes the row and the file(s). Used on user cancel and on AI failure when the user removes the image.
-  - `deleteNoteImagesForNote(note_id)` — cascade delete used by the note-delete path.
+  - `deleteNoteImagesForNote(note_id)` — cascade delete used by the note-delete path. Uses `DELETE ... OUTPUT deleted.file_path, deleted.thumbnail_path` to capture paths in the same transaction that removes the rows, then unlinks the files.
   - `sweepOrphanNoteImages(olderThanHours = 24)` — periodic job.
-- The data layer does not call AI. It only reads/writes rows and deletes files.
+- The data layer does not call AI. It only reads/writes rows and (via image-storage) deletes files.
+- **File-deletion ordering** — every code path that removes a row and its file(s) deletes the row first, then unlinks the file(s). If the unlink fails (file missing, permission denied, ENOENT) the row is still gone and any orphan file is left for the next sweep. A crash mid-sequence cannot leave a row pointing at a deleted file because the file unlink happens last, after the row is committed.
+- **Idempotency** — every delete path (discard, delete-by-note, sweep) is tolerant of "file already gone" (ENOENT is swallowed) and "row already gone" (no rows affected → return 0 / false). This makes them safe to call twice from a retry or a batch endpoint.
+
+### Image-storage helper (`@/lib/image-storage.ts`)
+
+- Owns the sharp pipeline so the note-images slice and the existing photos slice share the same primitives. The data layer calls into this module; the API routes do not call it directly for note images.
+- Exports:
+  - `applyCrop(sourcePath, destinationPath, crop: CropRegion, originalDimensions: ImageDimensions)` — applies a normalized 0–1 crop region to a source file and writes the result. Clamps the region into `[0, 1]` and enforces a 1×1 minimum extract size.
+  - `generateThumbnail(sourcePath, destinationPath)` — resizes the source to the configured 300×300 cover-fit thumbnail and writes a `.webp` (quality 85).
+  - `validateImageMagicBytes(buffer: Buffer)` — returns `true` if the first 4 bytes match any of the allowlist headers (JPEG / PNG / GIF / WEBP / BMP).
+  - `readImageDimensions(sourcePath)` — returns `{ width, height }` for the source image.
+  - `deleteImageFile(relativePath)` — unlinks a file under `IMAGE_DIR`, swallowing `ENOENT`. Rejects paths that escape `IMAGE_DIR`.
+  - `ALLOWED_MIME_TYPES`, `MAX_FILE_SIZE_BYTES` — the same allowlist and 10 MB cap the photos route already uses.
+  - `resolveImagePath(relativePath)` — resolves a path under `IMAGE_DIR` and throws if it escapes the directory (path-traversal guard).
+- This module is the only place in the codebase that calls `sharp` for note-image work and the only place that calls `fs.unlink` for note-image files.
 
 ### AI module (`@/lib/ai/`)
 

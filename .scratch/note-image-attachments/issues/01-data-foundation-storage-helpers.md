@@ -1,4 +1,4 @@
-**Triage label:** `ready-for-agent`
+**Status:** Implemented in commit `77296a3`. Code-review feedback captured as a follow-up in ticket 01b (index fix, strict re-attach, row-first file deletion).
 
 ## What to build
 
