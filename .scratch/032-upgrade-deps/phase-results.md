@@ -1,8 +1,10 @@
 # Plan 032 â€” Phase Results
 
 Plan: `plans/032-major-deps-upgrade.md`
-Worktree: `C:\Users\dunca\Documents\code\Chicken-upgrade-deps`
-Branch: `improve/032-major-deps`
+Phases 1â€“5 worktree: `C:\Users\dunca\Documents\code\Chicken-upgrade-deps`
+Phases 1â€“5 branch: `improve/032-major-deps`
+Phase 6 worktree: `C:\Users\dunca\Documents\code\Chicken-loading-error`
+Phase 6 branch: `improve/032-loading-error`
 
 Track green-build evidence at the end of each phase. Paste the final 10 lines of `npm run build` and the `Tests: X passed` line from `npm run test:all`.
 
@@ -30,6 +32,8 @@ Per user direction (2026-07-18), the plan was reworked to **one major version le
 | 3 | MUI 6 â†’ 7; `@mui/x-charts` and `@mui/x-date-pickers` already at 7 | complete |
 | 4 | `date-fns` 2 â†’ 3 + `@mui/x-date-pickers` adapter split | complete |
 | 5 | Cleanup â€” Dockerfile, compose, .env, .dockerignore, docs | complete |
+| 6 | Per-route `loading.tsx` / `error.tsx` + root `not-found.tsx` / `global-error.tsx` | complete (2026-07-18) |
+| 7 | Enable `noUncheckedIndexedAccess` + sweep `recordset[0]` sites | pending |
 
 **Dropped (project is already at the rework's target version):**
 
@@ -459,3 +463,139 @@ Components dropped from the original plan (project was already at the rework's t
 
 Risks tracked in the plan ("Risks that may require a follow-up plan") are deferred to a separate planning round. None materialized during execution.
 
+
+---
+
+## Phase 6 — Per-route loading.tsx / error.tsx + root 
+ot-found.tsx / global-error.tsx
+
+**Date:** 2026-07-18
+**Branch:** improve/032-loading-error
+**Worktree:** C:\Users\dunca\Documents\code\Chicken-loading-error
+
+### Scope of changes
+
+20 new files + 0 modifications to existing source. No new dependencies.
+
+**Shared helpers (2 files, src/components/):**
+
+- RouteLoading.tsx — server component. Centered MUI CircularProgress + small Typography ("Loading…") in a Box with minHeight: 60vh. Carries ole="status" and ria-live="polite" for screen readers.
+- RouteError.tsx — "use client". Accepts the standard Next error: Error & { digest?: string } + eset: () => void props. Renders an MUI Alert severity="error" with a "Something went wrong" AlertTitle. In NODE_ENV !== "production" it shows the actual error.message; in production it shows a generic message and surfaces the error.digest as a small monospace reference. A "Try again" Button calls eset(). Logs the error to console.error in dev.
+
+**Root-level files (4 files, src/app/):**
+
+- 
+ot-found.tsx — server component. Centered Container with Typography h4 ("Page not found"), an explanatory line, and a Button component={Link} href="/" ("Go home"). Same visual treatment as the existing unauthorized/page.tsx and uth/error/page.tsx for consistency.
+- global-error.tsx — "use client". Last-resort boundary; **must** ship its own <html lang="en"><body>…</body></html> because it replaces the root layout. Self-contained inline styles (no MUI, no Providers, no theme — none of those are guaranteed to be on the page when this boundary fires). Renders a styled alert box + a "Try again" button.
+- loading.tsx — root fallback. One-liner that re-exports RouteLoading. Fires for any cold-start navigation the App Router has not yet rendered.
+- error.tsx — root boundary. "use client" wrapper that re-exports RouteError. Receives the same error/eset props from Next as per-route files; the shared helper accepts them as-is.
+
+**Per-route loading.tsx (8 files, one per page directory):**
+
+src/app/{admin,dashboard,dashboard/eggs,egg-history,log-egg,roster,roster/enrol,chickens/[id]}/loading.tsx — each is export { default } from "@/components/RouteLoading";. No "use client", so these stay server-rendered (a static spinner is the right shape for a fallback).
+
+**Per-route error.tsx (8 files, one per page directory):**
+
+src/app/{admin,dashboard,dashboard/eggs,egg-history,log-egg,roster,roster/enrol,chickens/[id]}/error.tsx — each is the three-line "use client" re-export of RouteError. The "use client" directive is required because RouteError is a client component.
+
+### Files added (20)
+
+| Path | Component |
+|------|-----------|
+| src/components/RouteLoading.tsx | shared helper (server) |
+| src/components/RouteError.tsx | shared helper (client) |
+| src/app/not-found.tsx | root 404 (server) |
+| src/app/global-error.tsx | root last-resort (client) |
+| src/app/loading.tsx | root spinner (server re-export) |
+| src/app/error.tsx | root boundary (client re-export) |
+| src/app/admin/loading.tsx | per-route |
+| src/app/admin/error.tsx | per-route |
+| src/app/dashboard/loading.tsx | per-route |
+| src/app/dashboard/error.tsx | per-route |
+| src/app/dashboard/eggs/loading.tsx | per-route |
+| src/app/dashboard/eggs/error.tsx | per-route |
+| src/app/egg-history/loading.tsx | per-route |
+| src/app/egg-history/error.tsx | per-route |
+| src/app/log-egg/loading.tsx | per-route |
+| src/app/log-egg/error.tsx | per-route |
+| src/app/roster/loading.tsx | per-route |
+| src/app/roster/error.tsx | per-route |
+| src/app/roster/enrol/loading.tsx | per-route |
+| src/app/roster/enrol/error.tsx | per-route |
+| src/app/chickens/[id]/loading.tsx | per-route |
+| src/app/chickens/[id]/error.tsx | per-route |
+
+(22 listed; the two shared helpers and the four root files = 6, the 8×2 per-route = 16. Total 22 new files. The "20" figure in the plan undercounts the root files; the helper files are part of the 6 in the root, not part of the per-route 16.)
+
+### Final verification
+
+
+pm install — no new packages, no peer-dep regressions.
+
+
+pm run build — green. All 12 page routes still present (? /, ? /admin, ? /auth/error, ? /dashboard, ? /dashboard/eggs, ? /egg-history, ? /log-egg, ? /roster, ? /roster/enrol, ? /unauthorized, ƒ /chickens/[id], ƒ /api/* x N). New entry in the route table: ? /_not-found  175 B  102 kB — Next enumerates the new 404 route. Tail of output:
+
+`
+Route (app)                                         Size  First Load JS
++ ? /                                            69.4 kB         390 kB
++ ? /_not-found                                    175 B         102 kB
++ ? /admin                                       11.6 kB         255 kB
++ ƒ /api/admin/users                               175 B         102 kB
++ ƒ /api/analytics                                 175 B         102 kB
++ ƒ /api/auth/[...nextauth]                        175 B         102 kB
++ ƒ /api/chickens                                  175 B         102 kB
++ ƒ /api/chickens/[id]                             175 B         102 kB
++ ƒ /api/chickens/[id]/notes                       175 B         102 kB
++ ƒ /api/chickens/[id]/notes/[noteId]              175 B         102 kB
++ ƒ /api/chickens/[id]/photos                      175 B         102 kB
++ ƒ /api/chickens/[id]/photos/[photoId]            175 B         102 kB
++ ƒ /api/chickens/[id]/photos/[photoId]/primary    175 B         102 kB
++ ƒ /api/dynamic-lists/[type]                      175 B         102 kB
++ ƒ /api/dynamic-lists/[type]/merge                175 B         102 kB
++ ƒ /api/eggs                                      175 B         102 kB
++ ƒ /api/eggs/[id]                                 175 B         102 kB
++ ƒ /api/health                                    175 B         102 kB
++ ƒ /api/photos/[filename]                         175 B         102 kB
++ ? /auth/error                                   2.2 kB         144 kB
++ ƒ /chickens/[id]                               16.4 kB         385 kB
++ ? /dashboard                                     487 B         103 kB
++ ? /dashboard/eggs                              4.87 kB         226 kB
++ ? /egg-history                                 4.19 kB         323 kB
++ ? /log-egg                                     5.88 kB         358 kB
++ ? /roster                                      7.79 kB         294 kB
++ ? /roster/enrol                                 6.8 kB         356 kB
++ ? /unauthorized                                1.05 kB         143 kB
++ First Load JS shared by all                     102 kB
+  + chunks/1255-13d973e0759ea6d6.js              45.8 kB
+  + chunks/4bd1b696-182b6b13bdad92e3.js          54.2 kB
+  + other shared chunks (total)                  1.95 kB
+`
+
+
+pm run test:all — Tests: 82 passed, 82 total (unit/integration, 7 suites) and Tests: 20 passed, 20 total (component, 5 suites). 102 total. No regressions. Component tests that use enderWithProviders (	ests/components/test-utils.tsx) do not exercise the new files (they render specific page components, not the App Router), so no test updates were required.
+
+
+pm run lint — exit code 0. 0 errors. Same 1 pre-existing warning on eslint.config.mjs:12:1 (the 
+ext/core-web-vitals preset's import/no-anonymous-default-export) as Phases 1–5; no new lint signals from the 22 new files.
+
+### Commit
+
+`
+feat(ux): add loading.tsx, error.tsx, and not-found.tsx for all routes
+`
+
+### STOP condition met
+
+- 
+pm run build — green
+- 
+pm run test:all — green (102 tests across 12 suites)
+- 
+pm run lint — green (0 errors)
+- 8 page directories each have loading.tsx + error.tsx
+- App root has 
+ot-found.tsx, global-error.tsx, loading.tsx, error.tsx
+- Route table enumerates /_not-found confirming the new 404 UI is wired
+- No source code outside the 22 new files was modified
+
+The improve/032-loading-error branch is ready for review and merge.
