@@ -4,6 +4,19 @@ import { deleteImageFile } from "./image-storage";
 
 export type NoteImageStatus = "pending" | "processing" | "succeeded" | "failed";
 
+export class NoteImageNotPendingError extends Error {
+  readonly code: string;
+  readonly note_image_id: number;
+  constructor(note_image_id: number) {
+    super(
+      `Note image ${note_image_id} is not pending (already attached to a note)`
+    );
+    this.name = "NoteImageNotPendingError";
+    this.code = "NOTE_IMAGE_NOT_PENDING";
+    this.note_image_id = note_image_id;
+  }
+}
+
 export type CropRegion = {
   x_min: number;
   y_min: number;
@@ -124,7 +137,9 @@ export async function attachPendingNoteImageToNote(
 ): Promise<NoteImage | null> {
   const existing = await getNoteImage(note_image_id);
   if (!existing) return null;
-  if (existing.note_id !== null) return existing;
+  if (existing.note_id !== null) {
+    throw new NoteImageNotPendingError(note_image_id);
+  }
 
   const pool = await getPool();
   await pool
@@ -217,54 +232,53 @@ export async function listPendingNoteImagesByChicken(
 }
 
 export async function discardNoteImage(note_image_id: number): Promise<boolean> {
-  const existing = await getNoteImage(note_image_id);
-  if (!existing) return false;
-
-  if (existing.file_path) {
-    await deleteImageFile(existing.file_path);
-  }
-  if (existing.thumbnail_path) {
-    await deleteImageFile(existing.thumbnail_path);
-  }
-
   const pool = await getPool();
-  const result = await pool
-    .request()
-    .input("id", sql.Int, note_image_id)
-    .query("DELETE FROM note_images WHERE id = @id");
-  return result.rowsAffected[0]! > 0;
+  const affected = await deleteNoteImageRowsAndUnlink(pool, "id = @id", {
+    id: { type: sql.Int, value: note_image_id },
+  });
+  return affected > 0;
 }
 
 export async function deleteNoteImagesForNote(note_id: number): Promise<number> {
   const pool = await getPool();
-  const images = await listNoteImagesByNote(note_id);
-  for (const img of images) {
-    if (img.file_path) {
-      await deleteImageFile(img.file_path);
-    }
-    if (img.thumbnail_path) {
-      await deleteImageFile(img.thumbnail_path);
-    }
-  }
-  const result = await pool
-    .request()
-    .input("note_id", sql.Int, note_id)
-    .query("DELETE FROM note_images WHERE note_id = @note_id");
-  return result.rowsAffected[0]!;
+  return deleteNoteImageRowsAndUnlink(pool, "note_id = @note_id", {
+    note_id: { type: sql.Int, value: note_id },
+  });
 }
 
 export async function sweepOrphanNoteImages(
   olderThanHours = 24
 ): Promise<number> {
   const pool = await getPool();
-  const candidates = await pool
-    .request()
-    .input("threshold", sql.DateTime2, new Date(Date.now() - olderThanHours * 60 * 60 * 1000))
-    .query(
-      `SELECT id, file_path, thumbnail_path FROM note_images WHERE note_id IS NULL AND created_at < @threshold`
-    );
+  const threshold = new Date(Date.now() - olderThanHours * 60 * 60 * 1000);
+  return deleteNoteImageRowsAndUnlink(
+    pool,
+    "note_id IS NULL AND created_at < @threshold",
+    { threshold: { type: sql.DateTime2, value: threshold } }
+  );
+}
 
-  for (const row of candidates.recordset) {
+type NoteImageParam = {
+  type: (() => sql.ISqlType) | sql.ISqlType;
+  value: unknown;
+};
+
+async function deleteNoteImageRowsAndUnlink(
+  pool: sql.ConnectionPool,
+  whereClause: string,
+  params: Record<string, NoteImageParam>
+): Promise<number> {
+  const request = pool.request();
+  for (const [name, { type, value }] of Object.entries(params)) {
+    request.input(name, type, value);
+  }
+  const result = await request.query(
+    `DELETE FROM note_images
+     OUTPUT deleted.file_path AS file_path, deleted.thumbnail_path AS thumbnail_path
+     WHERE ${whereClause}`
+  );
+
+  for (const row of result.recordset) {
     if (row.file_path) {
       await deleteImageFile(row.file_path as string);
     }
@@ -273,11 +287,5 @@ export async function sweepOrphanNoteImages(
     }
   }
 
-  const result = await pool
-    .request()
-    .input("threshold", sql.DateTime2, new Date(Date.now() - olderThanHours * 60 * 60 * 1000))
-    .query(
-      `DELETE FROM note_images WHERE note_id IS NULL AND created_at < @threshold`
-    );
   return result.rowsAffected[0]!;
 }

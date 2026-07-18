@@ -1,4 +1,4 @@
-import { ensureDatabase, runMigrations, closePool, getPool } from "@/lib/db";
+import { ensureDatabase, runMigrations, closePool, getPool, ensureMigrations } from "@/lib/db";
 import { createChicken, listChickens, type Chicken } from "@/lib/chickens";
 import { createNote, type Note } from "@/lib/notes";
 import {
@@ -11,6 +11,7 @@ import {
   discardNoteImage,
   deleteNoteImagesForNote,
   sweepOrphanNoteImages,
+  NoteImageNotPendingError,
   type NoteImage,
 } from "@/lib/note_images";
 import {
@@ -24,7 +25,7 @@ import {
   MAX_FILE_SIZE_BYTES,
 } from "@/lib/image-storage";
 import sharp from "sharp";
-import { writeFile, mkdir, rm, readFile, stat } from "fs/promises";
+import { writeFile, mkdir, rm, readFile, stat, unlink } from "fs/promises";
 import { join, resolve } from "path";
 import { randomUUID } from "crypto";
 
@@ -77,7 +78,7 @@ beforeAll(async () => {
   await mkdir(getNotesImageDirectory(), { recursive: true });
   await mkdir(join(getNotesImageDirectory(), "_pending"), { recursive: true });
   await ensureDatabase();
-  await runMigrations();
+  await ensureMigrations();
 }, 30000);
 
 beforeEach(async () => {
@@ -415,6 +416,177 @@ describe("Note images data layer", () => {
 
     expect(await fileExists(old.file_path)).toBe(false);
     expect(await fileExists(fresh.file_path)).toBe(true);
+  }, 15000);
+
+  it("attachPendingNoteImageToNote throws NoteImageNotPendingError on re-attach", async () => {
+    const hen = await ensureHen("NoteImage Reattach");
+    const note = await createNote({
+      chicken_id: hen.id,
+      content: "Re-attach attempt",
+      date: "2026-07-15",
+      recorded_by: RECORDED_BY,
+    });
+    const filename = await makeTestImage(30, 30, `reattach_${randomUUID()}.png`);
+
+    const img = await createPendingNoteImage({
+      chicken_id: hen.id,
+      file_path: filename,
+      original_width: 30,
+      original_height: 30,
+      recorded_by: RECORDED_BY,
+    });
+
+    const first = await attachPendingNoteImageToNote(img.id, note.id, {
+      cropped_file_path: `cropped_reattach_${randomUUID()}.png`,
+      crop_x_min: 0,
+      crop_y_min: 0,
+      crop_x_max: 1,
+      crop_y_max: 1,
+    });
+    expect(first!.note_id).toBe(note.id);
+
+    await expect(
+      attachPendingNoteImageToNote(img.id, note.id, {
+        cropped_file_path: `cropped_reattach2_${randomUUID()}.png`,
+        crop_x_min: 0,
+        crop_y_min: 0,
+        crop_x_max: 1,
+        crop_y_max: 1,
+      })
+    ).rejects.toBeInstanceOf(NoteImageNotPendingError);
+
+    await expect(
+      attachPendingNoteImageToNote(img.id, note.id, {
+        cropped_file_path: `cropped_reattach2_${randomUUID()}.png`,
+        crop_x_min: 0,
+        crop_y_min: 0,
+        crop_x_max: 1,
+        crop_y_max: 1,
+      })
+    ).rejects.toMatchObject({
+      name: "NoteImageNotPendingError",
+      code: "NOTE_IMAGE_NOT_PENDING",
+      note_image_id: img.id,
+    });
+
+    const still = await getNoteImage(img.id);
+    expect(still!.note_id).toBe(note.id);
+  }, 15000);
+
+  it("discardNoteImage leaves no orphan row when the file is already gone", async () => {
+    const hen = await ensureHen("NoteImage Discard Gone");
+    const filename = await makeTestImage(35, 35, `gone_${randomUUID()}.png`);
+    const img = await createPendingNoteImage({
+      chicken_id: hen.id,
+      file_path: filename,
+      original_width: 35,
+      original_height: 35,
+      recorded_by: RECORDED_BY,
+    });
+
+    expect(await fileExists(filename)).toBe(true);
+    await unlink(resolveImagePath(filename));
+    expect(await fileExists(filename)).toBe(false);
+
+    const ok = await discardNoteImage(img.id);
+    expect(ok).toBe(true);
+    expect(await getNoteImage(img.id)).toBeNull();
+  }, 15000);
+
+  it("deleteNoteImagesForNote tolerates a row whose file vanished before unlink", async () => {
+    const hen = await ensureHen("NoteImage DeleteByNote Vanished");
+    const note = await createNote({
+      chicken_id: hen.id,
+      content: "Some files missing",
+      date: "2026-07-16",
+      recorded_by: RECORDED_BY,
+    });
+
+    const a = await createPendingNoteImage({
+      chicken_id: hen.id,
+      file_path: await makeTestImage(45, 45, `vna_${randomUUID()}.png`),
+      original_width: 45,
+      original_height: 45,
+      recorded_by: RECORDED_BY,
+    });
+    const b = await createPendingNoteImage({
+      chicken_id: hen.id,
+      file_path: await makeTestImage(45, 45, `vnb_${randomUUID()}.png`),
+      original_width: 45,
+      original_height: 45,
+      recorded_by: RECORDED_BY,
+    });
+    const croppedA = `cropped_vna_${randomUUID()}.png`;
+    const croppedB = `cropped_vnb_${randomUUID()}.png`;
+    await writeFile(resolveImagePath(croppedA), Buffer.from("dummy-cropped-A"));
+    await writeFile(resolveImagePath(croppedB), Buffer.from("dummy-cropped-B"));
+    await attachPendingNoteImageToNote(a.id, note.id, {
+      cropped_file_path: croppedA,
+      crop_x_min: 0,
+      crop_y_min: 0,
+      crop_x_max: 1,
+      crop_y_max: 1,
+    });
+    await attachPendingNoteImageToNote(b.id, note.id, {
+      cropped_file_path: croppedB,
+      crop_x_min: 0,
+      crop_y_min: 0,
+      crop_x_max: 1,
+      crop_y_max: 1,
+    });
+
+    expect(await fileExists(croppedA)).toBe(true);
+    expect(await fileExists(croppedB)).toBe(true);
+    await unlink(resolveImagePath(croppedA));
+    expect(await fileExists(croppedA)).toBe(false);
+
+    const removed = await deleteNoteImagesForNote(note.id);
+    expect(removed).toBe(2);
+
+    const remaining = await listNoteImagesByNote(note.id);
+    expect(remaining.length).toBe(0);
+
+    expect(await fileExists(croppedB)).toBe(false);
+  }, 15000);
+
+  it("the orphan-sweep index is on (note_id, created_at) and the old (status, created_at) index is gone", async () => {
+    const pool = await getPool();
+
+    const getNoteImageIndexes = async (): Promise<Map<string, string[]>> => {
+      const result = await pool.request().query(`
+        SELECT i.name AS index_name, c.name AS column_name, ic.key_ordinal
+        FROM sys.indexes i
+        JOIN sys.index_columns ic ON i.object_id = ic.object_id AND i.index_id = ic.index_id
+        JOIN sys.columns c ON ic.object_id = c.object_id AND ic.column_id = c.column_id
+        WHERE i.object_id = OBJECT_ID('note_images')
+          AND i.is_primary_key = 0
+        ORDER BY i.name, ic.key_ordinal
+      `);
+      const byName = new Map<string, string[]>();
+      for (const row of result.recordset) {
+        const list = byName.get(row.index_name) ?? [];
+        list.push(row.column_name);
+        byName.set(row.index_name, list);
+      }
+      return byName;
+    };
+
+    const before = await getNoteImageIndexes();
+    expect(before.get("IX_note_images_note_id_created_at")).toEqual([
+      "note_id",
+      "created_at",
+    ]);
+    expect(before.has("IX_note_images_status_created_at")).toBe(false);
+
+    await runMigrations();
+    await runMigrations();
+
+    const after = await getNoteImageIndexes();
+    expect(after.get("IX_note_images_note_id_created_at")).toEqual([
+      "note_id",
+      "created_at",
+    ]);
+    expect(after.has("IX_note_images_status_created_at")).toBe(false);
   }, 15000);
 });
 

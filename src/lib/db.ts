@@ -283,8 +283,13 @@ export async function runMigrations(): Promise<void> {
   `);
 
   await p.request().query(`
-    IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_note_images_status_created_at' AND object_id = OBJECT_ID('note_images'))
-      CREATE INDEX IX_note_images_status_created_at ON note_images(status, created_at)
+    IF EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_note_images_status_created_at' AND object_id = OBJECT_ID('note_images'))
+      DROP INDEX IX_note_images_status_created_at ON note_images
+  `);
+
+  await p.request().query(`
+    IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_note_images_note_id_created_at' AND object_id = OBJECT_ID('note_images'))
+      CREATE INDEX IX_note_images_note_id_created_at ON note_images(note_id, created_at)
   `);
 
   const seedEmail = process.env.SEED_ADMIN_EMAIL;
