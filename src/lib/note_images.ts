@@ -532,8 +532,9 @@ export async function createPendingNoteImageFromUpload(
 
   const ext = extFromFilename(input.original_filename);
   const filename = `${randomUUID()}.${ext}`;
+  const relativeFilePath = `notes/${PENDING_SUBDIR}/${filename}`;
+  const absoluteFilePath = resolveImagePath(relativeFilePath);
   const pendingDir = getPendingImageDirectory();
-  const absoluteFilePath = join(pendingDir, filename);
 
   await mkdir(getNotesImageDirectory(), { recursive: true });
   await mkdir(pendingDir, { recursive: true });
@@ -541,14 +542,15 @@ export async function createPendingNoteImageFromUpload(
 
   const baseName = filename.replace(/\.[^.]+$/, "");
   const thumbnailFilename = `${baseName}_thumb.webp`;
-  const absoluteThumbnailPath = join(pendingDir, thumbnailFilename);
-  await generateThumbnail(absoluteFilePath, absoluteThumbnailPath);
+  const relativeThumbnailPath = `notes/${PENDING_SUBDIR}/${thumbnailFilename}`;
+  const absoluteThumbnailPath = resolveImagePath(relativeThumbnailPath);
+  await generateThumbnail(relativeFilePath, relativeThumbnailPath);
 
-  const dims = await readImageDimensions(absoluteFilePath);
+  const dims = await readImageDimensions(relativeFilePath);
 
   return createPendingNoteImage({
     chicken_id: input.chicken_id,
-    file_path: `notes/${PENDING_SUBDIR}/${filename}`,
+    file_path: relativeFilePath,
     original_width: dims.width,
     original_height: dims.height,
     recorded_by: input.recorded_by,
