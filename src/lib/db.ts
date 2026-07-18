@@ -234,6 +234,59 @@ export async function runMigrations(): Promise<void> {
       ALTER TABLE photos ADD thumbnail_path NVARCHAR(500) NULL
   `);
 
+  // -- Note images table (ADR 0006) --
+  await p.request().query(`
+    IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'note_images')
+    CREATE TABLE note_images (
+      id INT IDENTITY(1,1) PRIMARY KEY,
+      note_id INT NULL,
+      chicken_id INT NOT NULL,
+      file_path NVARCHAR(500) NOT NULL,
+      thumbnail_path NVARCHAR(500) NULL,
+      original_width INT NULL,
+      original_height INT NULL,
+      crop_x_min DECIMAL(5,4) NULL,
+      crop_y_min DECIMAL(5,4) NULL,
+      crop_x_max DECIMAL(5,4) NULL,
+      crop_y_max DECIMAL(5,4) NULL,
+      status NVARCHAR(50) NOT NULL DEFAULT 'pending',
+      ai_suggestion NVARCHAR(MAX) NULL,
+      ai_error NVARCHAR(MAX) NULL,
+      recorded_by NVARCHAR(255) NOT NULL,
+      created_at DATETIME2 DEFAULT GETDATE()
+    )
+  `);
+
+  await p.request().query(`
+    IF NOT EXISTS (SELECT * FROM sys.foreign_keys WHERE name = 'FK_note_images_notes')
+      EXEC('ALTER TABLE dbo.note_images ADD CONSTRAINT FK_note_images_notes FOREIGN KEY (note_id) REFERENCES dbo.notes(id) ON DELETE CASCADE')
+  `);
+
+  await p.request().query(`
+    IF NOT EXISTS (SELECT * FROM sys.foreign_keys WHERE name = 'FK_note_images_chickens')
+      EXEC('ALTER TABLE dbo.note_images ADD CONSTRAINT FK_note_images_chickens FOREIGN KEY (chicken_id) REFERENCES dbo.chickens(id) ON DELETE CASCADE')
+  `);
+
+  await p.request().query(`
+    IF NOT EXISTS (SELECT * FROM sys.check_constraints WHERE name = 'CK_note_images_status' AND parent_object_id = OBJECT_ID('note_images'))
+      EXEC('ALTER TABLE dbo.note_images ADD CONSTRAINT CK_note_images_status CHECK (status IN (''pending'', ''processing'', ''succeeded'', ''failed''))')
+  `);
+
+  await p.request().query(`
+    IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_note_images_note_id' AND object_id = OBJECT_ID('note_images'))
+      CREATE INDEX IX_note_images_note_id ON note_images(note_id)
+  `);
+
+  await p.request().query(`
+    IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_note_images_chicken_id' AND object_id = OBJECT_ID('note_images'))
+      CREATE INDEX IX_note_images_chicken_id ON note_images(chicken_id)
+  `);
+
+  await p.request().query(`
+    IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_note_images_status_created_at' AND object_id = OBJECT_ID('note_images'))
+      CREATE INDEX IX_note_images_status_created_at ON note_images(status, created_at)
+  `);
+
   const seedEmail = process.env.SEED_ADMIN_EMAIL;
   if (seedEmail) {
     const countResult = await p
