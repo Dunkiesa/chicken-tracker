@@ -8,6 +8,7 @@ import {
   listNoteImagesByNote,
   listPendingNoteImagesByChicken,
 } from "@/lib/note_images";
+import { processNoteImage } from "@/lib/ai";
 
 export const dynamic = "force-dynamic";
 
@@ -50,6 +51,8 @@ export async function POST(
       mime_type: blob.type,
       recorded_by: session.user.email,
     });
+
+    processNoteImage(row.id, session.user.email).catch(() => {});
 
     return NextResponse.json(row, { status: 201 });
   } catch (error) {

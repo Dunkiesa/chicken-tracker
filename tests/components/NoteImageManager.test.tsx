@@ -92,7 +92,7 @@ describe("NoteImageManager", () => {
 
     await waitFor(() => {
       expect(onChange).toHaveBeenCalledWith([
-        { id: 42, file_path: "notes/abc.jpg", crop: null },
+        { id: 42, file_path: "notes/abc.jpg", crop: null, status: "pending" },
       ]);
     });
   });
@@ -153,8 +153,8 @@ describe("NoteImageManager", () => {
   it("removes an image from the list when Remove is clicked", () => {
     const onChange = jest.fn();
     const images: NoteImageEntry[] = [
-      { id: 1, file_path: "a.jpg", crop: null },
-      { id: 2, file_path: "b.jpg", crop: null },
+      { id: 1, file_path: "a.jpg", crop: null, status: "pending" },
+      { id: 2, file_path: "b.jpg", crop: null, status: "pending" },
     ];
 
     renderWithProviders(
@@ -166,14 +166,14 @@ describe("NoteImageManager", () => {
     fireEvent.click(removeButtons[0]!);
 
     expect(onChange).toHaveBeenCalledWith([
-      { id: 2, file_path: "b.jpg", crop: null },
+      { id: 2, file_path: "b.jpg", crop: null, status: "pending" },
     ]);
   });
 
   it("opens the crop dialog when the crop button is clicked", () => {
     const onChange = jest.fn();
     const images: NoteImageEntry[] = [
-      { id: 1, file_path: "a.jpg", crop: null },
+      { id: 1, file_path: "a.jpg", crop: null, status: "pending" },
     ];
 
     renderWithProviders(
@@ -191,7 +191,7 @@ describe("NoteImageManager", () => {
   it("updates the crop for an image when the crop dialog confirms", () => {
     const onChange = jest.fn();
     const images: NoteImageEntry[] = [
-      { id: 1, file_path: "a.jpg", crop: null },
+      { id: 1, file_path: "a.jpg", crop: null, status: "pending" },
     ];
 
     renderWithProviders(
@@ -206,6 +206,7 @@ describe("NoteImageManager", () => {
         id: 1,
         file_path: "a.jpg",
         crop: { x_min: 10, y_min: 20, x_max: 110, y_max: 120 },
+        status: "pending",
       },
     ]);
   });
@@ -213,8 +214,8 @@ describe("NoteImageManager", () => {
   it("shows images already provided in the images prop", () => {
     const onChange = jest.fn();
     const images: NoteImageEntry[] = [
-      { id: 1, file_path: "a.jpg", crop: null },
-      { id: 2, file_path: "b.jpg", crop: { x_min: 0, y_min: 0, x_max: 50, y_max: 50 } },
+      { id: 1, file_path: "a.jpg", crop: null, status: "pending" },
+      { id: 2, file_path: "b.jpg", crop: { x_min: 0, y_min: 0, x_max: 50, y_max: 50 }, status: "succeeded" },
     ];
 
     renderWithProviders(
@@ -223,5 +224,69 @@ describe("NoteImageManager", () => {
 
     const imgs = screen.getAllByRole("img");
     expect(imgs).toHaveLength(2);
+  });
+
+  it("renders status badges matching each image's status", () => {
+    const onChange = jest.fn();
+    const images: NoteImageEntry[] = [
+      { id: 1, file_path: "a.jpg", crop: null, status: "pending" },
+      { id: 2, file_path: "b.jpg", crop: null, status: "processing" },
+      { id: 3, file_path: "c.jpg", crop: null, status: "succeeded" },
+      { id: 4, file_path: "d.jpg", crop: null, status: "failed" },
+    ];
+
+    renderWithProviders(
+      <NoteImageManager chickenId={1} images={images} onChange={onChange} />
+    );
+
+    expect(screen.getByTestId("status-badge-1")).toHaveTextContent("Pending");
+    expect(screen.getByTestId("status-badge-2")).toHaveTextContent("Processing");
+    expect(screen.getByTestId("status-badge-3")).toHaveTextContent("AI suggested");
+    expect(screen.getByTestId("status-badge-4")).toHaveTextContent("Failed");
+  });
+
+  it("shows a Retry button for failed images and calls PATCH on click", async () => {
+    const onChange = jest.fn();
+    const images: NoteImageEntry[] = [
+      { id: 10, file_path: "fail.jpg", crop: null, status: "failed", ai_error: "AI broke" },
+    ];
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ id: 10, status: "pending", ai_error: null }),
+    });
+
+    renderWithProviders(
+      <NoteImageManager chickenId={1} images={images} onChange={onChange} />
+    );
+
+    const retryBtn = screen.getByRole("button", { name: /retry ai/i });
+    expect(retryBtn).toBeInTheDocument();
+
+    fireEvent.click(retryBtn);
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/chickens/1/notes/images/10",
+        expect.objectContaining({
+          method: "PATCH",
+          body: JSON.stringify({ action: "retry" }),
+        })
+      );
+    });
+  });
+
+  it("does not show a Retry button for non-failed images", () => {
+    const onChange = jest.fn();
+    const images: NoteImageEntry[] = [
+      { id: 1, file_path: "a.jpg", crop: null, status: "processing" },
+      { id: 2, file_path: "b.jpg", crop: null, status: "succeeded" },
+      { id: 3, file_path: "c.jpg", crop: null, status: "pending" },
+    ];
+
+    renderWithProviders(
+      <NoteImageManager chickenId={1} images={images} onChange={onChange} />
+    );
+
+    expect(screen.queryByRole("button", { name: /retry ai/i })).not.toBeInTheDocument();
   });
 });

@@ -31,3 +31,26 @@ Object.defineProperty(window, "matchMedia", {
     dispatchEvent: jest.fn(),
   })),
 });
+
+class MockEventSource {
+  static instances: MockEventSource[] = [];
+  url: string;
+  onopen: ((ev: Event) => void) | null = null;
+  onmessage: ((ev: MessageEvent) => void) | null = null;
+  onerror: ((ev: Event) => void) | null = null;
+  readyState: number = 0;
+  close = jest.fn();
+  addEventListener = jest.fn();
+  removeEventListener = jest.fn();
+  dispatchEvent = jest.fn();
+
+  constructor(url: string | URL) {
+    this.url = url.toString();
+    MockEventSource.instances.push(this);
+  }
+}
+
+Object.defineProperty(window, "EventSource", {
+  writable: true,
+  value: MockEventSource,
+});

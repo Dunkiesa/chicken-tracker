@@ -1,5 +1,6 @@
 export type StatusEventPayload = {
   imageId: number;
+  chickenId: number;
   status: "processing" | "succeeded" | "failed" | "skipped";
   text?: string;
   bbox?: [number, number, number, number] | null;

@@ -15,11 +15,13 @@ describe("pubsub", () => {
 
     emitStatusEvent("user@test.com", {
       imageId: 1,
+      chickenId: 1,
       status: "processing",
     });
 
     expect(callback).toHaveBeenCalledWith({
       imageId: 1,
+      chickenId: 1,
       status: "processing",
     });
   });
@@ -30,6 +32,7 @@ describe("pubsub", () => {
 
     emitStatusEvent("user2@test.com", {
       imageId: 1,
+      chickenId: 1,
       status: "processing",
     });
 
@@ -44,6 +47,7 @@ describe("pubsub", () => {
 
     emitStatusEvent("user@test.com", {
       imageId: 1,
+      chickenId: 1,
       status: "succeeded",
       text: "hello",
       bbox: [0.1, 0.2, 0.8, 0.9],
@@ -57,18 +61,18 @@ describe("pubsub", () => {
     const callback = jest.fn();
     const unsub = subscribeToStatusEvents("user@test.com", callback);
 
-    emitStatusEvent("user@test.com", { imageId: 1, status: "processing" });
+    emitStatusEvent("user@test.com", { imageId: 1, chickenId: 1, status: "processing" });
     expect(callback).toHaveBeenCalledTimes(1);
 
     unsub();
 
-    emitStatusEvent("user@test.com", { imageId: 2, status: "succeeded" });
+    emitStatusEvent("user@test.com", { imageId: 2, chickenId: 1, status: "succeeded" });
     expect(callback).toHaveBeenCalledTimes(1);
   });
 
   it("does nothing when emitting to user with no subscribers", () => {
     expect(() => {
-      emitStatusEvent("nobody@test.com", { imageId: 1, status: "failed" });
+      emitStatusEvent("nobody@test.com", { imageId: 1, chickenId: 1, status: "failed" });
     }).not.toThrow();
   });
 
@@ -81,7 +85,7 @@ describe("pubsub", () => {
     subscribeToStatusEvents("user@test.com", goodCb);
 
     expect(() => {
-      emitStatusEvent("user@test.com", { imageId: 1, status: "processing" });
+      emitStatusEvent("user@test.com", { imageId: 1, chickenId: 1, status: "processing" });
     }).not.toThrow();
 
     expect(badCb).toHaveBeenCalledTimes(1);

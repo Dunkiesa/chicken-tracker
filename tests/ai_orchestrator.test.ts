@@ -105,6 +105,7 @@ describe("processNoteImage", () => {
     });
     expect(mockEmit).toHaveBeenCalledWith("user@test.com", {
       imageId: 1,
+      chickenId: 1,
       status: "skipped",
     });
     expect(mockCallProvider).not.toHaveBeenCalled();
@@ -123,6 +124,7 @@ describe("processNoteImage", () => {
 
     expect(mockEmit).toHaveBeenCalledWith("user@test.com", {
       imageId: 1,
+      chickenId: 1,
       status: "processing",
     });
     expect(mockUpdateStatus).toHaveBeenCalledWith(1, "processing");
@@ -138,6 +140,7 @@ describe("processNoteImage", () => {
     });
     expect(mockEmit).toHaveBeenCalledWith("user@test.com", {
       imageId: 1,
+      chickenId: 1,
       status: "succeeded",
       text: "hello",
       bbox: null,
@@ -165,6 +168,7 @@ describe("processNoteImage", () => {
     });
     expect(mockEmit).toHaveBeenCalledWith("user@test.com", {
       imageId: 1,
+      chickenId: 1,
       status: "succeeded",
       text: "retry",
       bbox: null,
@@ -187,6 +191,7 @@ describe("processNoteImage", () => {
     });
     expect(mockEmit).toHaveBeenCalledWith("user@test.com", {
       imageId: 1,
+      chickenId: 1,
       status: "failed",
       error: "provider down",
     });

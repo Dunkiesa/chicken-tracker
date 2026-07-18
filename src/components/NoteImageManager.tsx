@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import {
   Box,
   Button,
@@ -8,12 +8,15 @@ import {
   Alert,
   IconButton,
   CircularProgress,
+  Chip,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
 import CropIcon from "@mui/icons-material/Crop";
 import CheckIcon from "@mui/icons-material/Check";
+import RefreshIcon from "@mui/icons-material/Refresh";
 import CropDialog from "@/components/CropDialog";
+import { useNoteImageSSE } from "@/hooks/useNoteImageSSE";
 import type { Area } from "react-easy-crop";
 
 export type CropRegion = {
@@ -27,6 +30,9 @@ export type NoteImageEntry = {
   id: number;
   file_path: string;
   crop: CropRegion | null;
+  status: "pending" | "processing" | "succeeded" | "failed" | "skipped";
+  ai_suggestion?: string | null;
+  ai_error?: string | null;
 };
 
 type NoteImageManagerProps = {
@@ -34,6 +40,7 @@ type NoteImageManagerProps = {
   images: NoteImageEntry[];
   onChange: (images: NoteImageEntry[]) => void;
   disabled?: boolean;
+  onAISuggestion?: (imageId: number, text: string, bbox: [number, number, number, number] | null) => void;
 };
 
 function areaToCropRegion(area: Area): CropRegion {
@@ -57,16 +64,71 @@ const overlayIconButtonSx = {
   "&:hover": { bgcolor: "rgba(0,0,0,0.7)" },
 } as const;
 
+const statusBadgeConfig: Record<string, { label: string; color: "warning" | "info" | "success" | "error" | "default" }> = {
+  pending: { label: "Pending", color: "default" },
+  processing: { label: "Processing...", color: "info" },
+  succeeded: { label: "AI suggested", color: "success" },
+  failed: { label: "Failed", color: "error" },
+  skipped: { label: "Ready", color: "default" },
+};
+
 export default function NoteImageManager({
   chickenId,
   images,
   onChange,
   disabled,
+  onAISuggestion,
 }: NoteImageManagerProps) {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [cropImage, setCropImage] = useState<NoteImageEntry | null>(null);
   const fileInputKeyRef = useRef(0);
+  const prevStatusesRef = useRef<Record<number, { status: string; text?: string }>>({});
+
+  const trackedIds = useMemo(() => images.map((i) => i.id), [images]);
+  const { statuses, retryImage } = useNoteImageSSE(chickenId, trackedIds);
+
+  const onAISuggestionRef = useRef(onAISuggestion);
+  onAISuggestionRef.current = onAISuggestion;
+
+  useEffect(() => {
+    const prev = prevStatusesRef.current;
+    let changed = false;
+    const next = { ...prev };
+
+    const updatedImages = images.map((img) => {
+      const sse = statuses[img.id];
+      if (!sse) return img;
+
+      const prevEntry = prev[img.id];
+      if (prevEntry && prevEntry.status === sse.status) return img;
+
+      changed = true;
+      next[img.id] = { status: sse.status, text: sse.text };
+
+      return {
+        ...img,
+        status: sse.status,
+        ai_suggestion: sse.text ?? img.ai_suggestion,
+        ai_error: sse.error ?? img.ai_error,
+      };
+    });
+
+    if (changed) {
+      onChange(updatedImages);
+      for (const img of updatedImages) {
+        const sse = statuses[img.id];
+        if (sse && sse.status === "succeeded" && sse.text) {
+          const prevEntry = prev[img.id];
+          if (!prevEntry || prevEntry.status !== "succeeded") {
+            onAISuggestionRef.current?.(img.id, sse.text, sse.bbox ?? null);
+          }
+        }
+      }
+    }
+
+    prevStatusesRef.current = next;
+  }, [statuses, images, onChange]);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -89,7 +151,7 @@ export default function NoteImageManager({
       const image = await res.json();
       onChange([
         ...images,
-        { id: image.id, file_path: image.file_path, crop: null },
+        { id: image.id, file_path: image.file_path, crop: null, status: "pending" as const },
       ]);
     } catch (err) {
       setUploadError(
@@ -117,6 +179,10 @@ export default function NoteImageManager({
   const handleCropCancel = () => {
     setCropImage(null);
   };
+
+  const handleRetry = useCallback(async (imageId: number) => {
+    await retryImage(imageId);
+  }, [retryImage]);
 
   return (
     <>
@@ -147,67 +213,95 @@ export default function NoteImageManager({
 
         {images.length > 0 && (
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-            {images.map((image) => (
-              <Box
-                key={image.id}
-                sx={{ position: "relative", width: 80, height: 80 }}
-              >
+            {images.map((image) => {
+              const badge = statusBadgeConfig[image.status] ?? statusBadgeConfig["pending"]!;
+              return (
                 <Box
-                  component="img"
-                  src={noteImageUrl(image.file_path)}
-                  alt={`Note image ${image.id}`}
-                  sx={{
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "cover",
-                    borderRadius: 1,
-                    border: 1,
-                    borderColor: "divider",
-                  }}
-                />
-                {image.crop && (
+                  key={image.id}
+                  sx={{ position: "relative", width: 80, height: 80 }}
+                >
                   <Box
+                    component="img"
+                    src={noteImageUrl(image.file_path)}
+                    alt={`Note image ${image.id}`}
+                    sx={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      borderRadius: 1,
+                      border: 1,
+                      borderColor: image.status === "failed" ? "error.main" : "divider",
+                    }}
+                  />
+                  <Chip
+                    label={badge.label}
+                    size="small"
+                    color={badge.color}
+                    data-testid={`status-badge-${image.id}`}
                     sx={{
                       position: "absolute",
-                      top: 2,
-                      left: 2,
-                      bgcolor: "success.main",
-                      color: "success.contrastText",
-                      borderRadius: "50%",
-                      width: 18,
+                      bottom: -8,
+                      left: "50%",
+                      transform: "translateX(-50%)",
                       height: 18,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
+                      fontSize: "0.6rem",
+                      zIndex: 1,
                     }}
+                  />
+                  {image.crop && (
+                    <Box
+                      sx={{
+                        position: "absolute",
+                        top: 2,
+                        left: 2,
+                        bgcolor: "success.main",
+                        color: "success.contrastText",
+                        borderRadius: "50%",
+                        width: 18,
+                        height: 18,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <CheckIcon sx={{ fontSize: 12 }} />
+                    </Box>
+                  )}
+                  <Stack
+                    direction="row"
+                    spacing={0.5}
+                    sx={{ position: "absolute", bottom: 14, right: 2 }}
                   >
-                    <CheckIcon sx={{ fontSize: 12 }} />
-                  </Box>
-                )}
-                <Stack
-                  direction="row"
-                  spacing={0.5}
-                  sx={{ position: "absolute", bottom: 2, right: 2 }}
-                >
-                  <IconButton
-                    size="small"
-                    onClick={() => setCropImage(image)}
-                    aria-label="Crop image"
-                    sx={overlayIconButtonSx}
-                  >
-                    <CropIcon sx={{ fontSize: 16 }} />
-                  </IconButton>
-                  <IconButton
-                    size="small"
-                    onClick={() => handleRemove(image.id)}
-                    aria-label="Remove image"
-                    sx={overlayIconButtonSx}
-                  >
-                    <DeleteIcon sx={{ fontSize: 16 }} />
-                  </IconButton>
-                </Stack>
-              </Box>
-            ))}
+                    {image.status === "failed" && (
+                      <IconButton
+                        size="small"
+                        onClick={() => handleRetry(image.id)}
+                        aria-label="Retry AI"
+                        sx={overlayIconButtonSx}
+                      >
+                        <RefreshIcon sx={{ fontSize: 16 }} />
+                      </IconButton>
+                    )}
+                    <IconButton
+                      size="small"
+                      onClick={() => setCropImage(image)}
+                      aria-label="Crop image"
+                      sx={overlayIconButtonSx}
+                    >
+                      <CropIcon sx={{ fontSize: 16 }} />
+                    </IconButton>
+                    <IconButton
+                      size="small"
+                      onClick={() => handleRemove(image.id)}
+                      aria-label="Remove image"
+                      sx={overlayIconButtonSx}
+                    >
+                      <DeleteIcon sx={{ fontSize: 16 }} />
+                    </IconButton>
+                  </Stack>
+                </Box>
+              );
+            })}
           </Stack>
         )}
       </Stack>

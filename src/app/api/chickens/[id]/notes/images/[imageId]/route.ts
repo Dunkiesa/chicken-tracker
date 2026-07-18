@@ -10,7 +10,9 @@ import {
   discardNoteImage,
   getNoteImage,
   updateNoteImageCrop,
+  updateNoteImageStatus,
 } from "@/lib/note_images";
+import { processNoteImage } from "@/lib/ai";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +25,11 @@ type DiscardBody = {
   action: "discard";
 };
 
-type PatchBody = CropBody | DiscardBody;
+type RetryBody = {
+  action: "retry";
+};
+
+type PatchBody = CropBody | DiscardBody | RetryBody;
 
 function isCropBody(body: unknown): body is CropBody {
   if (!body || typeof body !== "object") return false;
@@ -43,6 +49,12 @@ function isDiscardBody(body: unknown): body is DiscardBody {
   if (!body || typeof body !== "object") return false;
   const b = body as Record<string, unknown>;
   return b.action === "discard";
+}
+
+function isRetryBody(body: unknown): body is RetryBody {
+  if (!body || typeof body !== "object") return false;
+  const b = body as Record<string, unknown>;
+  return b.action === "retry";
 }
 
 const PRE_SAVE_STATUSES: NoteImageStatus[] = ["pending", "succeeded"];
@@ -129,6 +141,21 @@ export async function PATCH(
       return NextResponse.json({ success: true, discarded: true });
     }
 
+    if (isRetryBody(body)) {
+      if (image.status !== "failed") {
+        return NextResponse.json(
+          { message: "Can only retry failed images" },
+          { status: 409 }
+        );
+      }
+      await updateNoteImageStatus(imageId, "pending", {
+        ai_error: null,
+      });
+      processNoteImage(imageId, session.user.email).catch(() => {});
+      const updated = await getNoteImage(imageId);
+      return NextResponse.json(updated);
+    }
+
     if (isCropBody(body)) {
       if (!isPreSave(image)) {
         return NextResponse.json(
@@ -149,7 +176,7 @@ export async function PATCH(
     }
 
     return NextResponse.json(
-      { message: "Invalid action; expected 'crop' or 'discard'" },
+      { message: "Invalid action; expected 'crop', 'discard', or 'retry'" },
       { status: 400 }
     );
   } catch (error) {

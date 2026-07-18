@@ -317,6 +317,30 @@ function buildImagePayload(images: NoteImageEntry[]): {
   };
 }
 
+function bboxToCropRegion(bbox: [number, number, number, number]): CropRegion {
+  return { x_min: bbox[0], y_min: bbox[1], x_max: bbox[2], y_max: bbox[3] };
+}
+
+function makeAISuggestionHandler(
+  getContent: () => string,
+  setContent: (value: string) => void,
+  images: NoteImageEntry[],
+  setImages: (images: NoteImageEntry[]) => void
+) {
+  return (imageId: number, text: string, bbox: [number, number, number, number] | null) => {
+    const current = getContent();
+    const separator = current.trim() ? "\n\n---\n\n" : "";
+    setContent(current + separator + text);
+    if (bbox) {
+      setImages(
+        images.map((i) =>
+          i.id === imageId ? { ...i, crop: bboxToCropRegion(bbox) } : i
+        )
+      );
+    }
+  };
+}
+
 const uploadPhotoSchema = z.object({
   description: z.string(),
 });
@@ -1027,6 +1051,12 @@ function ProfileContent() {
                 images={addNoteImages}
                 onChange={setAddNoteImages}
                 disabled={addNoteMutation.isPending}
+                onAISuggestion={makeAISuggestionHandler(
+                  () => addNoteForm.getValues("content") || "",
+                  (v) => addNoteForm.setValue("content", v, { shouldDirty: true }),
+                  addNoteImages,
+                  setAddNoteImages
+                )}
               />
               {addNoteMutation.isError && (
                 <Alert severity="error">{addNoteMutation.error.message}</Alert>
@@ -1037,7 +1067,7 @@ function ProfileContent() {
             <Button onClick={() => setAddNoteDialogOpen(false)} disabled={addNoteMutation.isPending} aria-label="Cancel">
               <CloseIcon />
             </Button>
-            <Button type="submit" variant="contained" disabled={addNoteMutation.isPending} aria-label={addNoteMutation.isPending ? "Adding" : "Add"}>
+            <Button type="submit" variant="contained" disabled={addNoteMutation.isPending || addNoteImages.some((i) => i.status === "processing")} aria-label={addNoteMutation.isPending ? "Adding" : "Add"}>
               {addNoteMutation.isPending ? <CircularProgress size={20} /> : <CheckIcon />}
             </Button>
           </DialogActions>
@@ -1488,7 +1518,7 @@ const NoteItem = memo(function NoteItem({
 
   const handleOpenEdit = () => {
     setEditNoteImages(
-      images.map((img) => ({ id: img.id, file_path: img.file_path, crop: null }))
+      images.map((img) => ({ id: img.id, file_path: img.file_path, crop: null, status: "pending" as const }))
     );
     setEditDialogOpen(true);
   };
@@ -1599,6 +1629,12 @@ const NoteItem = memo(function NoteItem({
                 images={editNoteImages}
                 onChange={setEditNoteImages}
                 disabled={savePending}
+                onAISuggestion={makeAISuggestionHandler(
+                  () => form.getValues("content") || "",
+                  (v) => form.setValue("content", v, { shouldDirty: true }),
+                  editNoteImages,
+                  setEditNoteImages
+                )}
               />
             </Stack>
           </DialogContent>
@@ -1606,7 +1642,7 @@ const NoteItem = memo(function NoteItem({
             <Button onClick={() => setEditDialogOpen(false)} disabled={savePending} aria-label="Cancel">
               <CloseIcon />
             </Button>
-            <Button type="submit" variant="contained" disabled={savePending} aria-label={savePending ? "Saving" : "Save"}>
+            <Button type="submit" variant="contained" disabled={savePending || editNoteImages.some((i) => i.status === "processing")} aria-label={savePending ? "Saving" : "Save"}>
               {savePending ? <CircularProgress size={20} /> : <CheckIcon />}
             </Button>
           </DialogActions>

@@ -27,6 +27,7 @@ export async function processNoteImage(
     });
     emitStatusEvent(userEmail, {
       imageId: note_image_id,
+      chickenId: image.chicken_id,
       status: "skipped",
     });
     return;
@@ -34,6 +35,7 @@ export async function processNoteImage(
 
   emitStatusEvent(userEmail, {
     imageId: note_image_id,
+    chickenId: image.chicken_id,
     status: "processing",
   });
 
@@ -49,6 +51,7 @@ export async function processNoteImage(
       });
       emitStatusEvent(userEmail, {
         imageId: note_image_id,
+        chickenId: image.chicken_id,
         status: "succeeded",
         text: result.text,
         bbox: result.bbox,
@@ -65,6 +68,7 @@ export async function processNoteImage(
   });
   emitStatusEvent(userEmail, {
     imageId: note_image_id,
+    chickenId: image.chicken_id,
     status: "failed",
     error: errorMessage,
   });
