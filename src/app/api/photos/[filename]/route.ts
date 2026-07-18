@@ -14,9 +14,11 @@ const MIME_TYPES: Record<string, string> = {
   bmp: "image/bmp",
 };
 
+export const dynamic = "force-dynamic";
+
 export async function GET(
   _request: NextRequest,
-  { params }: { params: { filename: string } }
+  { params }: { params: Promise<{ filename: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -24,7 +26,7 @@ export async function GET(
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
-    const { filename } = params;
+    const { filename } = await params;
 
     // Prevent path traversal: reject filenames containing path separators or parent refs
     if (filename.includes("..") || filename.includes("/") || filename.includes("\\")) {

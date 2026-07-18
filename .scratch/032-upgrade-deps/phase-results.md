@@ -25,7 +25,7 @@ Per user direction (2026-07-18), the plan was reworked to **one major version le
 
 | Phase | What | Status |
 |-------|------|--------|
-| 1 | Next 14 → 15 + ESLint 8 → 9 + `eslint-config-next` 14 → 15 | in progress |
+| 1 | Next 14 → 15 + ESLint 8 → 9 + `eslint-config-next` 14 → 15 | complete |
 | 2 | TypeScript 5.6 → 6 + `@types/node` 20 → 24 | pending |
 | 3 | MUI 6 → 7; `@mui/x-charts` and `@mui/x-date-pickers` already at 7 | pending |
 | 4 | `date-fns` 2 → 3 + `@mui/x-date-pickers` adapter split | pending |
@@ -100,3 +100,76 @@ Node 22 LTS is the runtime target. Local env already runs Node 26.5.0, well abov
 ### 0.4 Verification scratch
 
 This file.
+
+---
+
+## Phase 1 — Next 14 → 15 + ESLint 8 → 9 + `eslint-config-next` 14 → 15
+
+**Date:** 2026-07-18
+
+### Dependency upgrades
+
+| Package | From | To |
+|---------|------|----|
+| `next` | `^14.2.35` | `^15.5.20` |
+| `eslint` | `^8.57.0` | `^9.39.5` |
+| `eslint-config-next` | `^14.2.35` | `^15.5.20` |
+| `@testing-library/dom` | (not installed) | `^10.4.1` |
+
+The `@testing-library/dom` peer dep was missing on `@testing-library/react@16` and surfaced only after the WIP commit. Installed in the same commit; counts as part of the Phase 1 surface because the build was already green without it (build doesn't import `react` test utilities).
+
+### Code changes
+
+1. **Lint script** (`package.json:12`): `next lint` → `eslint .`. `next lint` was removed in Next 15.
+2. **ESLint flat config** (`eslint.config.mjs`, new): replaces `.eslintrc.json` (deleted). Uses `FlatCompat` from `@eslint/eslintrc` to bridge `eslint-config-next@15`'s legacy `module.exports` form into ESLint 9's flat config. `eslint-config-next@15` does not yet ship a flat config preset.
+3. **`next.config.js`**: added `serverExternalPackages: ["mssql", "sharp", "tedious"]` so Next 15's bundler doesn't try to bundle `mssql`'s native `tedious` dep or `sharp`'s platform-specific binary.
+4. **Async `params` in dynamic route handlers** (8 files in the WIP commit + 1 fix in this commit):
+   - `src/app/api/chickens/[id]/route.ts`
+   - `src/app/api/chickens/[id]/notes/[noteId]/route.ts`
+   - `src/app/api/chickens/[id]/notes/route.ts`
+   - `src/app/api/chickens/[id]/photos/[photoId]/primary/route.ts`
+   - `src/app/api/chickens/[id]/photos/[photoId]/route.ts`
+   - `src/app/api/chickens/[id]/photos/route.ts`
+   - `src/app/api/dynamic-lists/[type]/merge/route.ts`
+   - `src/app/api/dynamic-lists/[type]/route.ts`
+   - `src/app/api/eggs/[id]/route.ts`
+   - `src/app/api/photos/[filename]/route.ts`
+5. **`export const dynamic = "force-dynamic"`** added to all 12 GET route handlers (this commit). Next 15 caches GET handlers by default; the project always wants fresh data.
+6. **`dynamic-lists/[type]/route.ts:138` bug fix**: the `DELETE` handler's first param was renamed `_request` (no-unused-vars) but the body still called `request.json()`. Renamed back to `request`.
+
+### Verification
+
+`npm run build` — green. Tail of output:
+
+```
+├ ƒ /api/admin/users                               172 B         102 kB
+├ ƒ /api/analytics                                 172 B         102 kB
+├ ƒ /api/auth/[...nextauth]                        172 B         102 kB
+├ ƒ /api/chickens                                  172 B         102 kB
+├ ƒ /api/chickens/[id]                             172 B         102 kB
+├ ƒ /api/chickens/[id]/notes                       172 B         102 kB
+├ ƒ /api/chickens/[id]/notes/[noteId]              172 B         102 kB
+├ ƒ /api/chickens/[id]/photos                      172 B         102 kB
+├ ƒ /api/chickens/[id]/photos/[photoId]            172 B         102 kB
+├ ƒ /api/chickens/[id]/photos/[photoId]/primary    172 B         102 kB
+├ ƒ /api/dynamic-lists/[type]                      172 B         102 kB
+├ ƒ /api/dynamic-lists/[type]/merge                172 B         102 kB
+├ ƒ /api/eggs                                      172 B         102 kB
+├ ƒ /api/eggs/[id]                                 172 B         102 kB
+├ ƒ /api/health                                    172 B         102 kB
+├ ƒ /api/photos/[filename]                         172 B         102 kB
+```
+
+All 16 dynamic routes (`ƒ`) are now correctly marked as dynamic.
+
+`npm run test:all` — `Tests: 82 passed, 82 total` (unit/integration, 7 suites) and `Tests: 20 passed, 20 total` (component, 5 suites). 102 total.
+
+`npm run lint` — exit code 0. One self-warning on `eslint.config.mjs:12:1`: `import/no-anonymous-default-export` (the `next/core-web-vitals` preset, not project code). `next/core-web-vitals` itself is configured to treat this as `warn`, not `error`, so the lint passes.
+
+### Commit
+
+WIP commit `b3ca16d` (next 15 + eslint 9 installed, route params made async) squashed/amended into a single clean phase-1 commit:
+
+```
+chore(deps): upgrade next 14 → 15, eslint 8 → 9 (flat config)
+```

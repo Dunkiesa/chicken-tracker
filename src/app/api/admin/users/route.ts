@@ -10,6 +10,8 @@ async function getSessionWithRole() {
   return session;
 }
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   try {
     const session = await getSessionWithRole();

@@ -7,9 +7,11 @@ import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
 import { randomUUID } from "crypto";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(
   _request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -17,7 +19,8 @@ export async function GET(
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
-    const chickenId = parseInt(params.id, 10);
+    const { id: rawId } = await params;
+    const chickenId = parseInt(rawId, 10);
     if (isNaN(chickenId)) {
       return NextResponse.json({ message: "Invalid chicken id" }, { status: 400 });
     }
@@ -39,7 +42,7 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -53,7 +56,8 @@ export async function POST(
       );
     }
 
-    const chickenId = parseInt(params.id, 10);
+    const { id: rawId } = await params;
+    const chickenId = parseInt(rawId, 10);
     if (isNaN(chickenId)) {
       return NextResponse.json({ message: "Invalid chicken id" }, { status: 400 });
     }

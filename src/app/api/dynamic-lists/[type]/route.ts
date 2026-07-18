@@ -25,9 +25,11 @@ async function requireAdmin() {
   return session;
 }
 
+export const dynamic = "force-dynamic";
+
 export async function GET(
   _request: NextRequest,
-  { params }: { params: { type: string } }
+  { params }: { params: Promise<{ type: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -35,7 +37,8 @@ export async function GET(
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
-    const listType = normalizeType(params.type);
+    const { type: rawType } = await params;
+    const listType = normalizeType(rawType);
     if (!listType) {
       return NextResponse.json({ message: "Invalid list type" }, { status: 400 });
     }
@@ -52,14 +55,15 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { type: string } }
+  { params }: { params: Promise<{ type: string }> }
 ) {
   try {
     if (!(await requireAdmin())) {
       return NextResponse.json({ message: "Forbidden" }, { status: 403 });
     }
 
-    const listType = normalizeType(params.type);
+    const { type: rawType } = await params;
+    const listType = normalizeType(rawType);
     if (!listType) {
       return NextResponse.json({ message: "Invalid list type" }, { status: 400 });
     }
@@ -83,14 +87,15 @@ export async function POST(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { type: string } }
+  { params }: { params: Promise<{ type: string }> }
 ) {
   try {
     if (!(await requireAdmin())) {
       return NextResponse.json({ message: "Forbidden" }, { status: 403 });
     }
 
-    const listType = normalizeType(params.type);
+    const { type: rawType } = await params;
+    const listType = normalizeType(rawType);
     if (!listType) {
       return NextResponse.json({ message: "Invalid list type" }, { status: 400 });
     }
@@ -117,14 +122,15 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { type: string } }
+  { params }: { params: Promise<{ type: string }> }
 ) {
   try {
     if (!(await requireAdmin())) {
       return NextResponse.json({ message: "Forbidden" }, { status: 403 });
     }
 
-    const listType = normalizeType(params.type);
+    const { type: rawType } = await params;
+    const listType = normalizeType(rawType);
     if (!listType) {
       return NextResponse.json({ message: "Invalid list type" }, { status: 400 });
     }

@@ -8,7 +8,7 @@ import { join } from "path";
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string; photoId: string } }
+  { params }: { params: Promise<{ id: string; photoId: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -22,8 +22,9 @@ export async function PUT(
       );
     }
 
-    const chickenId = parseInt(params.id, 10);
-    const photoId = parseInt(params.photoId, 10);
+    const { id: rawChickenId, photoId: rawPhotoId } = await params;
+    const chickenId = parseInt(rawChickenId, 10);
+    const photoId = parseInt(rawPhotoId, 10);
     if (isNaN(chickenId) || isNaN(photoId)) {
       return NextResponse.json({ message: "Invalid id" }, { status: 400 });
     }
@@ -54,7 +55,7 @@ export async function PUT(
 
 export async function DELETE(
   _request: NextRequest,
-  { params }: { params: { id: string; photoId: string } }
+  { params }: { params: Promise<{ id: string; photoId: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -68,8 +69,9 @@ export async function DELETE(
       );
     }
 
-    const chickenId = parseInt(params.id, 10);
-    const photoId = parseInt(params.photoId, 10);
+    const { id: rawChickenId, photoId: rawPhotoId } = await params;
+    const chickenId = parseInt(rawChickenId, 10);
+    const photoId = parseInt(rawPhotoId, 10);
     if (isNaN(chickenId) || isNaN(photoId)) {
       return NextResponse.json({ message: "Invalid id" }, { status: 400 });
     }

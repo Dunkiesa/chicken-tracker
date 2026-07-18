@@ -3,9 +3,11 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getNote, updateNote, deleteNote } from "@/lib/notes";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(
   _request: NextRequest,
-  { params }: { params: { id: string; noteId: string } }
+  { params }: { params: Promise<{ id: string; noteId: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -13,7 +15,8 @@ export async function GET(
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
-    const noteId = parseInt(params.noteId, 10);
+    const { noteId: rawNoteId } = await params;
+    const noteId = parseInt(rawNoteId, 10);
     if (isNaN(noteId)) {
       return NextResponse.json({ message: "Invalid note id" }, { status: 400 });
     }
@@ -34,7 +37,7 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string; noteId: string } }
+  { params }: { params: Promise<{ id: string; noteId: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -42,7 +45,8 @@ export async function PUT(
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
-    const noteId = parseInt(params.noteId, 10);
+    const { noteId: rawNoteId } = await params;
+    const noteId = parseInt(rawNoteId, 10);
     if (isNaN(noteId)) {
       return NextResponse.json({ message: "Invalid note id" }, { status: 400 });
     }
@@ -84,7 +88,7 @@ export async function PUT(
 
 export async function DELETE(
   _request: NextRequest,
-  { params }: { params: { id: string; noteId: string } }
+  { params }: { params: Promise<{ id: string; noteId: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -92,7 +96,8 @@ export async function DELETE(
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
-    const noteId = parseInt(params.noteId, 10);
+    const { noteId: rawNoteId } = await params;
+    const noteId = parseInt(rawNoteId, 10);
     if (isNaN(noteId)) {
       return NextResponse.json({ message: "Invalid note id" }, { status: 400 });
     }

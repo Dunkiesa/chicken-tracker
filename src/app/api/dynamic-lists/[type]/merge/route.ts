@@ -13,7 +13,7 @@ function normalizeType(raw: string): DynamicListType | null {
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { type: string } }
+  { params }: { params: Promise<{ type: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -21,7 +21,8 @@ export async function POST(
       return NextResponse.json({ message: "Forbidden" }, { status: 403 });
     }
 
-    const listType = normalizeType(params.type);
+    const { type: rawType } = await params;
+    const listType = normalizeType(rawType);
     if (!listType) {
       return NextResponse.json({ message: "Invalid list type" }, { status: 400 });
     }

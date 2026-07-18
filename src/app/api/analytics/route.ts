@@ -95,6 +95,8 @@ function analyticsToCsv(data: AnalyticsData): string {
   return lines.join("\n") + "\n";
 }
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
