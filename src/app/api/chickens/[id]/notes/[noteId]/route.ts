@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getNote, updateNote, deleteNote } from "@/lib/notes";
-import { processNoteImages } from "../route";
+import { processNoteImages } from "@/lib/note_image_processing";
 import { combineNoteContent, parseAiTexts } from "@/lib/note_content";
 
 export const dynamic = "force-dynamic";
