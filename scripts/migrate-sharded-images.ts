@@ -16,6 +16,7 @@ function needsSharding(filePath: string): boolean {
   const parts = filePath.split("/");
   if (parts.length === 1) return true;
   if (filePath.startsWith("notes/_pending/")) return false;
+  if (parts.length === 3 && parts[0] === "photos" && SHARD_RE.test(parts[1]!)) return false;
   if (parts.length === 3 && parts[0] === "notes" && SHARD_RE.test(parts[1]!)) return false;
   return true;
 }
@@ -59,7 +60,7 @@ async function migratePhotos(imageDir: string): Promise<{ moved: number; skipped
 
     if (needsSharding(file_path)) {
       const fname = basename(file_path);
-      const newPath = shardFilename(fname);
+      const newPath = `photos/${shardFilename(fname)}`;
       const oldAbs = resolve(join(imageDir, file_path));
       const newAbs = resolveImagePath(newPath);
 
@@ -71,7 +72,7 @@ async function migratePhotos(imageDir: string): Promise<{ moved: number; skipped
 
     if (thumbnail_path && needsSharding(thumbnail_path)) {
       const fname = basename(thumbnail_path);
-      const newPath = shardFilename(fname);
+      const newPath = `photos/${shardFilename(fname)}`;
       const oldAbs = resolve(join(imageDir, thumbnail_path));
       const newAbs = resolveImagePath(newPath);
 
@@ -178,8 +179,8 @@ async function main() {
       if (r.thumbnail_path && needsSharding(r.thumbnail_path)) noteCount++;
     }
 
-    console.log(`Photos to migrate: ${photoCount} path(s) across ${photos.recordset.length} row(s)`);
-    console.log(`Note images to migrate: ${noteCount} path(s) across ${noteImgs.recordset.length} row(s)`);
+    console.log(`Photos to migrate (→ photos/{shard}/{filename}): ${photoCount} path(s) across ${photos.recordset.length} row(s)`);
+    console.log(`Note images to migrate (→ notes/{shard}/{filename}): ${noteCount} path(s) across ${noteImgs.recordset.length} row(s)`);
 
     await closePool();
     return;

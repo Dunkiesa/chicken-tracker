@@ -6,7 +6,7 @@ import { createPhoto, listPhotos, getImageDirectory } from "@/lib/photos";
 import { writeFile, mkdir } from "fs/promises";
 import { dirname, join } from "path";
 import { randomUUID } from "crypto";
-import { shardFilename, ALLOWED_MIME_TYPES, MAX_FILE_SIZE_BYTES } from "@/lib/image-storage";
+import { shardPhotoFilename, ALLOWED_MIME_TYPES, MAX_FILE_SIZE_BYTES } from "@/lib/image-storage";
 
 export const dynamic = "force-dynamic";
 
@@ -96,7 +96,7 @@ export async function POST(
 
     const ext = file.name.split(".").pop() || "jpg";
     const filename = `${randomUUID()}.${ext}`;
-    const shardedFilename = shardFilename(filename);
+    const shardedFilename = shardPhotoFilename(filename);
     const imageDir = getImageDirectory();
 
     const buffer = Buffer.from(await file.arrayBuffer());

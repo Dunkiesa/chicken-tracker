@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { getImageDirectory } from "@/lib/photos";
 import { readFile } from "fs/promises";
 import { join, resolve } from "path";
-import { shardFilename } from "@/lib/image-storage";
+import { shardPhotoFilename, shardFilename } from "@/lib/image-storage";
 
 const MIME_TYPES: Record<string, string> = {
   jpg: "image/jpeg",
@@ -38,15 +38,24 @@ export async function GET(
     const contentType = MIME_TYPES[ext] || "application/octet-stream";
 
     const imageDir = resolve(getImageDirectory());
-    const shardedPath = join(imageDir, shardFilename(filename));
+    const photoPath = join(imageDir, shardPhotoFilename(filename));
+    const legacyShardedPath = join(imageDir, shardFilename(filename));
     const legacyPath = join(imageDir, filename);
 
     let buffer: Buffer;
     try {
-      buffer = await readFile(shardedPath);
+      buffer = await readFile(photoPath);
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code === "ENOENT") {
-        buffer = await readFile(legacyPath);
+        try {
+          buffer = await readFile(legacyShardedPath);
+        } catch (err2) {
+          if ((err2 as NodeJS.ErrnoException).code === "ENOENT") {
+            buffer = await readFile(legacyPath);
+          } else {
+            throw err2;
+          }
+        }
       } else {
         throw err;
       }

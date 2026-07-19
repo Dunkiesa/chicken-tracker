@@ -1575,6 +1575,7 @@ const NoteItem = memo(function NoteItem({
               <NoteImagesInline images={images} />
             </>
           }
+          secondaryTypographyProps={{ component: 'div' }}
         />
       </ListItem>
 

@@ -24,10 +24,20 @@ docker run --rm -it --env-file .env -v chickentrack_images:/app/images chickentr
 **Script:** `npm run migrate:shard-images`
 
 **What it does:**
-- Moves existing images from flat directories into 256 subdirectories (based on first 2 chars of UUID)
+- Moves existing photos from `{shard}/{filename}` into `photos/{shard}/{filename}`
+- Moves existing note images into `notes/{shard}/{filename}`
 - Updates `file_path` and `thumbnail_path` in `photos` and `note_images` tables
 - Skips pending note images (transient, auto-cleaned within 24h)
 - Idempotent - safe to run multiple times
+
+**Final directory structure:**
+```
+images/
+  photos/
+    {shard}/{filename}
+  notes/
+    {shard}/{filename}
+```
 
 **Preview (dry run):**
 ```bash

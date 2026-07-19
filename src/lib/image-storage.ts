@@ -160,6 +160,11 @@ export function shardFilename(filename: string): string {
   return `${shard}/${filename}`;
 }
 
+export function shardPhotoFilename(filename: string): string {
+  const shard = filename.slice(0, 2).toLowerCase();
+  return `photos/${shard}/${filename}`;
+}
+
 export function mimeTypeFromPath(filePath: string): string {
   const ext = filePath.slice(filePath.lastIndexOf(".")).toLowerCase();
   return MIME_MAP[ext] ?? "application/octet-stream";

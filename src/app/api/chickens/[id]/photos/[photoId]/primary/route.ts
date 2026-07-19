@@ -5,8 +5,9 @@ import { getChicken } from "@/lib/chickens";
 import { getPhoto, setPrimaryPhoto, setPhotoThumbnail, getImageDirectory } from "@/lib/photos";
 import sharp from "sharp";
 import { writeFile, mkdir, readFile } from "fs/promises";
-import { join } from "path";
+import { join, dirname } from "path";
 import { randomUUID } from "crypto";
+import { resolveImagePath } from "@/lib/image-storage";
 
 export async function PUT(
   request: NextRequest,
@@ -65,10 +66,12 @@ export async function PUT(
       const imageDir = getImageDirectory();
       const sourcePath = join(imageDir, photo.file_path);
 
+      const photoShard = photo.file_path.split("/")[1] ?? photo.file_path.slice(0, 2).toLowerCase();
       const thumbFilename = `thumb_${randomUUID()}.webp`;
-      const thumbPath = join(imageDir, thumbFilename);
+      const thumbRelativePath = `photos/${photoShard}/${thumbFilename}`;
+      const thumbAbsPath = resolveImagePath(thumbRelativePath);
 
-      await mkdir(imageDir, { recursive: true });
+      await mkdir(dirname(thumbAbsPath), { recursive: true });
 
       const sourceBuffer = await readFile(sourcePath);
 
@@ -81,9 +84,9 @@ export async function PUT(
         })
         .resize(300, 300, { fit: "cover" })
         .webp({ quality: 85 })
-        .toFile(thumbPath);
+        .toFile(thumbAbsPath);
 
-      await setPhotoThumbnail(photoId, thumbFilename);
+      await setPhotoThumbnail(photoId, thumbRelativePath);
     }
 
     await setPrimaryPhoto(chickenId, photoId);
