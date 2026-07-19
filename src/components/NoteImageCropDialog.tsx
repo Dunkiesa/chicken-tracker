@@ -43,14 +43,10 @@ export default function NoteImageCropDialog({
     onCrop(croppedAreaPixels);
   };
 
-  const handleDialogClose = () => {
-    onCancel();
-  };
-
   return (
     <Dialog
       open={open}
-      onClose={handleDialogClose}
+      onClose={onCancel}
       maxWidth="sm"
       fullWidth
     >
