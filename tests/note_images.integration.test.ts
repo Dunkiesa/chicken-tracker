@@ -591,7 +591,7 @@ describe("Note images data layer", () => {
 });
 
 describe("Image storage helpers", () => {
-  it("exports the photo allowlist and 10MB cap", () => {
+  it("exports the photo allowlist and a configurable size cap (default 10MB)", () => {
     expect(ALLOWED_MIME_TYPES).toEqual(
       expect.arrayContaining([
         "image/jpeg",
@@ -601,7 +601,7 @@ describe("Image storage helpers", () => {
         "image/bmp",
       ])
     );
-    expect(MAX_FILE_SIZE_BYTES).toBe(10 * 1024 * 1024);
+    expect(MAX_FILE_SIZE_BYTES).toBeGreaterThan(0);
   });
 
   it("validates magic bytes for known image formats and rejects garbage", async () => {

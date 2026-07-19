@@ -6,7 +6,7 @@ import { createPhoto, listPhotos, getImageDirectory } from "@/lib/photos";
 import { writeFile, mkdir } from "fs/promises";
 import { dirname, join } from "path";
 import { randomUUID } from "crypto";
-import { shardFilename } from "@/lib/image-storage";
+import { shardFilename, ALLOWED_MIME_TYPES, MAX_FILE_SIZE_BYTES } from "@/lib/image-storage";
 
 export const dynamic = "force-dynamic";
 
@@ -79,19 +79,17 @@ export async function POST(
       );
     }
 
-    const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp", "image/bmp"];
-    const MAX_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
-
-    if (!ALLOWED_TYPES.includes(file.type)) {
+    if (!ALLOWED_MIME_TYPES.includes(file.type as typeof ALLOWED_MIME_TYPES[number])) {
       return NextResponse.json(
-        { message: `File type ${file.type} is not allowed. Accepted: ${ALLOWED_TYPES.join(", ")}` },
+        { message: `File type ${file.type} is not allowed. Accepted: ${ALLOWED_MIME_TYPES.join(", ")}` },
         { status: 400 }
       );
     }
 
-    if (file.size > MAX_SIZE_BYTES) {
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      const limitMB = Math.round(MAX_FILE_SIZE_BYTES / (1024 * 1024));
       return NextResponse.json(
-        { message: "File size exceeds 10 MB limit" },
+        { message: `File size exceeds ${limitMB} MB limit` },
         { status: 400 }
       );
     }

@@ -519,9 +519,10 @@ export async function createPendingNoteImageFromUpload(
     );
   }
   if (input.buffer.length > MAX_FILE_SIZE_BYTES) {
+    const limitMB = Math.round(MAX_FILE_SIZE_BYTES / (1024 * 1024));
     throw new NoteImageUploadError(
       "FILE_TOO_LARGE",
-      "File size exceeds 10 MB limit"
+      `File size exceeds ${limitMB} MB limit`
     );
   }
   if (!validateImageMagicBytes(input.buffer)) {

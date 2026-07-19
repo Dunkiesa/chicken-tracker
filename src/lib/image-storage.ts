@@ -11,7 +11,16 @@ export const ALLOWED_MIME_TYPES = [
   "image/bmp",
 ] as const;
 
-export const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
+const DEFAULT_MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
+
+export const MAX_FILE_SIZE_BYTES = (() => {
+  const envVal = process.env.MAX_IMAGE_SIZE_BYTES;
+  if (envVal) {
+    const parsed = parseInt(envVal, 10);
+    if (!isNaN(parsed) && parsed > 0) return parsed;
+  }
+  return DEFAULT_MAX_FILE_SIZE_BYTES;
+})();
 
 export const THUMBNAIL_WIDTH = 300;
 export const THUMBNAIL_HEIGHT = 300;
