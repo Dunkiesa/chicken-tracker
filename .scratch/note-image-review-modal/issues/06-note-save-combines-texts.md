@@ -6,10 +6,10 @@
 
 **Status:** ready-for-agent
 
-- [ ] Note save combines user content + AI texts from all note images
-- [ ] User content appears first, followed by AI texts in upload order
-- [ ] AI texts are separated by newlines
-- [ ] The combined text is stored in the database as a single content field
-- [ ] AI texts are held in memory per image (not merged into content field during editing)
-- [ ] The combination happens at save time, not during editing
-- [ ] Tests verify the combination logic and database storage
+- [x] Note save combines user content + AI texts from all note images
+- [x] User content appears first, followed by AI texts in upload order
+- [x] AI texts are separated by newlines
+- [x] The combined text is stored in the database as a single content field
+- [x] AI texts are held in memory per image (not merged into content field during editing)
+- [x] The combination happens at save time, not during editing
+- [x] Tests verify the combination logic and database storage

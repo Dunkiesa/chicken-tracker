@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getNote, updateNote, deleteNote } from "@/lib/notes";
 import { processNoteImages } from "../route";
+import { combineNoteContent, parseAiTexts } from "@/lib/note_content";
 
 export const dynamic = "force-dynamic";
 
@@ -67,10 +68,14 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const { content, date, imageIds, crops } = body;
+    const { content, date, imageIds, crops, aiTexts } = body;
     const updateInput: { content?: string; date?: string } = {};
 
-    if (content !== undefined) updateInput.content = content;
+    if (content !== undefined) {
+      const ids: number[] = Array.isArray(imageIds) ? imageIds : [];
+      const orderedAiTexts = parseAiTexts(aiTexts, ids);
+      updateInput.content = combineNoteContent(content.trim(), orderedAiTexts);
+    }
     if (date !== undefined) updateInput.date = date;
 
     const updated = await updateNote(noteId, updateInput);

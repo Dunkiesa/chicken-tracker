@@ -12,6 +12,7 @@ import {
   NoteImageNotPendingError,
   type CropRegion,
 } from "@/lib/note_images";
+import { combineNoteContent, parseAiTexts } from "@/lib/note_content";
 
 export const dynamic = "force-dynamic";
 
@@ -127,7 +128,7 @@ export async function POST(
     }
 
     const body = await request.json();
-    const { content, date, imageIds, crops } = body;
+    const { content, date, imageIds, crops, aiTexts } = body;
 
     if (!content || typeof content !== "string" || content.trim().length === 0) {
       return NextResponse.json(
@@ -143,9 +144,13 @@ export async function POST(
       );
     }
 
+    const ids: number[] = Array.isArray(imageIds) ? imageIds : [];
+    const orderedAiTexts = parseAiTexts(aiTexts, ids);
+    const combinedContent = combineNoteContent(content.trim(), orderedAiTexts);
+
     const note = await createNote({
       chicken_id: chickenId,
-      content: content.trim(),
+      content: combinedContent,
       date,
       recorded_by: session.user.email,
     });

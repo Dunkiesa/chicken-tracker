@@ -155,6 +155,7 @@ async function createNoteApi(data: {
   date: string;
   imageIds?: number[];
   crops?: Record<string, CropRegion>;
+  aiTexts?: Record<string, string>;
 }): Promise<Note> {
   const res = await fetch(`/api/chickens/${data.chickenId}/notes`, {
     method: "POST",
@@ -164,6 +165,7 @@ async function createNoteApi(data: {
       date: data.date,
       imageIds: data.imageIds,
       crops: data.crops,
+      aiTexts: data.aiTexts,
     }),
   });
   if (!res.ok) {
@@ -180,6 +182,7 @@ async function updateNoteApi(data: {
   date: string;
   imageIds?: number[];
   crops?: Record<string, CropRegion>;
+  aiTexts?: Record<string, string>;
 }): Promise<Note> {
   const res = await fetch(`/api/chickens/${data.chickenId}/notes/${data.noteId}`, {
     method: "PUT",
@@ -189,6 +192,7 @@ async function updateNoteApi(data: {
       date: data.date,
       imageIds: data.imageIds,
       crops: data.crops,
+      aiTexts: data.aiTexts,
     }),
   });
   if (!res.ok) {
@@ -303,17 +307,23 @@ type EditNoteFormValues = z.infer<typeof editNoteSchema>;
 function buildImagePayload(images: NoteImageEntry[]): {
   imageIds?: number[];
   crops?: Record<string, CropRegion>;
+  aiTexts?: Record<string, string>;
 } {
   const imageIds = images.map((i) => i.id);
   const crops: Record<string, CropRegion> = {};
+  const aiTexts: Record<string, string> = {};
   for (const img of images) {
     if (img.crop) {
       crops[String(img.id)] = img.crop;
+    }
+    if (img.ai_suggestion) {
+      aiTexts[String(img.id)] = img.ai_suggestion;
     }
   }
   return {
     imageIds: imageIds.length > 0 ? imageIds : undefined,
     crops: Object.keys(crops).length > 0 ? crops : undefined,
+    aiTexts: Object.keys(aiTexts).length > 0 ? aiTexts : undefined,
   };
 }
 
@@ -321,15 +331,13 @@ function bboxToCropRegion(bbox: [number, number, number, number]): CropRegion {
   return { x_min: bbox[0], y_min: bbox[1], x_max: bbox[2], y_max: bbox[3] };
 }
 
+type AISuggestionHandler = (imageId: number, text: string, bbox: [number, number, number, number] | null) => void;
+type ImagesUpdater = (images: NoteImageEntry[]) => NoteImageEntry[];
+
 function makeAISuggestionHandler(
-  getContent: () => string,
-  setContent: (value: string) => void,
-  setImages: (updater: (images: NoteImageEntry[]) => NoteImageEntry[]) => void
-) {
-  return (imageId: number, text: string, bbox: [number, number, number, number] | null) => {
-    const current = getContent();
-    const separator = current.trim() ? "\n\n---\n\n" : "";
-    setContent(current + separator + text);
+  setImages: (updater: ImagesUpdater) => void
+): AISuggestionHandler {
+  return (imageId: number, _text: string, bbox: [number, number, number, number] | null): void => {
     if (bbox) {
       setImages((images) =>
         images.map((i) =>
@@ -480,7 +488,7 @@ function ProfileContent() {
   });
 
   const addNoteMutation = useMutation({
-    mutationFn: (data: { content: string; date: string; imageIds?: number[]; crops?: Record<string, CropRegion> }) =>
+    mutationFn: (data: { content: string; date: string; imageIds?: number[]; crops?: Record<string, CropRegion>; aiTexts?: Record<string, string> }) =>
       createNoteApi({ chickenId, ...data }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["chicken-notes", chickenId] });
@@ -496,6 +504,7 @@ function ProfileContent() {
       date: string;
       imageIds?: number[];
       crops?: Record<string, CropRegion>;
+      aiTexts?: Record<string, string>;
     }) => updateNoteApi({ chickenId, ...data }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["chicken-notes", chickenId] });
@@ -1050,11 +1059,7 @@ function ProfileContent() {
                 images={addNoteImages}
                 onChange={setAddNoteImages}
                 disabled={addNoteMutation.isPending}
-                onAISuggestion={makeAISuggestionHandler(
-                  () => addNoteForm.getValues("content") || "",
-                  (v) => addNoteForm.setValue("content", v, { shouldDirty: true }),
-                  setAddNoteImages
-                )}
+                onAISuggestion={makeAISuggestionHandler(setAddNoteImages)}
               />
               {addNoteMutation.isError && (
                 <Alert severity="error">{addNoteMutation.error.message}</Alert>
@@ -1451,7 +1456,7 @@ function NotesList({
   isAdmin: boolean;
   canModifyNote: (note: Note) => boolean;
   onDeleteNote: (noteId: number) => void;
-  onUpdateNote: (noteId: number, data: { content: string; date: string; imageIds?: number[]; crops?: Record<string, CropRegion> }) => void;
+  onUpdateNote: (noteId: number, data: { content: string; date: string; imageIds?: number[]; crops?: Record<string, CropRegion>; aiTexts?: Record<string, string> }) => void;
   updateNotePending: boolean;
   noteImagesMap: Record<number, NoteImageForDisplay[]>;
   chickenId: number;
@@ -1497,7 +1502,7 @@ const NoteItem = memo(function NoteItem({
   isAdmin: boolean;
   canModify: boolean;
   onDelete: () => void;
-  onSave: (data: { content: string; date: string; imageIds?: number[]; crops?: Record<string, CropRegion> }) => void;
+  onSave: (data: { content: string; date: string; imageIds?: number[]; crops?: Record<string, CropRegion>; aiTexts?: Record<string, string> }) => void;
   savePending: boolean;
   images: NoteImageForDisplay[];
   chickenId: number;
@@ -1626,11 +1631,7 @@ const NoteItem = memo(function NoteItem({
                 images={editNoteImages}
                 onChange={setEditNoteImages}
                 disabled={savePending}
-                onAISuggestion={makeAISuggestionHandler(
-                  () => form.getValues("content") || "",
-                  (v) => form.setValue("content", v, { shouldDirty: true }),
-                  setEditNoteImages
-                )}
+                onAISuggestion={makeAISuggestionHandler(setEditNoteImages)}
               />
             </Stack>
           </DialogContent>

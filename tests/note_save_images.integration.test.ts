@@ -20,6 +20,7 @@ import {
   getNoteImage,
   listNoteImagesByNote,
   listPendingNoteImagesByChicken,
+  updateNoteImageStatus,
   type NoteImage,
 } from "@/lib/note_images";
 import {
@@ -382,6 +383,113 @@ describe("POST /api/chickens/[id]/notes — note save with images", () => {
     expect(dims.width).toBe(100);
     expect(dims.height).toBe(100);
   }, 15000);
+
+  it("combines user content + AI texts from all images in upload order on create", async () => {
+    setSession({ email: ADMIN_EMAIL, role: "Admin" });
+    const hen = await ensureHen("NoteSave CombineTexts");
+    const imgA = await createPendingImageWithFiles(hen.id, ADMIN_EMAIL, 100, 100);
+    const imgB = await createPendingImageWithFiles(hen.id, ADMIN_EMAIL, 100, 100);
+
+    await updateNoteImageStatus(imgA.id, "succeeded", { ai_suggestion: "Text from image A" });
+    await updateNoteImageStatus(imgB.id, "succeeded", { ai_suggestion: "Text from image B" });
+
+    const request = buildJsonRequest(
+      `http://localhost/api/chickens/${hen.id}/notes`,
+      {
+        content: "My observation",
+        date: "2026-07-18",
+        imageIds: [imgA.id, imgB.id],
+        aiTexts: {
+          [String(imgA.id)]: "Text from image A",
+          [String(imgB.id)]: "Text from image B",
+        },
+      }
+    );
+    const response = await createNoteRoute(request, {
+      params: Promise.resolve({ id: String(hen.id) }),
+    });
+    expect(response.status).toBe(201);
+    const note = (await response.json()) as Note;
+    expect(note.content).toBe("My observation\n\nText from image A\n\nText from image B");
+  }, 15000);
+
+  it("combines user content + AI texts in upload order (not DB order)", async () => {
+    setSession({ email: ADMIN_EMAIL, role: "Admin" });
+    const hen = await ensureHen("NoteSave CombineOrder");
+    const imgA = await createPendingImageWithFiles(hen.id, ADMIN_EMAIL, 100, 100);
+    const imgB = await createPendingImageWithFiles(hen.id, ADMIN_EMAIL, 100, 100);
+
+    await updateNoteImageStatus(imgA.id, "succeeded", { ai_suggestion: "First" });
+    await updateNoteImageStatus(imgB.id, "succeeded", { ai_suggestion: "Second" });
+
+    const request = buildJsonRequest(
+      `http://localhost/api/chickens/${hen.id}/notes`,
+      {
+        content: "User text",
+        date: "2026-07-18",
+        imageIds: [imgB.id, imgA.id],
+        aiTexts: {
+          [String(imgB.id)]: "Second",
+          [String(imgA.id)]: "First",
+        },
+      }
+    );
+    const response = await createNoteRoute(request, {
+      params: Promise.resolve({ id: String(hen.id) }),
+    });
+    expect(response.status).toBe(201);
+    const note = (await response.json()) as Note;
+    expect(note.content).toBe("User text\n\nSecond\n\nFirst");
+  }, 15000);
+
+  it("saves note with only user content when no aiTexts are provided", async () => {
+    setSession({ email: ADMIN_EMAIL, role: "Admin" });
+    const hen = await ensureHen("NoteSave NoAiTexts");
+    const img = await createPendingImageWithFiles(hen.id, ADMIN_EMAIL, 100, 100);
+
+    const request = buildJsonRequest(
+      `http://localhost/api/chickens/${hen.id}/notes`,
+      {
+        content: "Just user content",
+        date: "2026-07-18",
+        imageIds: [img.id],
+      }
+    );
+    const response = await createNoteRoute(request, {
+      params: Promise.resolve({ id: String(hen.id) }),
+    });
+    expect(response.status).toBe(201);
+    const note = (await response.json()) as Note;
+    expect(note.content).toBe("Just user content");
+  }, 15000);
+
+  it("skips null/empty AI texts when combining", async () => {
+    setSession({ email: ADMIN_EMAIL, role: "Admin" });
+    const hen = await ensureHen("NoteSave SkipEmpty");
+    const imgA = await createPendingImageWithFiles(hen.id, ADMIN_EMAIL, 100, 100);
+    const imgB = await createPendingImageWithFiles(hen.id, ADMIN_EMAIL, 100, 100);
+    const imgC = await createPendingImageWithFiles(hen.id, ADMIN_EMAIL, 100, 100);
+
+    const request = buildJsonRequest(
+      `http://localhost/api/chickens/${hen.id}/notes`,
+      {
+        content: "User text",
+        date: "2026-07-18",
+        imageIds: [imgA.id, imgB.id, imgC.id],
+        aiTexts: {
+          [String(imgA.id)]: "First text",
+          [String(imgB.id)]: "",
+          [String(imgC.id)]: "Third text",
+        },
+      }
+    );
+    const response = await createNoteRoute(request, {
+      params: Promise.resolve({ id: String(hen.id) }),
+    });
+    expect(response.status).toBe(201);
+    const note = (await response.json()) as Note;
+    expect(note.content).toBe("User text\n\nFirst text\n\nThird text");
+  }, 15000);
 });
 
 describe("PUT /api/chickens/[id]/notes/[noteId] — note edit with images", () => {
@@ -563,6 +671,37 @@ describe("PUT /api/chickens/[id]/notes/[noteId] — note edit with images", () =
       params: Promise.resolve({ id: String(hen.id), noteId: String(note2.id) }),
     });
     expect(response.status).toBe(409);
+  }, 20000);
+
+  it("combines user content + AI texts on note update", async () => {
+    setSession({ email: ADMIN_EMAIL, role: "Admin" });
+    const hen = await ensureHen("NoteEdit CombineTexts");
+    const note = await createNote({
+      chicken_id: hen.id,
+      content: "Original",
+      date: "2026-07-17",
+      recorded_by: ADMIN_EMAIL,
+    });
+    const img = await createPendingImageWithFiles(hen.id, ADMIN_EMAIL, 100, 100);
+
+    const request = buildJsonRequest(
+      `http://localhost/api/chickens/${hen.id}/notes/${note.id}`,
+      {
+        content: "Updated content",
+        imageIds: [img.id],
+        aiTexts: {
+          [String(img.id)]: "AI text from image",
+        },
+      },
+      "PUT"
+    );
+    const response = await updateNoteRoute(request, {
+      params: Promise.resolve({ id: String(hen.id), noteId: String(note.id) }),
+    });
+    expect(response.status).toBe(200);
+
+    const updated = await getNote(note.id);
+    expect(updated!.content).toBe("Updated content\n\nAI text from image");
   }, 20000);
 });
 
