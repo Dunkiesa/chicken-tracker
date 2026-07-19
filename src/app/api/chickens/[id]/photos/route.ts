@@ -4,8 +4,9 @@ import { authOptions } from "@/lib/auth";
 import { getChicken } from "@/lib/chickens";
 import { createPhoto, listPhotos, getImageDirectory } from "@/lib/photos";
 import { writeFile, mkdir } from "fs/promises";
-import { join } from "path";
+import { dirname, join } from "path";
 import { randomUUID } from "crypto";
+import { shardFilename } from "@/lib/image-storage";
 
 export const dynamic = "force-dynamic";
 
@@ -97,9 +98,8 @@ export async function POST(
 
     const ext = file.name.split(".").pop() || "jpg";
     const filename = `${randomUUID()}.${ext}`;
+    const shardedFilename = shardFilename(filename);
     const imageDir = getImageDirectory();
-
-    await mkdir(imageDir, { recursive: true });
 
     const buffer = Buffer.from(await file.arrayBuffer());
 
@@ -120,12 +120,13 @@ export async function POST(
       return NextResponse.json({ message: "File content does not match allowed image types" }, { status: 400 });
     }
 
-    const filePath = join(imageDir, filename);
+    const filePath = join(imageDir, shardedFilename);
+    await mkdir(dirname(filePath), { recursive: true });
     await writeFile(filePath, buffer);
 
     const photo = await createPhoto({
       chicken_id: chickenId,
-      file_path: filename,
+      file_path: shardedFilename,
       description: description ?? undefined,
       recorded_by: session.user.email,
     });

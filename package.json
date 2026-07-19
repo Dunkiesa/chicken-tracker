@@ -13,7 +13,9 @@
     "test": "jest --runInBand",
     "test:integration": "jest --config jest.integration.config.ts",
     "test:components": "jest --config jest.component.config.ts",
-    "test:all": "jest --runInBand && jest --config jest.component.config.ts"
+    "test:all": "jest --runInBand && jest --config jest.component.config.ts",
+    "migrate:shard-images": "ts-node --compiler-options \"{\\\"module\\\":\\\"commonjs\\\",\\\"moduleResolution\\\":\\\"node\\\"}\" scripts/migrate-sharded-images.ts",
+    "migrate:shard-images:dry": "ts-node --compiler-options \"{\\\"module\\\":\\\"commonjs\\\",\\\"moduleResolution\\\":\\\"node\\\"}\" scripts/migrate-sharded-images.ts --dry-run"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

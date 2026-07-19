@@ -13,6 +13,7 @@ import {
   getPendingImageDirectory,
   readImageDimensions,
   resolveImagePath,
+  shardFilename,
   validateImageMagicBytes,
 } from "./image-storage";
 
@@ -392,9 +393,9 @@ export async function finalizeNoteImageForSave(
 
   const ext = extFromPath(existing.file_path);
   const persistedFilename = `${randomUUID()}.${ext}`;
-  const persistedFilePath = `notes/${persistedFilename}`;
+  const persistedFilePath = `notes/${shardFilename(persistedFilename)}`;
   const persistedThumbFilename = `${randomUUID()}_thumb.webp`;
-  const persistedThumbPath = `notes/${persistedThumbFilename}`;
+  const persistedThumbPath = `notes/${shardFilename(persistedThumbFilename)}`;
 
   const transientBaseName = existing.file_path
     .split("/")
@@ -572,7 +573,9 @@ export async function readNoteImageBytesByFilename(
     throw new NoteImageReadError("INVALID_PATH", "Invalid filename");
   }
 
+  const shard = filename.slice(0, 2).toLowerCase();
   const candidates = [
+    `notes/${shard}/${filename}`,
     `notes/${filename}`,
     `notes/${PENDING_SUBDIR}/${filename}`,
   ];

@@ -2,9 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getChicken } from "@/lib/chickens";
-import { getPhoto, updatePhoto, deletePhoto, getImageDirectory } from "@/lib/photos";
-import { unlink } from "fs/promises";
-import { join } from "path";
+import { getPhoto, updatePhoto, deletePhoto } from "@/lib/photos";
+import { deleteImageFile } from "@/lib/image-storage";
 
 export async function PUT(
   request: NextRequest,
@@ -81,15 +80,11 @@ export async function DELETE(
       return NextResponse.json({ message: "Photo not found" }, { status: 404 });
     }
 
-    const imageDir = getImageDirectory();
-    const filePath = join(imageDir, photo.file_path);
-
     await deletePhoto(photoId);
 
-    try {
-      await unlink(filePath);
-    } catch {
-      // file may already be gone
+    await deleteImageFile(photo.file_path);
+    if (photo.thumbnail_path) {
+      await deleteImageFile(photo.thumbnail_path);
     }
 
     return NextResponse.json({ success: true });

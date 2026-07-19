@@ -31,7 +31,7 @@ function HenRowInner({ hen, weight, existing, warning, error, disabled, onWeight
       }}
     >
       <Avatar
-        src={(hen.primary_thumbnail_path || hen.primary_photo_path) ? `/api/photos/${hen.primary_thumbnail_path || hen.primary_photo_path}` : undefined}
+        src={(hen.primary_thumbnail_path || hen.primary_photo_path) ? `/api/photos/${(hen.primary_thumbnail_path || hen.primary_photo_path)!.split("/").pop()}` : undefined}
         alt=""
         sx={{
           width: 32,

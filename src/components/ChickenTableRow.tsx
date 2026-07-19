@@ -95,7 +95,7 @@ function ChickenTableRowInner({
             <Avatar
               src={
                 (chicken.primary_thumbnail_path || chicken.primary_photo_path)
-                  ? `/api/photos/${chicken.primary_thumbnail_path || chicken.primary_photo_path}`
+                  ? `/api/photos/${(chicken.primary_thumbnail_path || chicken.primary_photo_path)!.split("/").pop()}`
                   : undefined
               }
               alt=""

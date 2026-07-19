@@ -146,6 +146,11 @@ const MIME_MAP: Record<string, string> = {
   ".bmp": "image/bmp",
 };
 
+export function shardFilename(filename: string): string {
+  const shard = filename.slice(0, 2).toLowerCase();
+  return `${shard}/${filename}`;
+}
+
 export function mimeTypeFromPath(filePath: string): string {
   const ext = filePath.slice(filePath.lastIndexOf(".")).toLowerCase();
   return MIME_MAP[ext] ?? "application/octet-stream";

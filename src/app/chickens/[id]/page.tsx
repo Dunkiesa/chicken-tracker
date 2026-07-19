@@ -1094,7 +1094,7 @@ function ProfileContent() {
       {cropDialogPhoto && (
         <CropDialog
           open={!!cropDialogPhoto}
-          imageUrl={`/api/photos/${cropDialogPhoto.file_path}`}
+          imageUrl={`/api/photos/${cropDialogPhoto.file_path.split("/").pop()}`}
           onCrop={handleCropConfirm}
           onCancel={handleCropCancel}
           pending={cropPending}
@@ -1111,7 +1111,7 @@ function ProfileContent() {
           <DialogContent sx={{ p: 0, position: "relative" }}>
             <Box
               component="img"
-              src={`/api/photos/${lightboxPhoto.file_path}`}
+              src={`/api/photos/${lightboxPhoto.file_path.split("/").pop()}`}
               alt={lightboxPhoto.description || "Chicken photo"}
               sx={{ width: "100%", display: "block" }}
             />
@@ -1175,7 +1175,7 @@ function ChickenInfoCard({ chicken }: { chicken: Chicken }) {
           <Avatar
             src={
               (chicken.primary_thumbnail_path || chicken.primary_photo_path)
-                ? `/api/photos/${chicken.primary_thumbnail_path || chicken.primary_photo_path}`
+                ? `/api/photos/${(chicken.primary_thumbnail_path || chicken.primary_photo_path)!.split("/").pop()}`
                 : undefined
             }
             alt={chicken.name}
@@ -1282,7 +1282,7 @@ function PhotoGallery({
             >
               <Box
                 component="img"
-                src={`/api/photos/${photo.file_path}`}
+                src={`/api/photos/${photo.file_path.split("/").pop()}`}
                 alt={photo.description || "Chicken photo"}
                 sx={{
                   width: "100%",
