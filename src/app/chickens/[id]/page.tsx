@@ -324,15 +324,14 @@ function bboxToCropRegion(bbox: [number, number, number, number]): CropRegion {
 function makeAISuggestionHandler(
   getContent: () => string,
   setContent: (value: string) => void,
-  images: NoteImageEntry[],
-  setImages: (images: NoteImageEntry[]) => void
+  setImages: (updater: (images: NoteImageEntry[]) => NoteImageEntry[]) => void
 ) {
   return (imageId: number, text: string, bbox: [number, number, number, number] | null) => {
     const current = getContent();
     const separator = current.trim() ? "\n\n---\n\n" : "";
     setContent(current + separator + text);
     if (bbox) {
-      setImages(
+      setImages((images) =>
         images.map((i) =>
           i.id === imageId ? { ...i, crop: bboxToCropRegion(bbox) } : i
         )
@@ -1054,7 +1053,6 @@ function ProfileContent() {
                 onAISuggestion={makeAISuggestionHandler(
                   () => addNoteForm.getValues("content") || "",
                   (v) => addNoteForm.setValue("content", v, { shouldDirty: true }),
-                  addNoteImages,
                   setAddNoteImages
                 )}
               />
@@ -1632,7 +1630,6 @@ const NoteItem = memo(function NoteItem({
                 onAISuggestion={makeAISuggestionHandler(
                   () => form.getValues("content") || "",
                   (v) => form.setValue("content", v, { shouldDirty: true }),
-                  editNoteImages,
                   setEditNoteImages
                 )}
               />

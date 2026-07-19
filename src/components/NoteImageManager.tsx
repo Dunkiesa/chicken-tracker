@@ -53,7 +53,8 @@ function areaToCropRegion(area: Area): CropRegion {
 }
 
 export function noteImageUrl(filePath: string) {
-  return `/api/notes/images/${filePath}`;
+  const filename = filePath.split("/").pop() ?? filePath;
+  return `/api/notes/images/${filename}`;
 }
 
 const overlayIconButtonSx = {
