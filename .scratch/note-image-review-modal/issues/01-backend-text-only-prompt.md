@@ -4,10 +4,10 @@
 
 **Blocked by:** None — can start immediately
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Backend endpoint accepts a cropped image region and returns AI-generated text
-- [ ] The text-only prompt does not request a bounding box
-- [ ] The AI processes only the cropped region (not the full image)
-- [ ] The response contains only text (no bbox)
-- [ ] Tests verify the endpoint accepts cropped images and returns text-only responses
+- [x] Backend endpoint accepts a cropped image region and returns AI-generated text
+- [x] The text-only prompt does not request a bounding box
+- [x] The AI processes only the cropped region (not the full image)
+- [x] The response contains only text (no bbox)
+- [x] Tests verify the endpoint accepts cropped images and returns text-only responses
