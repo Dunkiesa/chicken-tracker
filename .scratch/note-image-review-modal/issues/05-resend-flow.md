@@ -6,9 +6,9 @@
 
 **Status:** ready-for-agent
 
-- [ ] Resend button sends the cropped region to the backend text-only prompt endpoint
-- [ ] Resend button shows a spinner while AI processes
-- [ ] Modal locks during resend (crop rectangle and text field non-interactive)
-- [ ] New AI text replaces old text unconditionally when resend completes
-- [ ] Modal unlocks after resend completes
-- [ ] Tests verify the resend flow: sending cropped region, locking during processing, replacing text, and unlocking
+- [x] Resend button sends the cropped region to the backend text-only prompt endpoint
+- [x] Resend button shows a spinner while AI processes
+- [x] Modal locks during resend (crop rectangle and text field non-interactive)
+- [x] New AI text replaces old text unconditionally when resend completes
+- [x] Modal unlocks after resend completes
+- [x] Tests verify the resend flow: sending cropped region, locking during processing, replacing text, and unlocking
