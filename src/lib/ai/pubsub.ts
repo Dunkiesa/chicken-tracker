@@ -36,12 +36,16 @@ export function emitStatusEvent(
   payload: StatusEventPayload
 ): void {
   const set = subscribers.get(userEmail);
-  if (!set) return;
+  if (!set) {
+    console.log(`[AI] emitStatusEvent: no subscribers for user ${userEmail} (event: imageId=${payload.imageId}, status=${payload.status})`);
+    return;
+  }
+  console.log(`[AI] emitStatusEvent: delivering to ${set.size} subscriber(s) for ${userEmail} (imageId=${payload.imageId}, status=${payload.status})`);
   for (const cb of set) {
     try {
       cb(payload);
-    } catch {
-      // swallow subscriber errors
+    } catch (err) {
+      console.error(`[AI] Subscriber callback error:`, err);
     }
   }
 }

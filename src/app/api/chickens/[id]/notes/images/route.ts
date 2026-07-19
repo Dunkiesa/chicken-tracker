@@ -52,7 +52,9 @@ export async function POST(
       recorded_by: session.user.email,
     });
 
-    processNoteImage(row.id, session.user.email).catch(() => {});
+    processNoteImage(row.id, session.user.email).catch((err) => {
+      console.error(`[AI] processNoteImage failed for image ${row.id}:`, err);
+    });
 
     return NextResponse.json(row, { status: 201 });
   } catch (error) {

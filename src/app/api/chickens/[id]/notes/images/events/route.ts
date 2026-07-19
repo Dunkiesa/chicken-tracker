@@ -31,6 +31,8 @@ export async function GET(
   const { readable, writable } = new TransformStream();
   const writer = writable.getWriter();
 
+  console.log(`[AI] SSE connection opened for user=${userEmail}, chickenId=${chickenId}`);
+
   const unsubscribe = subscribeToStatusEvents(
     userEmail,
     (payload: StatusEventPayload) => {
@@ -42,11 +44,15 @@ export async function GET(
         ...(payload.bbox !== undefined ? { bbox: payload.bbox } : {}),
         ...(payload.error !== undefined ? { error: payload.error } : {}),
       });
-      writer.write(encoder.encode(`data: ${data}\n\n`)).catch(() => {});
+      console.log(`[AI] SSE writing event: ${data}`);
+      writer.write(encoder.encode(`data: ${data}\n\n`)).catch((err) => {
+        console.error(`[AI] SSE write error:`, err);
+      });
     }
   );
 
   const cleanup = () => {
+    console.log(`[AI] SSE connection closed for user=${userEmail}, chickenId=${chickenId}`);
     unsubscribe();
     writer.close().catch(() => {});
   };
