@@ -12,10 +12,10 @@ import {
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
-import CropIcon from "@mui/icons-material/Crop";
 import CheckIcon from "@mui/icons-material/Check";
 import RefreshIcon from "@mui/icons-material/Refresh";
-import CropDialog from "@/components/CropDialog";
+import NoteImageCropDialog from "@/components/NoteImageCropDialog";
+import NoteImageReviewModal from "@/components/NoteImageReviewModal";
 import { useNoteImageSSE } from "@/hooks/useNoteImageSSE";
 import type { Area } from "react-easy-crop";
 
@@ -83,6 +83,7 @@ export default function NoteImageManager({
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [cropImage, setCropImage] = useState<NoteImageEntry | null>(null);
+  const [reviewImage, setReviewImage] = useState<NoteImageEntry | null>(null);
   const fileInputKeyRef = useRef(0);
   const prevStatusesRef = useRef<Record<number, { status: string; text?: string }>>({});
 
@@ -181,6 +182,29 @@ export default function NoteImageManager({
     setCropImage(null);
   };
 
+  const handleThumbnailClick = (image: NoteImageEntry) => {
+    if (image.status === "pending" || image.status === "processing") return;
+    if (image.status === "skipped") {
+      setCropImage(image);
+    } else if (image.status === "succeeded" || image.status === "failed") {
+      setReviewImage(image);
+    }
+  };
+
+  const handleReviewSave = (crop: CropRegion, text: string) => {
+    if (!reviewImage) return;
+    onChange(
+      images.map((i) =>
+        i.id === reviewImage.id ? { ...i, crop, ai_suggestion: text, ai_error: null } : i
+      )
+    );
+    setReviewImage(null);
+  };
+
+  const handleReviewCancel = () => {
+    setReviewImage(null);
+  };
+
   const handleRetry = useCallback(async (imageId: number) => {
     await retryImage(imageId);
   }, [retryImage]);
@@ -216,6 +240,7 @@ export default function NoteImageManager({
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
             {images.map((image) => {
               const badge = statusBadgeConfig[image.status] ?? statusBadgeConfig["pending"]!;
+              const isProcessing = image.status === "pending" || image.status === "processing";
               return (
                 <Box
                   key={image.id}
@@ -225,6 +250,7 @@ export default function NoteImageManager({
                     component="img"
                     src={noteImageUrl(image.file_path)}
                     alt={`Note image ${image.id}`}
+                    onClick={() => handleThumbnailClick(image)}
                     sx={{
                       width: "100%",
                       height: "100%",
@@ -232,6 +258,8 @@ export default function NoteImageManager({
                       borderRadius: 1,
                       border: 1,
                       borderColor: image.status === "failed" ? "error.main" : "divider",
+                      cursor: isProcessing ? "default" : "pointer",
+                      pointerEvents: isProcessing ? "none" : "auto",
                     }}
                   />
                   <Chip
@@ -285,14 +313,6 @@ export default function NoteImageManager({
                     )}
                     <IconButton
                       size="small"
-                      onClick={() => setCropImage(image)}
-                      aria-label="Crop image"
-                      sx={overlayIconButtonSx}
-                    >
-                      <CropIcon sx={{ fontSize: 16 }} />
-                    </IconButton>
-                    <IconButton
-                      size="small"
                       onClick={() => handleRemove(image.id)}
                       aria-label="Remove image"
                       sx={overlayIconButtonSx}
@@ -308,12 +328,23 @@ export default function NoteImageManager({
       </Stack>
 
       {cropImage && (
-        <CropDialog
-          open={!!cropImage}
+        <NoteImageCropDialog
+          open={true}
           imageUrl={noteImageUrl(cropImage.file_path)}
           onCrop={handleCropConfirm}
           onCancel={handleCropCancel}
-          pending={false}
+        />
+      )}
+
+      {reviewImage && (
+        <NoteImageReviewModal
+          open={true}
+          imageUrl={noteImageUrl(reviewImage.file_path)}
+          initialCrop={reviewImage.crop}
+          initialText={reviewImage.ai_suggestion ?? ""}
+          onSave={handleReviewSave}
+          onCancel={handleReviewCancel}
+          error={reviewImage.ai_error}
         />
       )}
     </>

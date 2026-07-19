@@ -23,20 +23,19 @@ import { renderWithProviders } from "./test-utils";
 import NoteImageManager from "@/components/NoteImageManager";
 import type { NoteImageEntry } from "@/components/NoteImageManager";
 
-const mockCropDialog = jest.fn();
-jest.mock("@/components/CropDialog", () => ({
+const mockNoteImageCropDialog = jest.fn();
+jest.mock("@/components/NoteImageCropDialog", () => ({
   __esModule: true,
   default: (props: {
     open: boolean;
     imageUrl: string;
     onCrop: (crop: { x: number; y: number; width: number; height: number }) => void;
     onCancel: () => void;
-    pending: boolean;
   }) => {
-    mockCropDialog(props);
+    mockNoteImageCropDialog(props);
     if (!props.open) return null;
     return (
-      <div data-testid="crop-dialog">
+      <div data-testid="note-image-crop-dialog">
         <button
           onClick={() =>
             props.onCrop({ x: 10, y: 20, width: 100, height: 100 })
@@ -45,6 +44,38 @@ jest.mock("@/components/CropDialog", () => ({
           Confirm Crop
         </button>
         <button onClick={props.onCancel}>Cancel Crop</button>
+      </div>
+    );
+  },
+}));
+
+const mockNoteImageReviewModal = jest.fn();
+jest.mock("@/components/NoteImageReviewModal", () => ({
+  __esModule: true,
+  default: (props: {
+    open: boolean;
+    imageUrl: string;
+    initialCrop: any;
+    initialText: string;
+    onSave: (crop: any, text: string) => void;
+    onCancel: () => void;
+    onResend?: (crop: any) => void;
+    isResending?: boolean;
+    error?: string | null;
+  }) => {
+    mockNoteImageReviewModal(props);
+    if (!props.open) return null;
+    return (
+      <div data-testid="note-image-review-modal">
+        <button onClick={() => props.onSave({ x_min: 0, y_min: 0, x_max: 50, y_max: 50 }, "edited text")}>
+          Save Review
+        </button>
+        <button onClick={props.onCancel}>Cancel Review</button>
+        {props.onResend && (
+          <button onClick={() => props.onResend!({ x_min: 0, y_min: 0, x_max: 50, y_max: 50 })}>
+            Resend
+          </button>
+        )}
       </div>
     );
   },
@@ -179,20 +210,20 @@ describe("NoteImageManager", () => {
     ]);
   });
 
-  it("opens the crop dialog when the crop button is clicked", () => {
+  it("opens the crop dialog when the thumbnail is clicked for a skipped image", () => {
     const onChange = jest.fn();
     const images: NoteImageEntry[] = [
-      { id: 1, file_path: "a.jpg", crop: null, status: "pending" },
+      { id: 1, file_path: "a.jpg", crop: null, status: "skipped" },
     ];
 
     renderWithProviders(
       <NoteImageManager chickenId={1} images={images} onChange={onChange} />
     );
 
-    const cropBtn = screen.getByRole("button", { name: /crop image/i });
-    fireEvent.click(cropBtn);
+    const thumbnail = screen.getByAltText("Note image 1");
+    fireEvent.click(thumbnail);
 
-    expect(mockCropDialog).toHaveBeenCalledWith(
+    expect(mockNoteImageCropDialog).toHaveBeenCalledWith(
       expect.objectContaining({ open: true })
     );
   });
@@ -200,14 +231,15 @@ describe("NoteImageManager", () => {
   it("updates the crop for an image when the crop dialog confirms", () => {
     const onChange = jest.fn();
     const images: NoteImageEntry[] = [
-      { id: 1, file_path: "a.jpg", crop: null, status: "pending" },
+      { id: 1, file_path: "a.jpg", crop: null, status: "skipped" },
     ];
 
     renderWithProviders(
       <NoteImageManager chickenId={1} images={images} onChange={onChange} />
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /crop image/i }));
+    const thumbnail = screen.getByAltText("Note image 1");
+    fireEvent.click(thumbnail);
     fireEvent.click(screen.getByText("Confirm Crop"));
 
     expect(onChange).toHaveBeenCalledWith([
@@ -215,7 +247,7 @@ describe("NoteImageManager", () => {
         id: 1,
         file_path: "a.jpg",
         crop: { x_min: 10, y_min: 20, x_max: 110, y_max: 120 },
-        status: "pending",
+        status: "skipped",
       },
     ]);
   });
@@ -297,5 +329,193 @@ describe("NoteImageManager", () => {
     );
 
     expect(screen.queryByRole("button", { name: /retry ai/i })).not.toBeInTheDocument();
+  });
+
+  describe("thumbnail click routing", () => {
+    it("opens NoteImageCropDialog when AI is disabled (status skipped)", () => {
+      const onChange = jest.fn();
+      const images: NoteImageEntry[] = [
+        { id: 1, file_path: "a.jpg", crop: null, status: "skipped" },
+      ];
+
+      renderWithProviders(
+        <NoteImageManager chickenId={1} images={images} onChange={onChange} />
+      );
+
+      const thumbnail = screen.getByAltText("Note image 1");
+      fireEvent.click(thumbnail);
+
+      expect(mockNoteImageCropDialog).toHaveBeenCalledWith(
+        expect.objectContaining({ open: true })
+      );
+      expect(mockNoteImageReviewModal).not.toHaveBeenCalledWith(
+        expect.objectContaining({ open: true })
+      );
+    });
+
+    it("opens NoteImageReviewModal when AI is enabled and status is succeeded", () => {
+      const onChange = jest.fn();
+      const images: NoteImageEntry[] = [
+        { id: 1, file_path: "a.jpg", crop: null, status: "succeeded", ai_suggestion: "Hello world" },
+      ];
+
+      renderWithProviders(
+        <NoteImageManager chickenId={1} images={images} onChange={onChange} />
+      );
+
+      const thumbnail = screen.getByAltText("Note image 1");
+      fireEvent.click(thumbnail);
+
+      expect(mockNoteImageReviewModal).toHaveBeenCalledWith(
+        expect.objectContaining({ open: true, initialText: "Hello world" })
+      );
+      expect(mockNoteImageCropDialog).not.toHaveBeenCalledWith(
+        expect.objectContaining({ open: true })
+      );
+    });
+
+    it("blocks thumbnail click when AI is processing (status pending)", () => {
+      const onChange = jest.fn();
+      const images: NoteImageEntry[] = [
+        { id: 1, file_path: "a.jpg", crop: null, status: "pending" },
+      ];
+
+      renderWithProviders(
+        <NoteImageManager chickenId={1} images={images} onChange={onChange} />
+      );
+
+      const thumbnail = screen.getByAltText("Note image 1");
+      fireEvent.click(thumbnail);
+
+      expect(mockNoteImageCropDialog).not.toHaveBeenCalledWith(
+        expect.objectContaining({ open: true })
+      );
+      expect(mockNoteImageReviewModal).not.toHaveBeenCalledWith(
+        expect.objectContaining({ open: true })
+      );
+    });
+
+    it("blocks thumbnail click when AI is processing (status processing)", () => {
+      const onChange = jest.fn();
+      const images: NoteImageEntry[] = [
+        { id: 1, file_path: "a.jpg", crop: null, status: "processing" },
+      ];
+
+      renderWithProviders(
+        <NoteImageManager chickenId={1} images={images} onChange={onChange} />
+      );
+
+      const thumbnail = screen.getByAltText("Note image 1");
+      fireEvent.click(thumbnail);
+
+      expect(mockNoteImageCropDialog).not.toHaveBeenCalledWith(
+        expect.objectContaining({ open: true })
+      );
+      expect(mockNoteImageReviewModal).not.toHaveBeenCalledWith(
+        expect.objectContaining({ open: true })
+      );
+    });
+
+    it("opens NoteImageReviewModal in error state when AI has failed", () => {
+      const onChange = jest.fn();
+      const images: NoteImageEntry[] = [
+        { id: 1, file_path: "a.jpg", crop: null, status: "failed", ai_error: "AI broke" },
+      ];
+
+      renderWithProviders(
+        <NoteImageManager chickenId={1} images={images} onChange={onChange} />
+      );
+
+      const thumbnail = screen.getByAltText("Note image 1");
+      fireEvent.click(thumbnail);
+
+      expect(mockNoteImageReviewModal).toHaveBeenCalledWith(
+        expect.objectContaining({ open: true, error: "AI broke" })
+      );
+    });
+
+    it("saves crop and text from review modal back via onChange", () => {
+      const onChange = jest.fn();
+      const images: NoteImageEntry[] = [
+        { id: 1, file_path: "a.jpg", crop: null, status: "succeeded", ai_suggestion: "original" },
+      ];
+
+      renderWithProviders(
+        <NoteImageManager chickenId={1} images={images} onChange={onChange} />
+      );
+
+      fireEvent.click(screen.getByAltText("Note image 1"));
+      fireEvent.click(screen.getByText("Save Review"));
+
+      expect(onChange).toHaveBeenCalledWith([
+        {
+          id: 1,
+          file_path: "a.jpg",
+          crop: { x_min: 0, y_min: 0, x_max: 50, y_max: 50 },
+          status: "succeeded",
+          ai_suggestion: "edited text",
+          ai_error: null,
+        },
+      ]);
+    });
+
+    it("saves crop from crop dialog back via onChange", () => {
+      const onChange = jest.fn();
+      const images: NoteImageEntry[] = [
+        { id: 1, file_path: "a.jpg", crop: null, status: "skipped" },
+      ];
+
+      renderWithProviders(
+        <NoteImageManager chickenId={1} images={images} onChange={onChange} />
+      );
+
+      fireEvent.click(screen.getByAltText("Note image 1"));
+      fireEvent.click(screen.getByText("Confirm Crop"));
+
+      expect(onChange).toHaveBeenCalledWith([
+        {
+          id: 1,
+          file_path: "a.jpg",
+          crop: { x_min: 10, y_min: 20, x_max: 110, y_max: 120 },
+          status: "skipped",
+        },
+      ]);
+    });
+
+    it("closes review modal on cancel", () => {
+      const onChange = jest.fn();
+      const images: NoteImageEntry[] = [
+        { id: 1, file_path: "a.jpg", crop: null, status: "succeeded", ai_suggestion: "text" },
+      ];
+
+      renderWithProviders(
+        <NoteImageManager chickenId={1} images={images} onChange={onChange} />
+      );
+
+      fireEvent.click(screen.getByAltText("Note image 1"));
+      expect(screen.getByTestId("note-image-review-modal")).toBeInTheDocument();
+
+      fireEvent.click(screen.getByText("Cancel Review"));
+
+      expect(screen.queryByTestId("note-image-review-modal")).not.toBeInTheDocument();
+    });
+
+    it("closes crop dialog on cancel", () => {
+      const onChange = jest.fn();
+      const images: NoteImageEntry[] = [
+        { id: 1, file_path: "a.jpg", crop: null, status: "skipped" },
+      ];
+
+      renderWithProviders(
+        <NoteImageManager chickenId={1} images={images} onChange={onChange} />
+      );
+
+      fireEvent.click(screen.getByAltText("Note image 1"));
+      expect(screen.getByTestId("note-image-crop-dialog")).toBeInTheDocument();
+
+      fireEvent.click(screen.getByText("Cancel Crop"));
+
+      expect(screen.queryByTestId("note-image-crop-dialog")).not.toBeInTheDocument();
+    });
   });
 });
