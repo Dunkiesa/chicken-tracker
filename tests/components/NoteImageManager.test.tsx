@@ -9,6 +9,15 @@ jest.mock("next/navigation", () => ({
   usePathname: jest.fn(() => "/"),
 }));
 
+// Mock EventSource for jsdom
+class MockEventSource {
+  onopen: (() => void) | null = null;
+  onmessage: ((event: any) => void) | null = null;
+  onerror: (() => void) | null = null;
+  close() {}
+}
+global.EventSource = MockEventSource as any;
+
 import { screen, waitFor, fireEvent } from "@testing-library/react";
 import { renderWithProviders } from "./test-utils";
 import NoteImageManager from "@/components/NoteImageManager";

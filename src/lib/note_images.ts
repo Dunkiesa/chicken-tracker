@@ -512,17 +512,17 @@ function contentTypeFor(filename: string): string {
 export async function createPendingNoteImageFromUpload(
   input: CreatePendingNoteImageFromUploadInput
 ): Promise<NoteImage> {
-  if (!isAllowedMimeType(input.mime_type)) {
-    throw new NoteImageUploadError(
-      "INVALID_MIME_TYPE",
-      `File type ${input.mime_type || "unknown"} is not allowed. Accepted: ${ALLOWED_MIME_TYPES.join(", ")}`
-    );
-  }
   if (input.buffer.length > MAX_FILE_SIZE_BYTES) {
     const limitMB = Math.round(MAX_FILE_SIZE_BYTES / (1024 * 1024));
     throw new NoteImageUploadError(
       "FILE_TOO_LARGE",
       `File size exceeds ${limitMB} MB limit`
+    );
+  }
+  if (!isAllowedMimeType(input.mime_type)) {
+    throw new NoteImageUploadError(
+      "INVALID_MIME_TYPE",
+      `File type ${input.mime_type || "unknown"} is not allowed. Accepted: ${ALLOWED_MIME_TYPES.join(", ")}`
     );
   }
   if (!validateImageMagicBytes(input.buffer)) {

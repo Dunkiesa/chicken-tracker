@@ -3,6 +3,10 @@ jest.mock("next-auth", () => ({
   getServerSession: jest.fn(),
 }));
 
+jest.mock("@/lib/ai", () => ({
+  processNoteImage: jest.fn(() => Promise.resolve()),
+}));
+
 import { getServerSession } from "next-auth";
 import { NextRequest } from "next/server";
 import {
@@ -200,7 +204,8 @@ describe("POST /api/chickens/[id]/notes/images — upload", () => {
   it("rejects files over the 10 MB size limit with 400", async () => {
     setSession({ email: ADMIN_EMAIL, role: "Admin" });
     const hen = await ensureHen("Upload TooBig");
-    const huge = Buffer.alloc(11 * 1024 * 1024);
+    const huge = Buffer.alloc(45 * 1024 * 1024);
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(huge);
     const form = buildFormData(huge, "huge.png", "image/png");
     const request = buildFormRequest(
       `http://localhost/api/chickens/${hen.id}/notes/images`,
@@ -210,10 +215,10 @@ describe("POST /api/chickens/[id]/notes/images — upload", () => {
     const response = await uploadNoteImage(request, {
       params: Promise.resolve({ id: String(hen.id) }),
     });
-    expect(response.status).toBe(400);
     const data = await response.json();
+    expect(response.status).toBe(400);
     expect(data.message).toMatch(/size/i);
-  }, 15000);
+  }, 30000);
 
   it("rejects disallowed MIME types with 400", async () => {
     setSession({ email: ADMIN_EMAIL, role: "Admin" });

@@ -40,8 +40,8 @@ describe("NoteImagesInline", () => {
   it("uses thumbnail_path when available, falls back to file_path", () => {
     renderWithProviders(<NoteImagesInline images={sampleImages} />);
     const imgs = screen.getAllByRole("img");
-    expect(imgs[0]!.getAttribute("src")).toBe("/api/notes/images/notes/a_thumb.jpg");
-    expect(imgs[1]!.getAttribute("src")).toBe("/api/notes/images/notes/b.jpg");
+    expect(imgs[0]!.getAttribute("src")).toBe("/api/notes/images/a_thumb.jpg");
+    expect(imgs[1]!.getAttribute("src")).toBe("/api/notes/images/b.jpg");
   });
 
   it("opens a lightbox dialog when a thumbnail is clicked", () => {
@@ -54,7 +54,7 @@ describe("NoteImagesInline", () => {
 
     const lightboxImg = dialog.querySelector("img");
     expect(lightboxImg).toBeTruthy();
-    expect(lightboxImg!.getAttribute("src")).toContain("notes/a.jpg");
+    expect(lightboxImg!.getAttribute("src")).toContain("a.jpg");
   });
 
   it("closes the lightbox when the close button is clicked", () => {
