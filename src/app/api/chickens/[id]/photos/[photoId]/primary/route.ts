@@ -76,6 +76,7 @@ export async function PUT(
       const sourceBuffer = await readFile(sourcePath);
 
       await sharp(sourceBuffer)
+        .rotate()
         .extract({
           left: Math.round(x),
           top: Math.round(y),

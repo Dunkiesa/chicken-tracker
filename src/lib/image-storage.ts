@@ -86,7 +86,14 @@ export async function readImageDimensions(
   if (!metadata.width || !metadata.height) {
     throw new Error("Could not determine image dimensions");
   }
-  return { width: metadata.width, height: metadata.height };
+  // EXIF orientations 5-8 indicate the image should be rotated 90/270 degrees,
+  // which swaps width and height
+  const orientation = metadata.orientation ?? 1;
+  const needsSwap = orientation >= 5 && orientation <= 8;
+  return {
+    width: needsSwap ? metadata.height : metadata.width,
+    height: needsSwap ? metadata.width : metadata.height,
+  };
 }
 
 function clampCropRegion(crop: CropRegion): CropRegion {
@@ -116,6 +123,7 @@ export async function applyCrop(
   await mkdir(dirname(absDest), { recursive: true });
   const buffer = await readFile(absSource);
   await sharp(buffer)
+    .rotate()
     .extract({ left, top, width: extractWidth, height: extractHeight })
     .toFile(absDest);
 }
@@ -129,6 +137,7 @@ export async function generateThumbnail(
   await mkdir(dirname(absDest), { recursive: true });
   const buffer = await readFile(absSource);
   await sharp(buffer)
+    .rotate()
     .resize(THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT, { fit: "cover" })
     .webp({ quality: THUMBNAIL_QUALITY })
     .toFile(absDest);
