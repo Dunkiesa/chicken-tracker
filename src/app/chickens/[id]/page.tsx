@@ -1540,18 +1540,16 @@ const NoteItem = memo(function NoteItem({
           mb: 1,
           bgcolor: "action.hover",
         }}
-        slotProps={{
-          secondaryAction: canModify && (
-            <Stack direction="row" spacing={0.5}>
-              <IconButton size="small" onClick={handleOpenEdit}>
-                <EditIcon fontSize="small" />
-              </IconButton>
-              <IconButton size="small" onClick={onDelete} color="error">
-                <DeleteIcon fontSize="small" />
-              </IconButton>
-            </Stack>
-          ),
-        }}
+        secondaryAction={canModify && (
+          <Stack direction="row" spacing={0.5}>
+            <IconButton size="small" onClick={handleOpenEdit}>
+              <EditIcon fontSize="small" />
+            </IconButton>
+            <IconButton size="small" onClick={onDelete} color="error">
+              <DeleteIcon fontSize="small" />
+            </IconButton>
+          </Stack>
+        )}
       >
         <ListItemText
           primary={

@@ -6,7 +6,9 @@ import { createNote, listNotes } from "@/lib/notes";
 import {
   finalizeNoteImageForSave,
   discardUnreferencedPendingImages,
+  discardNoteImage,
   getNoteImage,
+  listNoteImagesByNote,
   NoteImageNotPendingError,
   type CropRegion,
 } from "@/lib/note_images";
@@ -40,8 +42,22 @@ export async function processNoteImages(
           { status: 403 }
         );
       }
+      if (img.note_id === noteId) {
+        continue;
+      }
+      if (img.note_id !== null) {
+        throw new NoteImageNotPendingError(imageId);
+      }
       const cropOverride = cropMap[String(imageId)] ?? null;
       await finalizeNoteImageForSave(imageId, noteId, cropOverride);
+    }
+
+    const existingImages = await listNoteImagesByNote(noteId);
+    const idSet = new Set(ids);
+    for (const existing of existingImages) {
+      if (!idSet.has(existing.id)) {
+        await discardNoteImage(existing.id);
+      }
     }
 
     await discardUnreferencedPendingImages(chickenId, ids);

@@ -449,6 +449,85 @@ describe("PUT /api/chickens/[id]/notes/[noteId] — note edit with images", () =
     expect(await getNoteImage(orphan.id)).toBeNull();
   }, 20000);
 
+  it("succeeds when editing a note that already has images attached (no 409)", async () => {
+    setSession({ email: ADMIN_EMAIL, role: "Admin" });
+    const hen = await ensureHen("NoteEdit ExistingImages");
+    const note = await createNote({
+      chicken_id: hen.id,
+      content: "Original with image",
+      date: "2026-07-17",
+      recorded_by: ADMIN_EMAIL,
+    });
+    const img = await createPendingImageWithFiles(hen.id, ADMIN_EMAIL, 200, 200);
+
+    const createReq = buildJsonRequest(
+      `http://localhost/api/chickens/${hen.id}/notes/${note.id}`,
+      { content: "First edit", imageIds: [img.id] },
+      "PUT"
+    );
+    const createRes = await updateNoteRoute(createReq, {
+      params: Promise.resolve({ id: String(hen.id), noteId: String(note.id) }),
+    });
+    expect(createRes.status).toBe(200);
+
+    const editReq = buildJsonRequest(
+      `http://localhost/api/chickens/${hen.id}/notes/${note.id}`,
+      { content: "Second edit", imageIds: [img.id] },
+      "PUT"
+    );
+    const editRes = await updateNoteRoute(editReq, {
+      params: Promise.resolve({ id: String(hen.id), noteId: String(note.id) }),
+    });
+    expect(editRes.status).toBe(200);
+
+    const updated = await getNote(note.id);
+    expect(updated!.content).toBe("Second edit");
+
+    const attached = await getNoteImage(img.id);
+    expect(attached).not.toBeNull();
+    expect(attached!.note_id).toBe(note.id);
+  }, 20000);
+
+  it("removes images no longer in the imageIds list on edit", async () => {
+    setSession({ email: ADMIN_EMAIL, role: "Admin" });
+    const hen = await ensureHen("NoteEdit RemoveImages");
+    const note = await createNote({
+      chicken_id: hen.id,
+      content: "Note with two images",
+      date: "2026-07-17",
+      recorded_by: ADMIN_EMAIL,
+    });
+    const imgA = await createPendingImageWithFiles(hen.id, ADMIN_EMAIL, 100, 100);
+    const imgB = await createPendingImageWithFiles(hen.id, ADMIN_EMAIL, 100, 100);
+
+    const attachReq = buildJsonRequest(
+      `http://localhost/api/chickens/${hen.id}/notes/${note.id}`,
+      { content: "Note with two images", imageIds: [imgA.id, imgB.id] },
+      "PUT"
+    );
+    const attachRes = await updateNoteRoute(attachReq, {
+      params: Promise.resolve({ id: String(hen.id), noteId: String(note.id) }),
+    });
+    expect(attachRes.status).toBe(200);
+    expect(await listNoteImagesByNote(note.id)).toHaveLength(2);
+
+    const removeReq = buildJsonRequest(
+      `http://localhost/api/chickens/${hen.id}/notes/${note.id}`,
+      { content: "Note with one image", imageIds: [imgA.id] },
+      "PUT"
+    );
+    const removeRes = await updateNoteRoute(removeReq, {
+      params: Promise.resolve({ id: String(hen.id), noteId: String(note.id) }),
+    });
+    expect(removeRes.status).toBe(200);
+
+    const remaining = await listNoteImagesByNote(note.id);
+    expect(remaining).toHaveLength(1);
+    expect(remaining[0]!.id).toBe(imgA.id);
+
+    expect(await getNoteImage(imgB.id)).toBeNull();
+  }, 20000);
+
   it("returns 409 when attaching an already-attached image", async () => {
     setSession({ email: ADMIN_EMAIL, role: "Admin" });
     const hen = await ensureHen("NoteEdit Conflict");
