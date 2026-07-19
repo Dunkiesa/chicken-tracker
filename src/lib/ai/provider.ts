@@ -32,8 +32,15 @@ export async function callAIProvider(
         ],
       },
     ],
-    ...config.extra_args,
   };
+
+  for (const [key, value] of Object.entries(config.extra_args)) {
+    body[key === "slot" ? "id_slot" : key] = value;
+  }
+
+  if (config.chat_template_kwargs) {
+    body.chat_template_kwargs = config.chat_template_kwargs;
+  }
 
   const response = await fetch(config.url, {
     method: "POST",

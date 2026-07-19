@@ -3,6 +3,8 @@ api_key: "your-api-key-here"
 url: "http://localhost:8080/v1/chat/completions"
 extra_args:
   slot: 1
+# chat_template_kwargs:
+#   enable_thinking: false
 prompt: |
   You are an OCR and image analysis assistant.
   Analyze the provided image and return a JSON object with:

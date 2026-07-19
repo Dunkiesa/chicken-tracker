@@ -53,7 +53,53 @@ describe("callAIProvider", () => {
       type: "image_url",
       image_url: { url: "data:image/jpeg;base64,base64data" },
     });
-    expect(body.slot).toBe("1");
+    expect(body.id_slot).toBe("1");
+    expect(body.slot).toBeUndefined();
+  });
+
+  it("includes chat_template_kwargs when present in config", async () => {
+    fetchSpy = jest.spyOn(global, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        choices: [{ message: { content: '{"text":"hello","bbox":null}' } }],
+      }),
+      text: async () => "",
+    } as Response);
+
+    const configWithKwargs: AIConfig = {
+      ...mockConfig,
+      chat_template_kwargs: { enable_thinking: false },
+    };
+
+    await callAIProvider(
+      configWithKwargs,
+      "base64data",
+      "image/jpeg",
+      "Analyze this image"
+    );
+
+    const body = JSON.parse(fetchSpy.mock.calls[0]![1].body);
+    expect(body.chat_template_kwargs).toEqual({ enable_thinking: false });
+  });
+
+  it("omits chat_template_kwargs when not in config", async () => {
+    fetchSpy = jest.spyOn(global, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        choices: [{ message: { content: '{"text":"hello","bbox":null}' } }],
+      }),
+      text: async () => "",
+    } as Response);
+
+    await callAIProvider(
+      mockConfig,
+      "base64data",
+      "image/jpeg",
+      "Analyze this image"
+    );
+
+    const body = JSON.parse(fetchSpy.mock.calls[0]![1].body);
+    expect(body.chat_template_kwargs).toBeUndefined();
   });
 
   it("throws on non-ok HTTP response", async () => {

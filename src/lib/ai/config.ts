@@ -7,6 +7,7 @@ export type AIConfig = {
   api_key: string;
   url: string;
   prompt: string;
+  chat_template_kwargs?: Record<string, unknown>;
 };
 
 export function loadAIConfig(
@@ -46,6 +47,15 @@ export function loadAIConfig(
     api_key: typeof obj.api_key === "string" ? obj.api_key : "",
     url: typeof obj.url === "string" ? obj.url : "",
     prompt: typeof obj.prompt === "string" ? obj.prompt : "",
+    ...(obj.chat_template_kwargs &&
+    typeof obj.chat_template_kwargs === "object"
+      ? {
+          chat_template_kwargs: obj.chat_template_kwargs as Record<
+            string,
+            unknown
+          >,
+        }
+      : {}),
   };
 }
 
