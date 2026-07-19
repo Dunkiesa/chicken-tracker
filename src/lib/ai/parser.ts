@@ -1,6 +1,6 @@
 import type { BBoxFormat } from "./config";
 
-export type AIResponseErrorCode = "PARSE_FAILED" | "SCHEMA_MISMATCH" | "BBOX_OUT_OF_RANGE";
+export type AIResponseErrorCode = "PARSE_FAILED" | "SCHEMA_MISMATCH" | "BBOX_OUT_OF_RANGE" | "EMPTY_RESPONSE";
 
 export type AIResponseParsed = {
   text: string;
@@ -174,4 +174,12 @@ export function parseAIResponse(raw: string, format: BBoxFormat = "json"): AIRes
     return parseGemmaFormat(raw);
   }
   return parseJsonFormat(raw);
+}
+
+export function parseTextOnlyResponse(raw: string): string {
+  const stripped = stripMarkdownFences(raw).trim();
+  if (!stripped) {
+    throw new AIResponseError("EMPTY_RESPONSE", "AI response is empty");
+  }
+  return stripped;
 }

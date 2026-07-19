@@ -9,6 +9,7 @@ export type AIConfig = {
   api_key: string;
   url: string;
   prompt: string;
+  resend_prompt: string;
   bbox_format: BBoxFormat;
   chat_template_kwargs?: Record<string, unknown>;
 };
@@ -56,6 +57,7 @@ export function loadAIConfig(
     api_key: typeof obj.api_key === "string" ? obj.api_key : "",
     url: typeof obj.url === "string" ? obj.url : "",
     prompt: typeof obj.prompt === "string" ? obj.prompt : "",
+    resend_prompt: typeof obj.resend_prompt === "string" ? obj.resend_prompt : "",
     bbox_format,
     ...(obj.chat_template_kwargs &&
     typeof obj.chat_template_kwargs === "object"

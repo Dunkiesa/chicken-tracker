@@ -23,6 +23,7 @@ jest.mock("@/lib/ai/provider", () => ({
 
 jest.mock("@/lib/ai/parser", () => ({
   parseAIResponse: jest.fn(),
+  parseTextOnlyResponse: jest.fn(),
 }));
 
 jest.mock("@/lib/ai/pubsub", () => ({
@@ -35,21 +36,22 @@ jest.mock("fs/promises", () => ({
 
 const mockToBuffer = jest.fn();
 const mockRotate = jest.fn().mockReturnThis();
+const mockExtract = jest.fn().mockReturnThis();
 
 jest.mock("sharp", () => ({
   __esModule: true,
   default: jest.fn((input: Buffer) => {
-    mockToBuffer.mockImplementationOnce(() => Promise.resolve(input));
-    return { rotate: mockRotate, toBuffer: mockToBuffer };
+    mockToBuffer.mockImplementation(() => Promise.resolve(input));
+    return { rotate: mockRotate, extract: mockExtract, toBuffer: mockToBuffer };
   }),
 }));
 
-import { processNoteImage } from "@/lib/ai/orchestrator";
+import { processNoteImage, resendNoteImage } from "@/lib/ai/orchestrator";
 import { getNoteImage, updateNoteImageStatus } from "@/lib/note_images";
 import { readImageDimensions, mimeTypeFromPath } from "@/lib/image-storage";
 import { loadAIConfig } from "@/lib/ai/config";
 import { callAIProvider } from "@/lib/ai/provider";
-import { parseAIResponse } from "@/lib/ai/parser";
+import { parseAIResponse, parseTextOnlyResponse } from "@/lib/ai/parser";
 import { emitStatusEvent } from "@/lib/ai/pubsub";
 import { readFile } from "fs/promises";
 import type { NoteImage } from "@/lib/note_images";
@@ -61,6 +63,7 @@ const mockReadDims = readImageDimensions as jest.MockedFunction<typeof readImage
 const mockLoadConfig = loadAIConfig as jest.MockedFunction<typeof loadAIConfig>;
 const mockCallProvider = callAIProvider as jest.MockedFunction<typeof callAIProvider>;
 const mockParseResponse = parseAIResponse as jest.MockedFunction<typeof parseAIResponse>;
+const mockParseTextOnly = parseTextOnlyResponse as jest.MockedFunction<typeof parseTextOnlyResponse>;
 const mockEmit = emitStatusEvent as jest.MockedFunction<typeof emitStatusEvent>;
 const mockReadFile = readFile as jest.MockedFunction<typeof readFile>;
 
@@ -89,6 +92,7 @@ const baseConfig: AIConfig = {
   api_key: "key",
   url: "http://localhost:8080",
   prompt: "Image is ${image_width}x${image_height}",
+  resend_prompt: "Extract text from this image",
   bbox_format: "json",
 };
 
@@ -247,5 +251,158 @@ describe("processNoteImage", () => {
 
     expect(callOrder[0]).toBe("processing");
     expect(callOrder[1]).toBe("succeeded");
+  });
+});
+
+describe("resendNoteImage", () => {
+  const crop = { x_min: 0.1, y_min: 0.2, x_max: 0.8, y_max: 0.9 };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("throws when image not found", async () => {
+    mockGetNoteImage.mockResolvedValue(null);
+    await expect(
+      resendNoteImage(999, crop, "user@test.com")
+    ).rejects.toThrow("Note image 999 not found");
+  });
+
+  it("throws when AI is disabled", async () => {
+    mockGetNoteImage.mockResolvedValue({ ...baseImage });
+    mockLoadConfig.mockReturnValue(null);
+    await expect(
+      resendNoteImage(1, crop, "user@test.com")
+    ).rejects.toThrow("AI is not enabled");
+  });
+
+  it("throws when resend_prompt is empty", async () => {
+    mockGetNoteImage.mockResolvedValue({ ...baseImage });
+    mockLoadConfig.mockReturnValue({ ...baseConfig, resend_prompt: "" });
+    await expect(
+      resendNoteImage(1, crop, "user@test.com")
+    ).rejects.toThrow("resend_prompt is not configured");
+  });
+
+  it("crops the image and calls provider with resend_prompt", async () => {
+    mockGetNoteImage.mockResolvedValue({ ...baseImage });
+    mockLoadConfig.mockReturnValue({
+      ...baseConfig,
+      resend_prompt: "Extract text only",
+    });
+    mockReadFile.mockResolvedValue(Buffer.from("fake-image-bytes"));
+    mockReadDims.mockResolvedValue({ width: 800, height: 600 });
+    mockCallProvider.mockResolvedValue("Extracted text content");
+    mockParseTextOnly.mockReturnValue("Extracted text content");
+    mockUpdateStatus.mockResolvedValue({ ...baseImage });
+
+    await resendNoteImage(1, crop, "user@test.com");
+
+    expect(mockEmit).toHaveBeenCalledWith("user@test.com", {
+      imageId: 1,
+      chickenId: 1,
+      status: "processing",
+    });
+    expect(mockUpdateStatus).toHaveBeenCalledWith(1, "processing");
+    expect(mockCallProvider).toHaveBeenCalledWith(
+      expect.objectContaining({ resend_prompt: "Extract text only" }),
+      expect.any(String),
+      "image/jpeg",
+      "Extract text only"
+    );
+    expect(mockParseTextOnly).toHaveBeenCalledWith("Extracted text content");
+  });
+
+  it("updates status to succeeded with new text on success", async () => {
+    mockGetNoteImage.mockResolvedValue({ ...baseImage });
+    mockLoadConfig.mockReturnValue({
+      ...baseConfig,
+      resend_prompt: "Extract text only",
+    });
+    mockReadFile.mockResolvedValue(Buffer.from("fake"));
+    mockReadDims.mockResolvedValue({ width: 800, height: 600 });
+    mockCallProvider.mockResolvedValue("New text");
+    mockParseTextOnly.mockReturnValue("New text");
+    mockUpdateStatus.mockResolvedValue({ ...baseImage });
+
+    await resendNoteImage(1, crop, "user@test.com");
+
+    expect(mockUpdateStatus).toHaveBeenCalledWith(1, "succeeded", {
+      ai_suggestion: "New text",
+      ai_error: null,
+    });
+    expect(mockEmit).toHaveBeenCalledWith("user@test.com", {
+      imageId: 1,
+      chickenId: 1,
+      status: "succeeded",
+      text: "New text",
+      bbox: null,
+    });
+  });
+
+  it("retries once on failure then succeeds", async () => {
+    mockGetNoteImage.mockResolvedValue({ ...baseImage });
+    mockLoadConfig.mockReturnValue({
+      ...baseConfig,
+      resend_prompt: "Extract text only",
+    });
+    mockReadFile.mockResolvedValue(Buffer.from("fake"));
+    mockReadDims.mockResolvedValue({ width: 100, height: 100 });
+    mockCallProvider
+      .mockRejectedValueOnce(new Error("provider error"))
+      .mockResolvedValueOnce("retry text");
+    mockParseTextOnly.mockReturnValue("retry text");
+    mockUpdateStatus.mockResolvedValue({ ...baseImage });
+
+    await resendNoteImage(1, crop, "user@test.com");
+
+    expect(mockCallProvider).toHaveBeenCalledTimes(2);
+    expect(mockUpdateStatus).toHaveBeenCalledWith(1, "succeeded", {
+      ai_suggestion: "retry text",
+      ai_error: null,
+    });
+  });
+
+  it("marks failed after two attempts", async () => {
+    mockGetNoteImage.mockResolvedValue({ ...baseImage });
+    mockLoadConfig.mockReturnValue({
+      ...baseConfig,
+      resend_prompt: "Extract text only",
+    });
+    mockReadFile.mockResolvedValue(Buffer.from("fake"));
+    mockReadDims.mockResolvedValue({ width: 100, height: 100 });
+    mockCallProvider.mockRejectedValue(new Error("provider down"));
+    mockUpdateStatus.mockResolvedValue({ ...baseImage });
+
+    await resendNoteImage(1, crop, "user@test.com");
+
+    expect(mockCallProvider).toHaveBeenCalledTimes(2);
+    expect(mockUpdateStatus).toHaveBeenCalledWith(1, "failed", {
+      ai_error: "provider down",
+    });
+    expect(mockEmit).toHaveBeenCalledWith("user@test.com", {
+      imageId: 1,
+      chickenId: 1,
+      status: "failed",
+      error: "provider down",
+    });
+  });
+
+  it("does not parse bbox from response", async () => {
+    mockGetNoteImage.mockResolvedValue({ ...baseImage });
+    mockLoadConfig.mockReturnValue({
+      ...baseConfig,
+      resend_prompt: "Extract text only",
+    });
+    mockReadFile.mockResolvedValue(Buffer.from("fake"));
+    mockReadDims.mockResolvedValue({ width: 100, height: 100 });
+    mockCallProvider.mockResolvedValue("just text");
+    mockParseTextOnly.mockReturnValue("just text");
+    mockUpdateStatus.mockResolvedValue({ ...baseImage });
+
+    await resendNoteImage(1, crop, "user@test.com");
+
+    expect(mockParseResponse).not.toHaveBeenCalled();
+    expect(mockParseTextOnly).toHaveBeenCalledWith("just text");
   });
 });

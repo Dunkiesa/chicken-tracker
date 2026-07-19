@@ -39,6 +39,7 @@ describe("loadAIConfig", () => {
       api_key: "test-key",
       url: "http://localhost:8080/v1/chat/completions",
       prompt: "Hello ${image_width}x${image_height}",
+      resend_prompt: "",
       bbox_format: "json",
     });
   });
@@ -125,6 +126,35 @@ describe("loadAIConfig", () => {
     expect(result).not.toBeNull();
     expect(result!.bbox_format).toBe("json");
   });
+
+  it("loads resend_prompt when specified", () => {
+    const yaml = [
+      "api_key: key",
+      "url: http://localhost:8080",
+      "prompt: initial prompt",
+      "resend_prompt: extract text only",
+    ].join("\n");
+    const filePath = join(tempDir, "ai.yaml");
+    writeFileSync(filePath, yaml, "utf-8");
+
+    const result = loadAIConfig(filePath);
+    expect(result).not.toBeNull();
+    expect(result!.resend_prompt).toBe("extract text only");
+  });
+
+  it("defaults resend_prompt to empty string when not specified", () => {
+    const yaml = [
+      "api_key: key",
+      "url: http://localhost:8080",
+      "prompt: test",
+    ].join("\n");
+    const filePath = join(tempDir, "ai.yaml");
+    writeFileSync(filePath, yaml, "utf-8");
+
+    const result = loadAIConfig(filePath);
+    expect(result).not.toBeNull();
+    expect(result!.resend_prompt).toBe("");
+  });
 });
 
 describe("isAIEnabled", () => {
@@ -140,6 +170,7 @@ describe("isAIEnabled", () => {
         api_key: "",
         url: "",
         prompt: "",
+        resend_prompt: "",
         bbox_format: "json",
       })
     ).toBe(true);
@@ -153,6 +184,7 @@ describe("isAIEnabled", () => {
         api_key: "",
         url: "",
         prompt: "",
+        resend_prompt: "",
         bbox_format: "json",
       })
     ).toBe(false);

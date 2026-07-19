@@ -1,4 +1,4 @@
-import { parseAIResponse, AIResponseError } from "@/lib/ai/parser";
+import { parseAIResponse, parseTextOnlyResponse, AIResponseError } from "@/lib/ai/parser";
 
 describe("parseAIResponse", () => {
   it("parses valid JSON with bbox", () => {
@@ -242,5 +242,41 @@ describe("parseAIResponse with gemma format", () => {
     const raw = JSON.stringify({ text: "test", box_2d: [300, 100, 700, 500] });
     const result = parseAIResponse(raw, "gemma");
     expect(result.bbox).toEqual([0.1, 0.3, 0.5, 0.7]);
+  });
+});
+
+describe("parseTextOnlyResponse", () => {
+  it("returns plain text trimmed", () => {
+    expect(parseTextOnlyResponse("  Give 1 tablet daily  ")).toBe(
+      "Give 1 tablet daily"
+    );
+  });
+
+  it("strips markdown code fences", () => {
+    const raw = "```\nGive 1 tablet daily\n```";
+    expect(parseTextOnlyResponse(raw)).toBe("Give 1 tablet daily");
+  });
+
+  it("strips markdown code fences with language tag", () => {
+    const raw = "```text\nGive 1 tablet daily\n```";
+    expect(parseTextOnlyResponse(raw)).toBe("Give 1 tablet daily");
+  });
+
+  it("handles multiline text", () => {
+    const raw = "Line 1\nLine 2\nLine 3";
+    expect(parseTextOnlyResponse(raw)).toBe("Line 1\nLine 2\nLine 3");
+  });
+
+  it("throws AIResponseError for empty response", () => {
+    expect(() => parseTextOnlyResponse("")).toThrow(AIResponseError);
+    try {
+      parseTextOnlyResponse("");
+    } catch (err) {
+      expect((err as AIResponseError).code).toBe("EMPTY_RESPONSE");
+    }
+  });
+
+  it("throws AIResponseError for whitespace-only response", () => {
+    expect(() => parseTextOnlyResponse("   \n  \t  ")).toThrow(AIResponseError);
   });
 });

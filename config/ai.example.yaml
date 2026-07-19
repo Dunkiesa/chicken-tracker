@@ -25,3 +25,10 @@ prompt: |
 #   - "box_2d": [y_min, x_min, y_max, x_max] in 0-1000 coordinates of the salient region, or null if no specific region
 #   The image dimensions are ${image_width}x${image_height} pixels.
 #   Return ONLY valid JSON, no markdown or explanation.
+# resend_prompt is used when the user adjusts the crop and resends for new AI text.
+# It should request text extraction only (no bounding box). The server crops the
+# image to the user's rectangle and sends only that region with this prompt.
+resend_prompt: |
+  You are an OCR assistant.
+  Extract all text content visible in the provided cropped image.
+  Return ONLY the extracted text, no JSON, no markdown, no explanation.

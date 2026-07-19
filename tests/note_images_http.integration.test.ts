@@ -5,6 +5,7 @@ jest.mock("next-auth", () => ({
 
 jest.mock("@/lib/ai", () => ({
   processNoteImage: jest.fn(() => Promise.resolve()),
+  resendNoteImage: jest.fn(() => Promise.resolve()),
 }));
 
 import { getServerSession } from "next-auth";
@@ -35,6 +36,7 @@ import { POST as discardBatch } from "@/app/api/chickens/[id]/notes/images/disca
 import { GET as getNoteImageRoute, PATCH as patchNoteImage } from "@/app/api/chickens/[id]/notes/images/[imageId]/route";
 import { GET as readNoteImageFile } from "@/app/api/notes/images/[filename]/route";
 import { POST as sweepOrphans } from "@/app/api/internal/sweep-orphans/route";
+import { resendNoteImage } from "@/lib/ai";
 import sharp from "sharp";
 import { writeFile, mkdir, rm, stat } from "fs/promises";
 import { join, resolve } from "path";
@@ -694,6 +696,120 @@ describe("PATCH /api/chickens/[id]/notes/images/[imageId]", () => {
       params: Promise.resolve({ id: String(hen.id), imageId: String(img.id) }),
     });
     expect(response.status).toBe(400);
+  }, 15000);
+
+  it("triggers resend with crop on a succeeded image", async () => {
+    setSession({ email: ADMIN_EMAIL, role: "Admin" });
+    const hen = await ensureHen("Patch Resend Succeeded");
+    const img = await createPendingNoteImage({
+      chicken_id: hen.id,
+      file_path: `notes/_pending/prs_${randomUUID()}.png`,
+      original_width: 100,
+      original_height: 100,
+      recorded_by: ADMIN_EMAIL,
+    });
+    await updateNoteImageStatus(img.id, "succeeded", {
+      ai_suggestion: "old text",
+    });
+
+    const mockResend = resendNoteImage as jest.MockedFunction<typeof resendNoteImage>;
+    mockResend.mockClear();
+
+    const request = buildJsonRequest(
+      `http://localhost/api/chickens/${hen.id}/notes/images/${img.id}`,
+      {
+        action: "resend",
+        crop: { x_min: 0.1, y_min: 0.2, x_max: 0.9, y_max: 0.8 },
+      },
+      "PATCH"
+    );
+    const response = await patchNoteImage(request, {
+      params: Promise.resolve({ id: String(hen.id), imageId: String(img.id) }),
+    });
+    expect(response.status).toBe(200);
+    const data = (await response.json()) as NoteImage;
+    expect(data.crop_x_min).toBeCloseTo(0.1);
+    expect(data.crop_y_min).toBeCloseTo(0.2);
+    expect(data.crop_x_max).toBeCloseTo(0.9);
+    expect(data.crop_y_max).toBeCloseTo(0.8);
+    expect(mockResend).toHaveBeenCalledWith(
+      img.id,
+      { x_min: 0.1, y_min: 0.2, x_max: 0.9, y_max: 0.8 },
+      ADMIN_EMAIL
+    );
+  }, 15000);
+
+  it("triggers resend with crop on a failed image", async () => {
+    setSession({ email: ADMIN_EMAIL, role: "Admin" });
+    const hen = await ensureHen("Patch Resend Failed");
+    const img = await createPendingNoteImage({
+      chicken_id: hen.id,
+      file_path: `notes/_pending/prf_${randomUUID()}.png`,
+      original_width: 100,
+      original_height: 100,
+      recorded_by: ADMIN_EMAIL,
+    });
+    await updateNoteImageStatus(img.id, "failed", { ai_error: "oops" });
+
+    const mockResend = resendNoteImage as jest.MockedFunction<typeof resendNoteImage>;
+    mockResend.mockClear();
+
+    const request = buildJsonRequest(
+      `http://localhost/api/chickens/${hen.id}/notes/images/${img.id}`,
+      {
+        action: "resend",
+        crop: { x_min: 0.0, y_min: 0.0, x_max: 0.5, y_max: 0.5 },
+      },
+      "PATCH"
+    );
+    const response = await patchNoteImage(request, {
+      params: Promise.resolve({ id: String(hen.id), imageId: String(img.id) }),
+    });
+    expect(response.status).toBe(200);
+    expect(mockResend).toHaveBeenCalledWith(
+      img.id,
+      { x_min: 0.0, y_min: 0.0, x_max: 0.5, y_max: 0.5 },
+      ADMIN_EMAIL
+    );
+  }, 15000);
+
+  it("returns 409 when resending an image already attached to a note", async () => {
+    setSession({ email: ADMIN_EMAIL, role: "Admin" });
+    const hen = await ensureHen("Patch Resend Conflict");
+    const { createNote } = await import("@/lib/notes");
+    const note = await createNote({
+      chicken_id: hen.id,
+      content: "with image",
+      date: "2026-07-12",
+      recorded_by: ADMIN_EMAIL,
+    });
+    const img = await createPendingNoteImage({
+      chicken_id: hen.id,
+      file_path: `notes/_pending/prc_${randomUUID()}.png`,
+      original_width: 100,
+      original_height: 100,
+      recorded_by: ADMIN_EMAIL,
+    });
+    await attachPendingNoteImageToNote(img.id, note.id, {
+      cropped_file_path: `notes/cropped_${randomUUID()}.png`,
+      crop_x_min: 0,
+      crop_y_min: 0,
+      crop_x_max: 1,
+      crop_y_max: 1,
+    });
+
+    const request = buildJsonRequest(
+      `http://localhost/api/chickens/${hen.id}/notes/images/${img.id}`,
+      {
+        action: "resend",
+        crop: { x_min: 0.1, y_min: 0.1, x_max: 0.9, y_max: 0.9 },
+      },
+      "PATCH"
+    );
+    const response = await patchNoteImage(request, {
+      params: Promise.resolve({ id: String(hen.id), imageId: String(img.id) }),
+    });
+    expect(response.status).toBe(409);
   }, 15000);
 });
 

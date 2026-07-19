@@ -12,7 +12,7 @@ import {
   updateNoteImageCrop,
   updateNoteImageStatus,
 } from "@/lib/note_images";
-import { processNoteImage } from "@/lib/ai";
+import { processNoteImage, resendNoteImage } from "@/lib/ai";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +29,12 @@ type RetryBody = {
   action: "retry";
 };
 
-type PatchBody = CropBody | DiscardBody | RetryBody;
+type ResendBody = {
+  action: "resend";
+  crop: CropRegion;
+};
+
+type PatchBody = CropBody | DiscardBody | RetryBody | ResendBody;
 
 function isCropBody(body: unknown): body is CropBody {
   if (!body || typeof body !== "object") return false;
@@ -55,6 +60,20 @@ function isRetryBody(body: unknown): body is RetryBody {
   if (!body || typeof body !== "object") return false;
   const b = body as Record<string, unknown>;
   return b.action === "retry";
+}
+
+function isResendBody(body: unknown): body is ResendBody {
+  if (!body || typeof body !== "object") return false;
+  const b = body as Record<string, unknown>;
+  if (b.action !== "resend") return false;
+  const crop = b.crop as Record<string, unknown> | undefined;
+  if (!crop || typeof crop !== "object") return false;
+  return (
+    typeof crop.x_min === "number" &&
+    typeof crop.y_min === "number" &&
+    typeof crop.x_max === "number" &&
+    typeof crop.y_max === "number"
+  );
 }
 
 const PRE_SAVE_STATUSES: NoteImageStatus[] = ["pending", "succeeded"];
@@ -156,6 +175,24 @@ export async function PATCH(
       return NextResponse.json(updated);
     }
 
+    if (isResendBody(body)) {
+      if (!isPreSave(image) && image.status !== "failed") {
+        return NextResponse.json(
+          { message: "Cannot resend an image already attached to a note" },
+          { status: 409 }
+        );
+      }
+      await updateNoteImageCrop(imageId, {
+        crop_x_min: body.crop.x_min,
+        crop_y_min: body.crop.y_min,
+        crop_x_max: body.crop.x_max,
+        crop_y_max: body.crop.y_max,
+      });
+      resendNoteImage(imageId, body.crop, session.user.email).catch(() => {});
+      const updated = await getNoteImage(imageId);
+      return NextResponse.json(updated);
+    }
+
     if (isCropBody(body)) {
       if (!isPreSave(image)) {
         return NextResponse.json(
@@ -176,7 +213,7 @@ export async function PATCH(
     }
 
     return NextResponse.json(
-      { message: "Invalid action; expected 'crop', 'discard', or 'retry'" },
+      { message: "Invalid action; expected 'crop', 'discard', 'retry', or 'resend'" },
       { status: 400 }
     );
   } catch (error) {
