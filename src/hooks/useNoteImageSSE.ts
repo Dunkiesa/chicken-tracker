@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import type { CropRegion } from "@/components/NoteImageManager";
 
 export type ImageAIStatus = {
   status: "pending" | "processing" | "succeeded" | "failed" | "skipped";
@@ -124,18 +125,26 @@ export function useNoteImageSSE(
     };
   }, [connect]);
 
-  const retryImage = useCallback(
-    async (imageId: number) => {
+  const patchImage = useCallback(
+    async (imageId: number, body: Record<string, unknown>) => {
       const res = await fetch(
         `/api/chickens/${chickenId}/notes/images/${imageId}`,
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "retry" }),
+          body: JSON.stringify(body),
         }
       );
-      if (!res.ok) return;
-      const image = await res.json();
+      if (!res.ok) return null;
+      return await res.json();
+    },
+    [chickenId]
+  );
+
+  const retryImage = useCallback(
+    async (imageId: number) => {
+      const image = await patchImage(imageId, { action: "retry" });
+      if (!image) return;
       setStatuses((prev) => ({
         ...prev,
         [imageId]: {
@@ -144,12 +153,28 @@ export function useNoteImageSSE(
         },
       }));
     },
-    [chickenId]
+    [patchImage]
+  );
+
+  const resendImage = useCallback(
+    async (imageId: number, crop: CropRegion) => {
+      const image = await patchImage(imageId, { action: "resend", crop });
+      if (!image) return null;
+      setStatuses((prev) => ({
+        ...prev,
+        [imageId]: {
+          status: image.status,
+          error: image.ai_error ?? undefined,
+        },
+      }));
+      return image;
+    },
+    [patchImage]
   );
 
   const isAnyProcessing = Object.values(statuses).some(
     (s) => s.status === "processing"
   );
 
-  return { statuses, retryImage, isAnyProcessing };
+  return { statuses, retryImage, resendImage, isAnyProcessing };
 }

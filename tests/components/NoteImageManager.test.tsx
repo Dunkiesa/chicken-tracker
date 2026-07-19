@@ -18,7 +18,7 @@ class MockEventSource {
 }
 global.EventSource = MockEventSource as any;
 
-import { screen, waitFor, fireEvent } from "@testing-library/react";
+import { screen, waitFor, fireEvent, act } from "@testing-library/react";
 import { renderWithProviders } from "./test-utils";
 import NoteImageManager from "@/components/NoteImageManager";
 import type { NoteImageEntry } from "@/components/NoteImageManager";
@@ -516,6 +516,127 @@ describe("NoteImageManager", () => {
       fireEvent.click(screen.getByText("Cancel Crop"));
 
       expect(screen.queryByTestId("note-image-crop-dialog")).not.toBeInTheDocument();
+    });
+  });
+
+  describe("resend flow", () => {
+    it("passes onResend to the review modal", () => {
+      const onChange = jest.fn();
+      const images: NoteImageEntry[] = [
+        { id: 1, file_path: "a.jpg", crop: null, status: "succeeded", ai_suggestion: "text" },
+      ];
+
+      renderWithProviders(
+        <NoteImageManager chickenId={1} images={images} onChange={onChange} />
+      );
+
+      fireEvent.click(screen.getByAltText("Note image 1"));
+
+      expect(mockNoteImageReviewModal).toHaveBeenCalledWith(
+        expect.objectContaining({ onResend: expect.any(Function) })
+      );
+    });
+
+    it("sends PATCH resend with the crop when Resend is clicked", async () => {
+      const onChange = jest.fn();
+      const images: NoteImageEntry[] = [
+        { id: 1, file_path: "a.jpg", crop: null, status: "succeeded", ai_suggestion: "text" },
+      ];
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ id: 1, status: "processing" }),
+      });
+
+      renderWithProviders(
+        <NoteImageManager chickenId={1} images={images} onChange={onChange} />
+      );
+
+      fireEvent.click(screen.getByAltText("Note image 1"));
+      fireEvent.click(screen.getByText("Resend"));
+
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith(
+          "/api/chickens/1/notes/images/1",
+          expect.objectContaining({
+            method: "PATCH",
+            body: JSON.stringify({
+              action: "resend",
+              crop: { x_min: 0, y_min: 0, x_max: 50, y_max: 50 },
+            }),
+          })
+        );
+      });
+    });
+
+    it("passes isResending true while resend is in flight", async () => {
+      const onChange = jest.fn();
+      const images: NoteImageEntry[] = [
+        { id: 1, file_path: "a.jpg", crop: null, status: "succeeded", ai_suggestion: "text" },
+      ];
+      let resolveFetch: (v: unknown) => void;
+      (global.fetch as jest.Mock).mockImplementationOnce(
+        () => new Promise((r) => { resolveFetch = r; })
+      );
+
+      renderWithProviders(
+        <NoteImageManager chickenId={1} images={images} onChange={onChange} />
+      );
+
+      fireEvent.click(screen.getByAltText("Note image 1"));
+      fireEvent.click(screen.getByText("Resend"));
+
+      await waitFor(() => {
+        expect(mockNoteImageReviewModal).toHaveBeenCalledWith(
+          expect.objectContaining({ isResending: true })
+        );
+      });
+
+      await act(async () => {
+        resolveFetch!({
+          ok: true,
+          json: () => Promise.resolve({ id: 1, status: "processing" }),
+        });
+      });
+    });
+
+    it("passes isResending false initially", () => {
+      const onChange = jest.fn();
+      const images: NoteImageEntry[] = [
+        { id: 1, file_path: "a.jpg", crop: null, status: "succeeded", ai_suggestion: "text" },
+      ];
+
+      renderWithProviders(
+        <NoteImageManager chickenId={1} images={images} onChange={onChange} />
+      );
+
+      fireEvent.click(screen.getByAltText("Note image 1"));
+
+      expect(mockNoteImageReviewModal).toHaveBeenCalledWith(
+        expect.objectContaining({ isResending: false })
+      );
+    });
+
+    it("unlocks the modal when resend fails", async () => {
+      const onChange = jest.fn();
+      const images: NoteImageEntry[] = [
+        { id: 1, file_path: "a.jpg", crop: null, status: "succeeded", ai_suggestion: "text" },
+      ];
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+      });
+
+      renderWithProviders(
+        <NoteImageManager chickenId={1} images={images} onChange={onChange} />
+      );
+
+      fireEvent.click(screen.getByAltText("Note image 1"));
+      fireEvent.click(screen.getByText("Resend"));
+
+      await waitFor(() => {
+        expect(mockNoteImageReviewModal).toHaveBeenCalledWith(
+          expect.objectContaining({ isResending: false })
+        );
+      });
     });
   });
 });

@@ -84,11 +84,12 @@ export default function NoteImageManager({
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [cropImage, setCropImage] = useState<NoteImageEntry | null>(null);
   const [reviewImage, setReviewImage] = useState<NoteImageEntry | null>(null);
+  const [resendingImageId, setResendingImageId] = useState<number | null>(null);
   const fileInputKeyRef = useRef(0);
   const prevStatusesRef = useRef<Record<number, { status: string; text?: string }>>({});
 
   const trackedIds = useMemo(() => images.map((i) => i.id), [images]);
-  const { statuses, retryImage } = useNoteImageSSE(chickenId, trackedIds);
+  const { statuses, retryImage, resendImage } = useNoteImageSSE(chickenId, trackedIds);
 
   const onAISuggestionRef = useRef(onAISuggestion);
   onAISuggestionRef.current = onAISuggestion;
@@ -131,6 +132,14 @@ export default function NoteImageManager({
 
     prevStatusesRef.current = next;
   }, [statuses, images, onChange]);
+
+  useEffect(() => {
+    if (resendingImageId === null) return;
+    const sse = statuses[resendingImageId];
+    if (sse && sse.status !== "processing" && sse.status !== "pending") {
+      setResendingImageId(null);
+    }
+  }, [statuses, resendingImageId]);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -204,6 +213,15 @@ export default function NoteImageManager({
   const handleReviewCancel = () => {
     setReviewImage(null);
   };
+
+  const handleReviewResend = useCallback(async (crop: CropRegion) => {
+    if (!reviewImage) return;
+    setResendingImageId(reviewImage.id);
+    const result = await resendImage(reviewImage.id, crop);
+    if (!result) {
+      setResendingImageId(null);
+    }
+  }, [reviewImage, resendImage]);
 
   const handleRetry = useCallback(async (imageId: number) => {
     await retryImage(imageId);
@@ -344,6 +362,8 @@ export default function NoteImageManager({
           initialText={reviewImage.ai_suggestion ?? ""}
           onSave={handleReviewSave}
           onCancel={handleReviewCancel}
+          onResend={handleReviewResend}
+          isResending={resendingImageId === reviewImage.id}
           error={reviewImage.ai_error}
         />
       )}
