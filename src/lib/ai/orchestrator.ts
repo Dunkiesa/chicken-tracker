@@ -1,4 +1,5 @@
 import { readFile } from "fs/promises";
+import sharp from "sharp";
 import { loadAIConfig, substitutePrompt, type AIConfig } from "./config";
 import { callAIProvider } from "./provider";
 import { parseAIResponse } from "./parser";
@@ -90,7 +91,8 @@ async function analyzeImageWithAI(
 ): Promise<{ text: string; bbox: [number, number, number, number] | null }> {
   const absPath = resolveImagePath(image.file_path);
   const fileBuffer = await readFile(absPath);
-  const base64 = fileBuffer.toString("base64");
+  const orientedBuffer = await sharp(fileBuffer).rotate().toBuffer();
+  const base64 = orientedBuffer.toString("base64");
   const mimeType = mimeTypeFromPath(image.file_path);
 
   const dims = await readImageDimensions(image.file_path);

@@ -33,6 +33,17 @@ jest.mock("fs/promises", () => ({
   readFile: jest.fn(),
 }));
 
+const mockToBuffer = jest.fn();
+const mockRotate = jest.fn().mockReturnThis();
+
+jest.mock("sharp", () => ({
+  __esModule: true,
+  default: jest.fn((input: Buffer) => {
+    mockToBuffer.mockImplementationOnce(() => Promise.resolve(input));
+    return { rotate: mockRotate, toBuffer: mockToBuffer };
+  }),
+}));
+
 import { processNoteImage } from "@/lib/ai/orchestrator";
 import { getNoteImage, updateNoteImageStatus } from "@/lib/note_images";
 import { readImageDimensions, mimeTypeFromPath } from "@/lib/image-storage";
