@@ -37,21 +37,21 @@ type NoteImageReviewModalProps = {
   error?: string | null;
 };
 
-function fromCropRegion(crop: CropRegion, imageWidth: number, imageHeight: number): CropRect {
+function fromCropRegion(crop: CropRegion): CropRect {
   return {
-    x: (crop.x_min / imageWidth) * 100,
-    y: (crop.y_min / imageHeight) * 100,
-    width: ((crop.x_max - crop.x_min) / imageWidth) * 100,
-    height: ((crop.y_max - crop.y_min) / imageHeight) * 100,
+    x: crop.x_min * 100,
+    y: crop.y_min * 100,
+    width: (crop.x_max - crop.x_min) * 100,
+    height: (crop.y_max - crop.y_min) * 100,
   };
 }
 
-function toCropRegion(rect: CropRect, imageWidth: number, imageHeight: number): CropRegion {
+function toCropRegion(rect: CropRect): CropRegion {
   return {
-    x_min: Math.round((rect.x / 100) * imageWidth),
-    y_min: Math.round((rect.y / 100) * imageHeight),
-    x_max: Math.round(((rect.x + rect.width) / 100) * imageWidth),
-    y_max: Math.round(((rect.y + rect.height) / 100) * imageHeight),
+    x_min: rect.x / 100,
+    y_min: rect.y / 100,
+    x_max: (rect.x + rect.width) / 100,
+    y_max: (rect.y + rect.height) / 100,
   };
 }
 
@@ -90,12 +90,12 @@ export default function NoteImageReviewModal({
   }, [isResending, initialText]);
 
   useEffect(() => {
-    if (naturalDimensions && initialCrop) {
-      setCropRect(fromCropRegion(initialCrop, naturalDimensions.width, naturalDimensions.height));
-    } else if (naturalDimensions) {
+    if (initialCrop) {
+      setCropRect(fromCropRegion(initialCrop));
+    } else {
       setCropRect({ x: 0, y: 0, width: 100, height: 100 });
     }
-  }, [naturalDimensions, initialCrop]);
+  }, [initialCrop]);
 
   const handleImageLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
     const img = e.currentTarget;
@@ -103,22 +103,68 @@ export default function NoteImageReviewModal({
   }, []);
 
   const handleSave = () => {
-    if (!naturalDimensions) return;
-    const crop = toCropRegion(cropRect, naturalDimensions.width, naturalDimensions.height);
+    const crop = toCropRegion(cropRect);
     onSave(crop, text);
   };
 
   const handleResend = () => {
-    if (!naturalDimensions || !onResend) return;
-    const crop = toCropRegion(cropRect, naturalDimensions.width, naturalDimensions.height);
+    if (!onResend) return;
+    const crop = toCropRegion(cropRect);
     onResend(crop);
   };
 
-  const getContainerDimensions = () => {
-    if (!containerRef.current) return { width: 1, height: 1 };
+  const getImageBounds = () => {
+    if (!naturalDimensions || !containerRef.current) {
+      return { left: 0, top: 0, width: 1, height: 1 };
+    }
+    const containerWidth = containerRef.current.offsetWidth;
+    const containerHeight = containerRef.current.offsetHeight;
+    const imageAspect = naturalDimensions.width / naturalDimensions.height;
+    const containerAspect = containerWidth / containerHeight;
+
+    let renderedWidth: number;
+    let renderedHeight: number;
+    let left: number;
+    let top: number;
+
+    if (containerAspect > imageAspect) {
+      renderedHeight = containerHeight;
+      renderedWidth = containerHeight * imageAspect;
+      left = (containerWidth - renderedWidth) / 2;
+      top = 0;
+    } else {
+      renderedWidth = containerWidth;
+      renderedHeight = containerWidth / imageAspect;
+      left = 0;
+      top = (containerHeight - renderedHeight) / 2;
+    }
+
+    return { left, top, width: renderedWidth, height: renderedHeight };
+  };
+
+  const imageToContainerRect = (rect: CropRect) => {
+    const bounds = getImageBounds();
+    const containerWidth = bounds.left * 2 + bounds.width;
+    const containerHeight = bounds.top * 2 + bounds.height;
+
     return {
-      width: containerRef.current.offsetWidth || 1,
-      height: containerRef.current.offsetHeight || 1,
+      x: (bounds.left + (rect.x / 100) * bounds.width) / containerWidth * 100,
+      y: (bounds.top + (rect.y / 100) * bounds.height) / containerHeight * 100,
+      width: ((rect.width / 100) * bounds.width) / containerWidth * 100,
+      height: ((rect.height / 100) * bounds.height) / containerHeight * 100,
+    };
+  };
+
+  const containerToImageRect = (rect: CropRect) => {
+    const bounds = getImageBounds();
+    const containerWidth = bounds.left * 2 + bounds.width;
+    const containerHeight = bounds.top * 2 + bounds.height;
+
+    return {
+      x: ((rect.x / 100) * containerWidth - bounds.left) / bounds.width * 100,
+      y: ((rect.y / 100) * containerHeight - bounds.top) / bounds.height * 100,
+      width: ((rect.width / 100) * containerWidth) / bounds.width * 100,
+      height: ((rect.height / 100) * containerHeight) / bounds.height * 100,
     };
   };
 
@@ -142,9 +188,11 @@ export default function NoteImageReviewModal({
     if (!dragStateRef.current) return;
     e.preventDefault();
     const { type, startX, startY, startRect } = dragStateRef.current;
-    const { width: containerWidth, height: containerHeight } = getContainerDimensions();
-    const dx = ((e.clientX - startX) / containerWidth) * 100;
-    const dy = ((e.clientY - startY) / containerHeight) * 100;
+    const bounds = getImageBounds();
+    const containerWidth = bounds.left * 2 + bounds.width;
+    const containerHeight = bounds.top * 2 + bounds.height;
+    const dx = ((e.clientX - startX) / bounds.width) * 100;
+    const dy = ((e.clientY - startY) / bounds.height) * 100;
     const MIN_SIZE = 5;
 
     if (type === "move") {
@@ -217,143 +265,146 @@ export default function NoteImageReviewModal({
               objectFit: "contain",
             }}
           />
-          {naturalDimensions && (
-            <>
-              <Box
-                sx={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bgcolor: "rgba(0,0,0,0.5)",
-                  pointerEvents: "none",
-                }}
-                style={{ height: `${cropRect.y}%` }}
-              />
-              <Box
-                sx={{
-                  position: "absolute",
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  bgcolor: "rgba(0,0,0,0.5)",
-                  pointerEvents: "none",
-                }}
-                style={{ height: `${100 - cropRect.y - cropRect.height}%` }}
-              />
-              <Box
-                sx={{
-                  position: "absolute",
-                  bgcolor: "rgba(0,0,0,0.5)",
-                  pointerEvents: "none",
-                }}
-                style={{
-                  top: `${cropRect.y}%`,
-                  left: 0,
-                  width: `${cropRect.x}%`,
-                  height: `${cropRect.height}%`,
-                }}
-              />
-              <Box
-                sx={{
-                  position: "absolute",
-                  bgcolor: "rgba(0,0,0,0.5)",
-                  pointerEvents: "none",
-                }}
-                style={{
-                  top: `${cropRect.y}%`,
-                  right: 0,
-                  width: `${100 - cropRect.x - cropRect.width}%`,
-                  height: `${cropRect.height}%`,
-                }}
-              />
-              <Box
-                data-testid="crop-rectangle"
-                sx={{
-                  position: "absolute",
-                  border: "2px solid white",
-                  boxSizing: "border-box",
-                  cursor: isResending ? "default" : "move",
-                  pointerEvents: isResending ? "none" : "auto",
-                  touchAction: "none",
-                }}
-                style={{
-                  left: `${cropRect.x}%`,
-                  top: `${cropRect.y}%`,
-                  width: `${cropRect.width}%`,
-                  height: `${cropRect.height}%`,
-                }}
-                onPointerDown={(e) => handlePointerDown(e, "move")}
-                onPointerMove={handlePointerMove}
-                onPointerUp={handlePointerUp}
-              >
-                {!isResending && (
-                  <>
-                    <Box
-                      data-testid="handle-tl"
-                      sx={{
-                        position: "absolute",
-                        left: -6,
-                        top: -6,
-                        width: 12,
-                        height: 12,
-                        bgcolor: "white",
-                        border: "1px solid black",
-                        cursor: "nwse-resize",
-                        touchAction: "none",
-                      }}
-                      onPointerDown={(e) => handlePointerDown(e, "resize-tl")}
-                    />
-                    <Box
-                      data-testid="handle-tr"
-                      sx={{
-                        position: "absolute",
-                        right: -6,
-                        top: -6,
-                        width: 12,
-                        height: 12,
-                        bgcolor: "white",
-                        border: "1px solid black",
-                        cursor: "nesw-resize",
-                        touchAction: "none",
-                      }}
-                      onPointerDown={(e) => handlePointerDown(e, "resize-tr")}
-                    />
-                    <Box
-                      data-testid="handle-bl"
-                      sx={{
-                        position: "absolute",
-                        left: -6,
-                        bottom: -6,
-                        width: 12,
-                        height: 12,
-                        bgcolor: "white",
-                        border: "1px solid black",
-                        cursor: "nesw-resize",
-                        touchAction: "none",
-                      }}
-                      onPointerDown={(e) => handlePointerDown(e, "resize-bl")}
-                    />
-                    <Box
-                      data-testid="handle-br"
-                      sx={{
-                        position: "absolute",
-                        right: -6,
-                        bottom: -6,
-                        width: 12,
-                        height: 12,
-                        bgcolor: "white",
-                        border: "1px solid black",
-                        cursor: "nwse-resize",
-                        touchAction: "none",
-                      }}
-                      onPointerDown={(e) => handlePointerDown(e, "resize-br")}
-                    />
-                  </>
-                )}
-              </Box>
-            </>
-          )}
+          {naturalDimensions && (() => {
+            const rect = imageToContainerRect(cropRect);
+            return (
+              <>
+                <Box
+                  sx={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bgcolor: "rgba(0,0,0,0.5)",
+                    pointerEvents: "none",
+                  }}
+                  style={{ height: `${rect.y}%` }}
+                />
+                <Box
+                  sx={{
+                    position: "absolute",
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    bgcolor: "rgba(0,0,0,0.5)",
+                    pointerEvents: "none",
+                  }}
+                  style={{ height: `${100 - rect.y - rect.height}%` }}
+                />
+                <Box
+                  sx={{
+                    position: "absolute",
+                    bgcolor: "rgba(0,0,0,0.5)",
+                    pointerEvents: "none",
+                  }}
+                  style={{
+                    top: `${rect.y}%`,
+                    left: 0,
+                    width: `${rect.x}%`,
+                    height: `${rect.height}%`,
+                  }}
+                />
+                <Box
+                  sx={{
+                    position: "absolute",
+                    bgcolor: "rgba(0,0,0,0.5)",
+                    pointerEvents: "none",
+                  }}
+                  style={{
+                    top: `${rect.y}%`,
+                    right: 0,
+                    width: `${100 - rect.x - rect.width}%`,
+                    height: `${rect.height}%`,
+                  }}
+                />
+                <Box
+                  data-testid="crop-rectangle"
+                  sx={{
+                    position: "absolute",
+                    border: "2px solid white",
+                    boxSizing: "border-box",
+                    cursor: isResending ? "default" : "move",
+                    pointerEvents: isResending ? "none" : "auto",
+                    touchAction: "none",
+                  }}
+                  style={{
+                    left: `${rect.x}%`,
+                    top: `${rect.y}%`,
+                    width: `${rect.width}%`,
+                    height: `${rect.height}%`,
+                  }}
+                  onPointerDown={(e) => handlePointerDown(e, "move")}
+                  onPointerMove={handlePointerMove}
+                  onPointerUp={handlePointerUp}
+                >
+                  {!isResending && (
+                    <>
+                      <Box
+                        data-testid="handle-tl"
+                        sx={{
+                          position: "absolute",
+                          left: -6,
+                          top: -6,
+                          width: 12,
+                          height: 12,
+                          bgcolor: "white",
+                          border: "1px solid black",
+                          cursor: "nwse-resize",
+                          touchAction: "none",
+                        }}
+                        onPointerDown={(e) => handlePointerDown(e, "resize-tl")}
+                      />
+                      <Box
+                        data-testid="handle-tr"
+                        sx={{
+                          position: "absolute",
+                          right: -6,
+                          top: -6,
+                          width: 12,
+                          height: 12,
+                          bgcolor: "white",
+                          border: "1px solid black",
+                          cursor: "nesw-resize",
+                          touchAction: "none",
+                        }}
+                        onPointerDown={(e) => handlePointerDown(e, "resize-tr")}
+                      />
+                      <Box
+                        data-testid="handle-bl"
+                        sx={{
+                          position: "absolute",
+                          left: -6,
+                          bottom: -6,
+                          width: 12,
+                          height: 12,
+                          bgcolor: "white",
+                          border: "1px solid black",
+                          cursor: "nesw-resize",
+                          touchAction: "none",
+                        }}
+                        onPointerDown={(e) => handlePointerDown(e, "resize-bl")}
+                      />
+                      <Box
+                        data-testid="handle-br"
+                        sx={{
+                          position: "absolute",
+                          right: -6,
+                          bottom: -6,
+                          width: 12,
+                          height: 12,
+                          bgcolor: "white",
+                          border: "1px solid black",
+                          cursor: "nwse-resize",
+                          touchAction: "none",
+                        }}
+                        onPointerDown={(e) => handlePointerDown(e, "resize-br")}
+                      />
+                    </>
+                  )}
+                </Box>
+              </>
+            );
+          })()}
         </Box>
         {error && (
           <Alert severity="error" sx={{ mt: 2 }}>

@@ -9,7 +9,7 @@ jest.mock("next/navigation", () => ({
   usePathname: jest.fn(() => "/"),
 }));
 
-import { screen, fireEvent } from "@testing-library/react";
+import { screen, fireEvent, act } from "@testing-library/react";
 import { renderWithProviders } from "./test-utils";
 import NoteImageReviewModal from "@/components/NoteImageReviewModal";
 
@@ -34,7 +34,7 @@ function renderModal(
   const onCancel = overrides.onCancel ?? jest.fn();
   const onResend = overrides.onResend ?? jest.fn();
   const initialCrop: { x_min: number; y_min: number; x_max: number; y_max: number } | null =
-    "initialCrop" in overrides ? overrides.initialCrop! : { x_min: 100, y_min: 160, x_max: 500, y_max: 480 };
+    "initialCrop" in overrides ? overrides.initialCrop! : { x_min: 0.1, y_min: 0.2, x_max: 0.5, y_max: 0.6 };
   const utils = renderWithProviders(
     <NoteImageReviewModal
       open={overrides.open ?? true}
@@ -56,6 +56,17 @@ function mockImageDimensions(width: number, height: number) {
   Object.defineProperty(img, "naturalWidth", { value: width, configurable: true });
   Object.defineProperty(img, "naturalHeight", { value: height, configurable: true });
   fireEvent.load(img);
+}
+
+function mockContainerDimensions(width: number, height: number) {
+  const cropRect = screen.queryByTestId("crop-rectangle");
+  if (cropRect) {
+    const container = cropRect.parentElement;
+    if (container) {
+      Object.defineProperty(container, "offsetWidth", { value: width, configurable: true });
+      Object.defineProperty(container, "offsetHeight", { value: height, configurable: true });
+    }
+  }
 }
 
 describe("NoteImageReviewModal", () => {
@@ -90,13 +101,13 @@ describe("NoteImageReviewModal", () => {
 
   it("calls onSave with crop and text when Save is clicked", () => {
     const { onSave } = renderModal({
-      initialCrop: { x_min: 100, y_min: 160, x_max: 500, y_max: 480 },
+      initialCrop: { x_min: 0.1, y_min: 0.2, x_max: 0.5, y_max: 0.6 },
       initialText: "AI text",
     });
     mockImageDimensions(1000, 800);
     fireEvent.click(screen.getByRole("button", { name: /save/i }));
     expect(onSave).toHaveBeenCalledWith(
-      { x_min: 100, y_min: 160, x_max: 500, y_max: 480 },
+      { x_min: 0.1, y_min: 0.2, x_max: 0.5, y_max: 0.6 },
       "AI text"
     );
   });
@@ -109,15 +120,15 @@ describe("NoteImageReviewModal", () => {
 
   it("calls onResend with crop when Resend is clicked", () => {
     const { onResend } = renderModal({
-      initialCrop: { x_min: 100, y_min: 160, x_max: 500, y_max: 480 },
+      initialCrop: { x_min: 0.1, y_min: 0.2, x_max: 0.5, y_max: 0.6 },
     });
     mockImageDimensions(1000, 800);
     fireEvent.click(screen.getByRole("button", { name: /resend/i }));
     expect(onResend).toHaveBeenCalledWith({
-      x_min: 100,
-      y_min: 160,
-      x_max: 500,
-      y_max: 480,
+      x_min: 0.1,
+      y_min: 0.2,
+      x_max: 0.5,
+      y_max: 0.6,
     });
   });
 
@@ -141,9 +152,13 @@ describe("NoteImageReviewModal", () => {
 
   it("initializes the crop rectangle to the AI's bounding box", () => {
     renderModal({
-      initialCrop: { x_min: 100, y_min: 160, x_max: 500, y_max: 480 },
+      initialCrop: { x_min: 0.1, y_min: 0.2, x_max: 0.5, y_max: 0.6 },
     });
     mockImageDimensions(1000, 800);
+    mockContainerDimensions(1000, 800);
+    act(() => {
+      mockImageDimensions(1000, 800);
+    });
     const cropRect = screen.getByTestId("crop-rectangle");
     expect(cropRect).toBeInTheDocument();
     expect(cropRect.style.left).toBe("10%");
@@ -160,7 +175,7 @@ describe("NoteImageReviewModal", () => {
       <NoteImageReviewModal
         open={true}
         imageUrl="/test-image.jpg"
-        initialCrop={{ x_min: 100, y_min: 160, x_max: 500, y_max: 480 }}
+        initialCrop={{ x_min: 0.1, y_min: 0.2, x_max: 0.5, y_max: 0.6 }}
         initialText="Old text"
         onSave={onSave}
         onCancel={onCancel}
@@ -174,7 +189,7 @@ describe("NoteImageReviewModal", () => {
       <NoteImageReviewModal
         open={true}
         imageUrl="/test-image.jpg"
-        initialCrop={{ x_min: 100, y_min: 160, x_max: 500, y_max: 480 }}
+        initialCrop={{ x_min: 0.1, y_min: 0.2, x_max: 0.5, y_max: 0.6 }}
         initialText="New text"
         onSave={onSave}
         onCancel={onCancel}
@@ -191,6 +206,10 @@ describe("NoteImageReviewModal", () => {
   it("defaults to full image crop when initialCrop is null", () => {
     renderModal({ initialCrop: null });
     mockImageDimensions(1000, 800);
+    mockContainerDimensions(1000, 800);
+    act(() => {
+      mockImageDimensions(1000, 800);
+    });
     const cropRect = screen.getByTestId("crop-rectangle");
     expect(cropRect.style.left).toBe("0%");
     expect(cropRect.style.top).toBe("0%");
@@ -215,7 +234,7 @@ describe("NoteImageReviewModal", () => {
   });
 
   it("renders resize handles on the crop rectangle", () => {
-    renderModal({ initialCrop: { x_min: 100, y_min: 160, x_max: 500, y_max: 480 } });
+    renderModal({ initialCrop: { x_min: 0.1, y_min: 0.2, x_max: 0.5, y_max: 0.6 } });
     mockImageDimensions(1000, 800);
     expect(screen.getByTestId("handle-tl")).toBeInTheDocument();
     expect(screen.getByTestId("handle-tr")).toBeInTheDocument();
@@ -232,7 +251,7 @@ describe("NoteImageReviewModal", () => {
   });
 
   it("resize handles have correct cursor styles", () => {
-    renderModal({ initialCrop: { x_min: 0, y_min: 0, x_max: 400, y_max: 320 } });
+    renderModal({ initialCrop: { x_min: 0, y_min: 0, x_max: 0.4, y_max: 0.4 } });
     mockImageDimensions(1000, 800);
     expect(screen.getByTestId("handle-tl")).toHaveStyle({ cursor: "nwse-resize" });
     expect(screen.getByTestId("handle-tr")).toHaveStyle({ cursor: "nesw-resize" });

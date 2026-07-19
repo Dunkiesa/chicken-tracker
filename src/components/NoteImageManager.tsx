@@ -45,10 +45,10 @@ type NoteImageManagerProps = {
 
 function areaToCropRegion(area: Area): CropRegion {
   return {
-    x_min: area.x,
-    y_min: area.y,
-    x_max: area.x + area.width,
-    y_max: area.y + area.height,
+    x_min: area.x / 100,
+    y_min: area.y / 100,
+    x_max: (area.x + area.width) / 100,
+    y_max: (area.y + area.height) / 100,
   };
 }
 

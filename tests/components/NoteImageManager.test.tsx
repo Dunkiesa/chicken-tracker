@@ -67,12 +67,12 @@ jest.mock("@/components/NoteImageReviewModal", () => ({
     if (!props.open) return null;
     return (
       <div data-testid="note-image-review-modal">
-        <button onClick={() => props.onSave({ x_min: 0, y_min: 0, x_max: 50, y_max: 50 }, "edited text")}>
+        <button onClick={() => props.onSave({ x_min: 0, y_min: 0, x_max: 0.5, y_max: 0.5 }, "edited text")}>
           Save Review
         </button>
         <button onClick={props.onCancel}>Cancel Review</button>
         {props.onResend && (
-          <button onClick={() => props.onResend!({ x_min: 0, y_min: 0, x_max: 50, y_max: 50 })}>
+          <button onClick={() => props.onResend!({ x_min: 0, y_min: 0, x_max: 0.5, y_max: 0.5 })}>
             Resend
           </button>
         )}
@@ -246,7 +246,7 @@ describe("NoteImageManager", () => {
       {
         id: 1,
         file_path: "a.jpg",
-        crop: { x_min: 10, y_min: 20, x_max: 110, y_max: 120 },
+        crop: { x_min: 0.1, y_min: 0.2, x_max: 1.1, y_max: 1.2 },
         status: "skipped",
       },
     ]);
@@ -256,7 +256,7 @@ describe("NoteImageManager", () => {
     const onChange = jest.fn();
     const images: NoteImageEntry[] = [
       { id: 1, file_path: "a.jpg", crop: null, status: "pending" },
-      { id: 2, file_path: "b.jpg", crop: { x_min: 0, y_min: 0, x_max: 50, y_max: 50 }, status: "succeeded" },
+      { id: 2, file_path: "b.jpg", crop: { x_min: 0, y_min: 0, x_max: 0.5, y_max: 0.5 }, status: "succeeded" },
     ];
 
     renderWithProviders(
@@ -473,7 +473,7 @@ describe("NoteImageManager", () => {
             method: "PATCH",
             body: JSON.stringify({
               action: "resend",
-              crop: { x_min: 0, y_min: 0, x_max: 50, y_max: 50 },
+              crop: { x_min: 0, y_min: 0, x_max: 0.5, y_max: 0.5 },
             }),
           })
         );
@@ -528,7 +528,7 @@ describe("NoteImageManager", () => {
         {
           id: 1,
           file_path: "a.jpg",
-          crop: { x_min: 0, y_min: 0, x_max: 50, y_max: 50 },
+          crop: { x_min: 0, y_min: 0, x_max: 0.5, y_max: 0.5 },
           status: "succeeded",
           ai_suggestion: "edited text",
           ai_error: null,
@@ -553,7 +553,7 @@ describe("NoteImageManager", () => {
         {
           id: 1,
           file_path: "a.jpg",
-          crop: { x_min: 10, y_min: 20, x_max: 110, y_max: 120 },
+          crop: { x_min: 0.1, y_min: 0.2, x_max: 1.1, y_max: 1.2 },
           status: "skipped",
         },
       ]);
@@ -638,7 +638,7 @@ describe("NoteImageManager", () => {
             method: "PATCH",
             body: JSON.stringify({
               action: "resend",
-              crop: { x_min: 0, y_min: 0, x_max: 50, y_max: 50 },
+              crop: { x_min: 0, y_min: 0, x_max: 0.5, y_max: 0.5 },
             }),
           })
         );

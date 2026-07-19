@@ -29,18 +29,18 @@ export default function NoteImageCropDialog({
 }: NoteImageCropDialogProps) {
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
-  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
+  const [croppedArea, setCroppedArea] = useState<Area | null>(null);
 
   const onCropComplete = useCallback(
-    (_croppedArea: Area, croppedAreaPixels: Area) => {
-      setCroppedAreaPixels(croppedAreaPixels);
+    (croppedArea: Area, _croppedAreaPixels: Area) => {
+      setCroppedArea(croppedArea);
     },
     []
   );
 
   const handleConfirm = () => {
-    if (!croppedAreaPixels) return;
-    onCrop(croppedAreaPixels);
+    if (!croppedArea) return;
+    onCrop(croppedArea);
   };
 
   return (
@@ -91,7 +91,7 @@ export default function NoteImageCropDialog({
         <Button
           onClick={handleConfirm}
           variant="contained"
-          disabled={!croppedAreaPixels}
+          disabled={!croppedArea}
           aria-label="Save"
         >
           <CheckIcon />
