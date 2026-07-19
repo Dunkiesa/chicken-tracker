@@ -6,9 +6,9 @@
 
 **Status:** ready-for-agent
 
-- [ ] Thumbnail click is blocked when AI status is "pending" or "processing"
-- [ ] Thumbnail click opens NoteImageReviewModal in error state when AI status is "failed"
-- [ ] Error state shows the AI's error message
-- [ ] Error state shows a "Resend" button (same label as success state)
-- [ ] Resend works from error state (sends cropped region, locks modal, replaces text on success)
-- [ ] Tests verify the processing state blocks clicks and the failed state opens the modal with error message and resend button
+- [x] Thumbnail click is blocked when AI status is "pending" or "processing"
+- [x] Thumbnail click opens NoteImageReviewModal in error state when AI status is "failed"
+- [x] Error state shows the AI's error message
+- [x] Error state shows a "Resend" button (same label as success state)
+- [x] Resend works from error state (sends cropped region, locks modal, replaces text on success)
+- [x] Tests verify the processing state blocks clicks and the failed state opens the modal with error message and resend button

@@ -434,6 +434,83 @@ describe("NoteImageManager", () => {
       );
     });
 
+    it("shows the Resend button when the review modal opens in error state", () => {
+      const onChange = jest.fn();
+      const images: NoteImageEntry[] = [
+        { id: 1, file_path: "a.jpg", crop: null, status: "failed", ai_error: "AI broke" },
+      ];
+
+      renderWithProviders(
+        <NoteImageManager chickenId={1} images={images} onChange={onChange} />
+      );
+
+      fireEvent.click(screen.getByAltText("Note image 1"));
+
+      expect(screen.getByText("Resend")).toBeInTheDocument();
+    });
+
+    it("sends PATCH resend with the crop when Resend is clicked from error state", async () => {
+      const onChange = jest.fn();
+      const images: NoteImageEntry[] = [
+        { id: 1, file_path: "a.jpg", crop: null, status: "failed", ai_error: "AI broke" },
+      ];
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ id: 1, status: "processing" }),
+      });
+
+      renderWithProviders(
+        <NoteImageManager chickenId={1} images={images} onChange={onChange} />
+      );
+
+      fireEvent.click(screen.getByAltText("Note image 1"));
+      fireEvent.click(screen.getByText("Resend"));
+
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith(
+          "/api/chickens/1/notes/images/1",
+          expect.objectContaining({
+            method: "PATCH",
+            body: JSON.stringify({
+              action: "resend",
+              crop: { x_min: 0, y_min: 0, x_max: 50, y_max: 50 },
+            }),
+          })
+        );
+      });
+    });
+
+    it("locks the modal during resend from error state", async () => {
+      const onChange = jest.fn();
+      const images: NoteImageEntry[] = [
+        { id: 1, file_path: "a.jpg", crop: null, status: "failed", ai_error: "AI broke" },
+      ];
+      let resolveFetch: (v: unknown) => void;
+      (global.fetch as jest.Mock).mockImplementationOnce(
+        () => new Promise((r) => { resolveFetch = r; })
+      );
+
+      renderWithProviders(
+        <NoteImageManager chickenId={1} images={images} onChange={onChange} />
+      );
+
+      fireEvent.click(screen.getByAltText("Note image 1"));
+      fireEvent.click(screen.getByText("Resend"));
+
+      await waitFor(() => {
+        expect(mockNoteImageReviewModal).toHaveBeenCalledWith(
+          expect.objectContaining({ isResending: true, error: "AI broke" })
+        );
+      });
+
+      await act(async () => {
+        resolveFetch!({
+          ok: true,
+          json: () => Promise.resolve({ id: 1, status: "processing" }),
+        });
+      });
+    });
+
     it("saves crop and text from review modal back via onChange", () => {
       const onChange = jest.fn();
       const images: NoteImageEntry[] = [
