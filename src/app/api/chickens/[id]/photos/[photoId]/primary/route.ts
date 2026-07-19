@@ -67,7 +67,7 @@ export async function PUT(
       const sourcePath = join(imageDir, photo.file_path);
 
       const photoShard = photo.file_path.split("/")[1] ?? photo.file_path.slice(0, 2).toLowerCase();
-      const thumbFilename = `thumb_${randomUUID()}.webp`;
+      const thumbFilename = `${photoShard}_thumb_${randomUUID()}.webp`;
       const thumbRelativePath = `photos/${photoShard}/${thumbFilename}`;
       const thumbAbsPath = resolveImagePath(thumbRelativePath);
 
