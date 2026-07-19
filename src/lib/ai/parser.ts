@@ -1,3 +1,5 @@
+import type { BBoxFormat } from "./config";
+
 export type AIResponseErrorCode = "PARSE_FAILED" | "SCHEMA_MISMATCH" | "BBOX_OUT_OF_RANGE";
 
 export type AIResponseParsed = {
@@ -17,10 +19,10 @@ export class AIResponseError extends Error {
 function stripMarkdownFences(raw: string): string {
   const trimmed = raw.trim();
   const match = trimmed.match(/^```(?:\w+)?\n?([\s\S]*?)\n?```$/);
-  return match ? match[1].trim() : trimmed;
+  return match ? (match[1] ?? "").trim() : trimmed;
 }
 
-export function parseAIResponse(raw: string): AIResponseParsed {
+function parseJsonFormat(raw: string): AIResponseParsed {
   let parsed: unknown;
   try {
     parsed = JSON.parse(stripMarkdownFences(raw));
@@ -90,4 +92,86 @@ export function parseAIResponse(raw: string): AIResponseParsed {
   }
 
   return { text: obj.text, bbox: [x_min, y_min, x_max, y_max] };
+}
+
+function parseGemmaFormat(raw: string): AIResponseParsed {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(stripMarkdownFences(raw));
+  } catch {
+    throw new AIResponseError("PARSE_FAILED", "Response is not valid JSON");
+  }
+
+  if (!parsed || typeof parsed !== "object") {
+    throw new AIResponseError(
+      "SCHEMA_MISMATCH",
+      "Response is not a JSON object"
+    );
+  }
+
+  const obj = parsed as Record<string, unknown>;
+
+  if (typeof obj.text !== "string") {
+    throw new AIResponseError(
+      "SCHEMA_MISMATCH",
+      "Response missing required string field 'text'"
+    );
+  }
+
+  if (!("box_2d" in obj)) {
+    throw new AIResponseError(
+      "SCHEMA_MISMATCH",
+      "Response missing required field 'box_2d'"
+    );
+  }
+
+  if (obj.box_2d === null) {
+    return { text: obj.text, bbox: null };
+  }
+
+  if (!Array.isArray(obj.box_2d) || obj.box_2d.length !== 4) {
+    throw new AIResponseError(
+      "SCHEMA_MISMATCH",
+      "box_2d must be an array of 4 numbers or null"
+    );
+  }
+
+  const rawBox = obj.box_2d as unknown[];
+  for (let i = 0; i < 4; i++) {
+    if (typeof rawBox[i] !== "number") {
+      throw new AIResponseError(
+        "SCHEMA_MISMATCH",
+        `box_2d[${i}] is not a number`
+      );
+    }
+  }
+
+  const y_min = rawBox[0] as number;
+  const x_min = rawBox[1] as number;
+  const y_max = rawBox[2] as number;
+  const x_max = rawBox[3] as number;
+
+  if (
+    x_min < 0 || x_min > 1000 ||
+    y_min < 0 || y_min > 1000 ||
+    x_max < 0 || x_max > 1000 ||
+    y_max < 0 || y_max > 1000
+  ) {
+    throw new AIResponseError(
+      "BBOX_OUT_OF_RANGE",
+      "box_2d values must be between 0 and 1000"
+    );
+  }
+
+  return {
+    text: obj.text,
+    bbox: [x_min / 1000, y_min / 1000, x_max / 1000, y_max / 1000],
+  };
+}
+
+export function parseAIResponse(raw: string, format: BBoxFormat = "json"): AIResponseParsed {
+  if (format === "gemma") {
+    return parseGemmaFormat(raw);
+  }
+  return parseJsonFormat(raw);
 }

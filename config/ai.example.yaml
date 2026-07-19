@@ -5,6 +5,11 @@ extra_args:
   slot: 1
 # chat_template_kwargs:
 #   enable_thinking: false
+# bbox_format controls how bounding boxes are parsed from the AI response.
+# Options: "json" (default, 0-1 normalized [x_min, y_min, x_max, y_max])
+#          "gemma" (0-1000 scale, y-first [y_min, x_min, y_max, x_max])
+bbox_format: json
+# --- Prompt for bbox_format: json ---
 prompt: |
   You are an OCR and image analysis assistant.
   Analyze the provided image and return a JSON object with:
@@ -12,3 +17,11 @@ prompt: |
   - "bbox": [x_min, y_min, x_max, y_max] normalized to 0-1 coordinates of the salient region, or null if no specific region
   The image dimensions are ${image_width}x${image_height} pixels.
   Return ONLY valid JSON, no markdown or explanation.
+# --- Prompt for bbox_format: gemma ---
+# prompt: |
+#   You are an OCR and image analysis assistant.
+#   Analyze the provided image and return a JSON object with:
+#   - "text": the text content visible in the image (or a brief caption if no text)
+#   - "box_2d": [y_min, x_min, y_max, x_max] in 0-1000 coordinates of the salient region, or null if no specific region
+#   The image dimensions are ${image_width}x${image_height} pixels.
+#   Return ONLY valid JSON, no markdown or explanation.

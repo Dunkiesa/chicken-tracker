@@ -104,5 +104,5 @@ async function analyzeImageWithAI(
   console.log(`[AI] Calling provider at ${config.url}`);
   const rawResponse = await callAIProvider(config, base64, mimeType, prompt);
   console.log(`[AI] Raw response (${rawResponse.length} chars): "${rawResponse.substring(0, 200)}"`);
-  return parseAIResponse(rawResponse);
+  return parseAIResponse(rawResponse, config.bbox_format);
 }

@@ -1,12 +1,15 @@
 import { readFileSync } from "fs";
 import { parse as parseYaml } from "yaml";
 
+export type BBoxFormat = "json" | "gemma";
+
 export type AIConfig = {
   enabled: boolean;
   extra_args: Record<string, string>;
   api_key: string;
   url: string;
   prompt: string;
+  bbox_format: BBoxFormat;
   chat_template_kwargs?: Record<string, unknown>;
 };
 
@@ -38,6 +41,12 @@ export function loadAIConfig(
 
   const obj = parsed as Record<string, unknown>;
 
+  const VALID_BBOX_FORMATS: BBoxFormat[] = ["json", "gemma"];
+  const rawBboxFormat = typeof obj.bbox_format === "string" ? obj.bbox_format : "json";
+  const bbox_format: BBoxFormat = VALID_BBOX_FORMATS.includes(rawBboxFormat as BBoxFormat)
+    ? (rawBboxFormat as BBoxFormat)
+    : "json";
+
   return {
     enabled: obj.enabled !== false,
     extra_args:
@@ -47,6 +56,7 @@ export function loadAIConfig(
     api_key: typeof obj.api_key === "string" ? obj.api_key : "",
     url: typeof obj.url === "string" ? obj.url : "",
     prompt: typeof obj.prompt === "string" ? obj.prompt : "",
+    bbox_format,
     ...(obj.chat_template_kwargs &&
     typeof obj.chat_template_kwargs === "object"
       ? {

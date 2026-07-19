@@ -78,6 +78,7 @@ const baseConfig: AIConfig = {
   api_key: "key",
   url: "http://localhost:8080",
   prompt: "Image is ${image_width}x${image_height}",
+  bbox_format: "json",
 };
 
 describe("processNoteImage", () => {

@@ -7,6 +7,7 @@ const mockConfig: AIConfig = {
   api_key: "test-key",
   url: "http://localhost:8080/v1/chat/completions",
   prompt: "Analyze this image",
+  bbox_format: "json",
 };
 
 describe("callAIProvider", () => {
