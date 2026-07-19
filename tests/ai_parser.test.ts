@@ -112,4 +112,25 @@ describe("parseAIResponse", () => {
     const result = parseAIResponse(raw);
     expect(result.bbox).toEqual([0, 0, 1, 1]);
   });
+
+  it("strips ```json markdown fences", () => {
+    const raw = '```json\n{\n  "text": "A bird.",\n  "bbox": [0.13, 0.09, 0.63, 0.99]\n}\n```';
+    const result = parseAIResponse(raw);
+    expect(result).toEqual({
+      text: "A bird.",
+      bbox: [0.13, 0.09, 0.63, 0.99],
+    });
+  });
+
+  it("strips plain ``` markdown fences without language tag", () => {
+    const raw = '```\n{"text": "hello", "bbox": null}\n```';
+    const result = parseAIResponse(raw);
+    expect(result).toEqual({ text: "hello", bbox: null });
+  });
+
+  it("handles whitespace around fenced JSON", () => {
+    const raw = '  \n```json\n{"text": "test", "bbox": [0,0,1,1]}\n```\n  ';
+    const result = parseAIResponse(raw);
+    expect(result).toEqual({ text: "test", bbox: [0, 0, 1, 1] });
+  });
 });

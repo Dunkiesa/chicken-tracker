@@ -9,12 +9,21 @@ export type StatusEventPayload = {
 
 type StatusCallback = (payload: StatusEventPayload) => void;
 
-const subscribers = new Map<string, Set<StatusCallback>>();
+const GLOBAL_KEY = "__chicken_ai_subscribers__";
+
+function getSubscribers(): Map<string, Set<StatusCallback>> {
+  const g = globalThis as Record<string, unknown>;
+  if (!g[GLOBAL_KEY]) {
+    g[GLOBAL_KEY] = new Map<string, Set<StatusCallback>>();
+  }
+  return g[GLOBAL_KEY] as Map<string, Set<StatusCallback>>;
+}
 
 export function subscribeToStatusEvents(
   userEmail: string,
   callback: StatusCallback
 ): () => void {
+  const subscribers = getSubscribers();
   if (!subscribers.has(userEmail)) {
     subscribers.set(userEmail, new Set());
   }
@@ -35,6 +44,7 @@ export function emitStatusEvent(
   userEmail: string,
   payload: StatusEventPayload
 ): void {
+  const subscribers = getSubscribers();
   const set = subscribers.get(userEmail);
   if (!set) {
     console.log(`[AI] emitStatusEvent: no subscribers for user ${userEmail} (event: imageId=${payload.imageId}, status=${payload.status})`);
@@ -51,5 +61,5 @@ export function emitStatusEvent(
 }
 
 export function _clearAllSubscribers(): void {
-  subscribers.clear();
+  getSubscribers().clear();
 }

@@ -14,10 +14,16 @@ export class AIResponseError extends Error {
   }
 }
 
+function stripMarkdownFences(raw: string): string {
+  const trimmed = raw.trim();
+  const match = trimmed.match(/^```(?:\w+)?\n?([\s\S]*?)\n?```$/);
+  return match ? match[1].trim() : trimmed;
+}
+
 export function parseAIResponse(raw: string): AIResponseParsed {
   let parsed: unknown;
   try {
-    parsed = JSON.parse(raw);
+    parsed = JSON.parse(stripMarkdownFences(raw));
   } catch {
     throw new AIResponseError("PARSE_FAILED", "Response is not valid JSON");
   }
