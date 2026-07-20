@@ -119,6 +119,12 @@ export default function NoteImageManager({
 
     if (changed) {
       onChange(updatedImages);
+      if (reviewImage) {
+        const updatedReviewImage = updatedImages.find((i) => i.id === reviewImage.id);
+        if (updatedReviewImage) {
+          setReviewImage(updatedReviewImage);
+        }
+      }
       for (const img of updatedImages) {
         const sse = statuses[img.id];
         if (sse && sse.status === "succeeded" && sse.text) {
@@ -131,7 +137,7 @@ export default function NoteImageManager({
     }
 
     prevStatusesRef.current = next;
-  }, [statuses, images, onChange]);
+  }, [statuses, images, onChange, reviewImage]);
 
   useEffect(() => {
     if (resendingImageId === null) return;
@@ -140,14 +146,6 @@ export default function NoteImageManager({
       setResendingImageId(null);
     }
   }, [statuses, resendingImageId]);
-
-  useEffect(() => {
-    if (!reviewImage) return;
-    const latest = images.find((i) => i.id === reviewImage.id);
-    if (latest && latest !== reviewImage) {
-      setReviewImage(latest);
-    }
-  }, [images, reviewImage]);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
