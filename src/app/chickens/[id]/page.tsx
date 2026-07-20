@@ -1410,6 +1410,7 @@ function UploadPhotoForm({
             key={fileInputKey}
             type="file"
             accept="image/*"
+            capture="environment"
             onChange={(e) => setFile(e.target.files?.[0] || null)}
             disabled={isPending}
           />
