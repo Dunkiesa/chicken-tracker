@@ -276,4 +276,106 @@ describe("NoteImageReviewModal", () => {
     expect(screen.getByTestId("handle-bl")).toHaveStyle({ cursor: "nesw-resize" });
     expect(screen.getByTestId("handle-br")).toHaveStyle({ cursor: "nwse-resize" });
   });
+
+  describe("cropOnly mode", () => {
+    it("shows 'Adjust Crop' title instead of 'Review Image'", () => {
+      renderWithProviders(
+        <NoteImageReviewModal
+          open={true}
+          imageUrl="/test-image.jpg"
+          initialCrop={null}
+          initialText=""
+          onSave={jest.fn()}
+          onCancel={jest.fn()}
+          isResending={false}
+          error={null}
+          cropOnly={true}
+        />
+      );
+      expect(screen.getByText("Adjust Crop")).toBeInTheDocument();
+    });
+
+    it("does not show the text field", () => {
+      renderWithProviders(
+        <NoteImageReviewModal
+          open={true}
+          imageUrl="/test-image.jpg"
+          initialCrop={null}
+          initialText="some text"
+          onSave={jest.fn()}
+          onCancel={jest.fn()}
+          isResending={false}
+          error={null}
+          cropOnly={true}
+        />
+      );
+      expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+    });
+
+    it("does not show error alerts", () => {
+      renderWithProviders(
+        <NoteImageReviewModal
+          open={true}
+          imageUrl="/test-image.jpg"
+          initialCrop={null}
+          initialText=""
+          onSave={jest.fn()}
+          onCancel={jest.fn()}
+          isResending={false}
+          error="AI failed"
+          cropOnly={true}
+        />
+      );
+      expect(screen.queryByText("AI failed")).not.toBeInTheDocument();
+    });
+
+    it("still shows the crop rectangle with resize handles", () => {
+      renderWithProviders(
+        <NoteImageReviewModal
+          open={true}
+          imageUrl="/test-image.jpg"
+          initialCrop={null}
+          initialText=""
+          onSave={jest.fn()}
+          onCancel={jest.fn()}
+          isResending={false}
+          error={null}
+          cropOnly={true}
+        />
+      );
+      const img = screen.getByRole("img", { name: /note image/i });
+      Object.defineProperty(img, "naturalWidth", { value: 1000, configurable: true });
+      Object.defineProperty(img, "naturalHeight", { value: 800, configurable: true });
+      fireEvent.load(img);
+      expect(screen.getByTestId("crop-rectangle")).toBeInTheDocument();
+      expect(screen.getByTestId("handle-tl")).toBeInTheDocument();
+      expect(screen.getByTestId("handle-br")).toBeInTheDocument();
+    });
+
+    it("calls onSave with crop when Save is clicked", () => {
+      const onSave = jest.fn();
+      renderWithProviders(
+        <NoteImageReviewModal
+          open={true}
+          imageUrl="/test-image.jpg"
+          initialCrop={null}
+          initialText=""
+          onSave={onSave}
+          onCancel={jest.fn()}
+          isResending={false}
+          error={null}
+          cropOnly={true}
+        />
+      );
+      const img = screen.getByRole("img", { name: /note image/i });
+      Object.defineProperty(img, "naturalWidth", { value: 1000, configurable: true });
+      Object.defineProperty(img, "naturalHeight", { value: 800, configurable: true });
+      fireEvent.load(img);
+      fireEvent.click(screen.getByRole("button", { name: /save/i }));
+      expect(onSave).toHaveBeenCalledWith(
+        { x_min: 0, y_min: 0, x_max: 1, y_max: 1 },
+        ""
+      );
+    });
+  });
 });

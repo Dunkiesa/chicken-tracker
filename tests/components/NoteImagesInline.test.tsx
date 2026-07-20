@@ -19,8 +19,8 @@ beforeEach(() => {
 });
 
 const sampleImages: NoteImageForDisplay[] = [
-  { id: 1, file_path: "notes/a.jpg", thumbnail_path: "notes/a_thumb.jpg" },
-  { id: 2, file_path: "notes/b.jpg", thumbnail_path: null },
+  { id: 1, file_path: "notes/a.jpg", thumbnail_path: "notes/a_thumb.jpg", crop: null },
+  { id: 2, file_path: "notes/b.jpg", thumbnail_path: null, crop: null },
 ];
 
 describe("NoteImagesInline", () => {

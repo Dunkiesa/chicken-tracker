@@ -12,11 +12,13 @@ import {
 import CloseIcon from "@mui/icons-material/Close";
 
 import { noteImageUrl } from "@/components/NoteImageManager";
+import type { CropRegion } from "@/components/NoteImageManager";
 
 export type NoteImageForDisplay = {
   id: number;
   file_path: string;
   thumbnail_path: string | null;
+  crop: CropRegion | null;
 };
 
 type NoteImagesInlineProps = {

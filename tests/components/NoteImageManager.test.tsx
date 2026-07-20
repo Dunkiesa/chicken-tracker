@@ -62,6 +62,7 @@ jest.mock("@/components/NoteImageReviewModal", () => ({
     onResend?: (crop: any) => void;
     isResending?: boolean;
     error?: string | null;
+    cropOnly?: boolean;
   }) => {
     mockNoteImageReviewModal(props);
     if (!props.open) return null;
@@ -714,6 +715,118 @@ describe("NoteImageManager", () => {
           expect.objectContaining({ isResending: false })
         );
       });
+    });
+  });
+
+  describe("saved images", () => {
+    it("shows a 'Saved' badge for images with isSaved true", () => {
+      const onChange = jest.fn();
+      const images: NoteImageEntry[] = [
+        { id: 1, file_path: "a.jpg", crop: null, status: "skipped", isSaved: true },
+      ];
+
+      renderWithProviders(
+        <NoteImageManager chickenId={1} images={images} onChange={onChange} />
+      );
+
+      expect(screen.getByTestId("status-badge-1")).toHaveTextContent("Saved");
+    });
+
+    it("opens the review modal in crop-only mode when a saved image thumbnail is clicked", () => {
+      const onChange = jest.fn();
+      const images: NoteImageEntry[] = [
+        { id: 1, file_path: "a.jpg", crop: null, status: "skipped", isSaved: true },
+      ];
+
+      renderWithProviders(
+        <NoteImageManager chickenId={1} images={images} onChange={onChange} />
+      );
+
+      const thumbnail = screen.getByAltText("Note image 1");
+      fireEvent.click(thumbnail);
+
+      expect(mockNoteImageReviewModal).toHaveBeenCalledWith(
+        expect.objectContaining({ open: true, cropOnly: true })
+      );
+      expect(mockNoteImageCropDialog).not.toHaveBeenCalledWith(
+        expect.objectContaining({ open: true })
+      );
+    });
+
+    it("does not pass onResend to the review modal for saved images", () => {
+      const onChange = jest.fn();
+      const images: NoteImageEntry[] = [
+        { id: 1, file_path: "a.jpg", crop: null, status: "skipped", isSaved: true },
+      ];
+
+      renderWithProviders(
+        <NoteImageManager chickenId={1} images={images} onChange={onChange} />
+      );
+
+      const thumbnail = screen.getByAltText("Note image 1");
+      fireEvent.click(thumbnail);
+
+      expect(mockNoteImageReviewModal).toHaveBeenCalledWith(
+        expect.objectContaining({ onResend: undefined })
+      );
+    });
+
+    it("does not show a Retry button for saved images", () => {
+      const onChange = jest.fn();
+      const images: NoteImageEntry[] = [
+        { id: 1, file_path: "a.jpg", crop: null, status: "failed", ai_error: "error", isSaved: true },
+      ];
+
+      renderWithProviders(
+        <NoteImageManager chickenId={1} images={images} onChange={onChange} />
+      );
+
+      expect(screen.queryByRole("button", { name: /retry ai/i })).not.toBeInTheDocument();
+    });
+
+    it("updates the crop without setting ai_suggestion when the review modal saves for a saved image", () => {
+      const onChange = jest.fn();
+      const images: NoteImageEntry[] = [
+        { id: 1, file_path: "a.jpg", crop: null, status: "skipped", isSaved: true },
+      ];
+
+      renderWithProviders(
+        <NoteImageManager chickenId={1} images={images} onChange={onChange} />
+      );
+
+      const thumbnail = screen.getByAltText("Note image 1");
+      fireEvent.click(thumbnail);
+      fireEvent.click(screen.getByText("Save Review"));
+
+      expect(onChange).toHaveBeenCalledWith([
+        {
+          id: 1,
+          file_path: "a.jpg",
+          crop: { x_min: 0, y_min: 0, x_max: 0.5, y_max: 0.5 },
+          status: "skipped",
+          isSaved: true,
+        },
+      ]);
+    });
+
+    it("allows removing a saved image", () => {
+      const onChange = jest.fn();
+      const images: NoteImageEntry[] = [
+        { id: 1, file_path: "a.jpg", crop: null, status: "skipped", isSaved: true },
+        { id: 2, file_path: "b.jpg", crop: null, status: "pending" },
+      ];
+
+      renderWithProviders(
+        <NoteImageManager chickenId={1} images={images} onChange={onChange} />
+      );
+
+      const removeButtons = screen.getAllByRole("button", { name: /remove image/i });
+      expect(removeButtons).toHaveLength(2);
+      fireEvent.click(removeButtons[0]!);
+
+      expect(onChange).toHaveBeenCalledWith([
+        { id: 2, file_path: "b.jpg", crop: null, status: "pending" },
+      ]);
     });
   });
 });

@@ -36,6 +36,7 @@ type NoteImageReviewModalProps = {
   onResend?: (crop: CropRegion) => void;
   isResending?: boolean;
   error?: string | null;
+  cropOnly?: boolean;
 };
 
 function fromCropRegion(crop: CropRegion): CropRect {
@@ -66,6 +67,7 @@ export default function NoteImageReviewModal({
   onResend,
   isResending = false,
   error = null,
+  cropOnly = false,
 }: NoteImageReviewModalProps) {
   const [cropRect, setCropRect] = useState<CropRect>({ x: 0, y: 0, width: 100, height: 100 });
   const [text, setText] = useState(initialText);
@@ -236,7 +238,7 @@ export default function NoteImageReviewModal({
   return (
     <Dialog open={open} onClose={onCancel} maxWidth="sm" fullWidth>
       <DialogTitle>
-        Review Image
+        {cropOnly ? "Adjust Crop" : "Review Image"}
         <IconButton
           aria-label="Close"
           onClick={onCancel}
@@ -431,26 +433,28 @@ export default function NoteImageReviewModal({
             );
           })()}
         </Box>
-        {error && (
+        {error && !cropOnly && (
           <Alert severity="error" sx={{ mt: 2 }}>
             {error}
           </Alert>
         )}
-        {showSuccess && !error && (
+        {showSuccess && !error && !cropOnly && (
           <Alert severity="success" sx={{ mt: 2 }}>
             Image processed successfully
           </Alert>
         )}
-        <TextField
-          fullWidth
-          multiline
-          rows={4}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          disabled={isResending}
-          placeholder="AI suggested text"
-          sx={{ mt: 2 }}
-        />
+        {!cropOnly && (
+          <TextField
+            fullWidth
+            multiline
+            rows={4}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            disabled={isResending}
+            placeholder="AI suggested text"
+            sx={{ mt: 2 }}
+          />
+        )}
       </DialogContent>
       <DialogActions>
         <Button onClick={onCancel} aria-label="Cancel" disabled={isResending}>

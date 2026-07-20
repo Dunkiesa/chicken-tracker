@@ -5,6 +5,7 @@ import {
   discardNoteImage,
   getNoteImage,
   listNoteImagesByNote,
+  recropSavedNoteImage,
   NoteImageNotPendingError,
   type CropRegion,
 } from "@/lib/note_images";
@@ -37,6 +38,10 @@ export async function processNoteImages(
         );
       }
       if (img.note_id === noteId) {
+        const cropOverride = cropMap[String(imageId)] ?? null;
+        if (cropOverride) {
+          await recropSavedNoteImage(imageId, cropOverride);
+        }
         continue;
       }
       if (img.note_id !== null) {

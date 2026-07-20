@@ -122,4 +122,30 @@ describe("NoteImageCropDialog", () => {
       })
     );
   });
+
+  it("initializes crop position from initialCrop prop", () => {
+    renderWithProviders(
+      <NoteImageCropDialog
+        open={true}
+        imageUrl="/test-image.jpg"
+        initialCrop={{ x_min: 0.1, y_min: 0.2, x_max: 0.5, y_max: 0.6 }}
+        onCrop={jest.fn()}
+        onCancel={jest.fn()}
+      />
+    );
+    expect(mockCropper).toHaveBeenCalledWith(
+      expect.objectContaining({
+        crop: { x: 10, y: 20 },
+      })
+    );
+  });
+
+  it("defaults to origin when no initialCrop is provided", () => {
+    renderDialog();
+    expect(mockCropper).toHaveBeenCalledWith(
+      expect.objectContaining({
+        crop: { x: 0, y: 0 },
+      })
+    );
+  });
 });

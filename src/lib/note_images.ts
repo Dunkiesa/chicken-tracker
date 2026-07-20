@@ -421,6 +421,65 @@ export async function finalizeNoteImageForSave(
   });
 }
 
+export async function recropSavedNoteImage(
+  note_image_id: number,
+  crop: CropRegion
+): Promise<NoteImage | null> {
+  const existing = await getNoteImage(note_image_id);
+  if (!existing) return null;
+  if (existing.note_id === null) {
+    throw new Error("Cannot recrop an image not attached to a note");
+  }
+
+  const dims = await readImageDimensions(existing.file_path);
+
+  const ext = extFromPath(existing.file_path);
+  const newFilename = `${randomUUID()}.${ext}`;
+  const newFilePath = `notes/${shardFilename(newFilename)}`;
+  const newThumbFilename = `${randomUUID()}_thumb.webp`;
+  const newThumbPath = `notes/${shardFilename(newThumbFilename)}`;
+
+  await applyCrop(existing.file_path, newFilePath, crop, dims);
+  await generateThumbnail(newFilePath, newThumbPath);
+
+  const oldFilePath = existing.file_path;
+  const oldThumbPath = existing.thumbnail_path;
+
+  const pool = await getPool();
+  await pool
+    .request()
+    .input("id", sql.Int, note_image_id)
+    .input("file_path", sql.NVarChar(500), newFilePath)
+    .input("thumbnail_path", sql.NVarChar(500), newThumbPath)
+    .input("crop_x_min", sql.Decimal(5, 4), crop.x_min)
+    .input("crop_y_min", sql.Decimal(5, 4), crop.y_min)
+    .input("crop_x_max", sql.Decimal(5, 4), crop.x_max)
+    .input("crop_y_max", sql.Decimal(5, 4), crop.y_max)
+    .input("original_width", sql.Int, dims.width)
+    .input("original_height", sql.Int, dims.height)
+    .query(`
+      UPDATE note_images SET
+        file_path = @file_path,
+        thumbnail_path = @thumbnail_path,
+        crop_x_min = @crop_x_min,
+        crop_y_min = @crop_y_min,
+        crop_x_max = @crop_x_max,
+        crop_y_max = @crop_y_max,
+        original_width = @original_width,
+        original_height = @original_height
+      WHERE id = @id
+    `);
+
+  if (oldFilePath && oldFilePath !== newFilePath) {
+    await deleteImageFile(oldFilePath);
+  }
+  if (oldThumbPath && oldThumbPath !== newThumbPath) {
+    await deleteImageFile(oldThumbPath);
+  }
+
+  return getNoteImage(note_image_id);
+}
+
 export async function discardUnreferencedPendingImages(
   chicken_id: number,
   referenced_image_ids: number[]

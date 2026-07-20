@@ -33,6 +33,7 @@ export type NoteImageEntry = {
   status: "pending" | "processing" | "succeeded" | "failed" | "skipped";
   ai_suggestion?: string | null;
   ai_error?: string | null;
+  isSaved?: boolean;
 };
 
 type NoteImageManagerProps = {
@@ -73,6 +74,8 @@ const statusBadgeConfig: Record<string, { label: string; color: "warning" | "inf
   skipped: { label: "Ready", color: "default" },
 };
 
+const savedBadgeConfig = { label: "Saved", color: "secondary" as const };
+
 export default function NoteImageManager({
   chickenId,
   images,
@@ -89,7 +92,7 @@ export default function NoteImageManager({
   const prevStatusesRef = useRef<Record<number, { status: string; text?: string }>>({});
   const prevResendingSSEStatusRef = useRef<string | null>(null);
 
-  const trackedIds = useMemo(() => images.map((i) => i.id), [images]);
+  const trackedIds = useMemo(() => images.filter((i) => !i.isSaved).map((i) => i.id), [images]);
   const { statuses, retryImage, resendImage } = useNoteImageSSE(chickenId, trackedIds);
 
   const onAISuggestionRef = useRef(onAISuggestion);
@@ -209,6 +212,10 @@ export default function NoteImageManager({
   };
 
   const handleThumbnailClick = (image: NoteImageEntry) => {
+    if (image.isSaved) {
+      setReviewImage(image);
+      return;
+    }
     if (image.status === "pending" || image.status === "processing") return;
     if (image.status === "skipped") {
       setCropImage(image);
@@ -221,7 +228,13 @@ export default function NoteImageManager({
     if (!reviewImage) return;
     onChange(
       images.map((i) =>
-        i.id === reviewImage.id ? { ...i, crop, ai_suggestion: text, ai_error: null } : i
+        i.id === reviewImage.id
+          ? {
+              ...i,
+              crop,
+              ...(reviewImage.isSaved ? {} : { ai_suggestion: text, ai_error: null }),
+            }
+          : i
       )
     );
     setReviewImage(null);
@@ -274,8 +287,11 @@ export default function NoteImageManager({
         {images.length > 0 && (
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
             {images.map((image) => {
-              const badge = statusBadgeConfig[image.status] ?? statusBadgeConfig["pending"]!;
-              const isProcessing = image.status === "pending" || image.status === "processing";
+              const isSaved = !!image.isSaved;
+              const badge = isSaved
+                ? savedBadgeConfig
+                : statusBadgeConfig[image.status] ?? statusBadgeConfig["pending"]!;
+              const isProcessing = !isSaved && (image.status === "pending" || image.status === "processing");
               return (
                 <Box
                   key={image.id}
@@ -292,7 +308,7 @@ export default function NoteImageManager({
                       objectFit: "cover",
                       borderRadius: 1,
                       border: 1,
-                      borderColor: image.status === "failed" ? "error.main" : "divider",
+                      borderColor: !isSaved && image.status === "failed" ? "error.main" : "divider",
                       cursor: isProcessing ? "default" : "pointer",
                       pointerEvents: isProcessing ? "none" : "auto",
                     }}
@@ -336,7 +352,7 @@ export default function NoteImageManager({
                     spacing={0.5}
                     sx={{ position: "absolute", bottom: 14, right: 2 }}
                   >
-                    {image.status === "failed" && (
+                    {!isSaved && image.status === "failed" && (
                       <IconButton
                         size="small"
                         onClick={() => handleRetry(image.id)}
@@ -366,6 +382,7 @@ export default function NoteImageManager({
         <NoteImageCropDialog
           open={true}
           imageUrl={noteImageUrl(cropImage.file_path)}
+          initialCrop={cropImage.crop}
           onCrop={handleCropConfirm}
           onCancel={handleCropCancel}
         />
@@ -379,9 +396,10 @@ export default function NoteImageManager({
           initialText={reviewImage.ai_suggestion ?? ""}
           onSave={handleReviewSave}
           onCancel={handleReviewCancel}
-          onResend={handleReviewResend}
+          onResend={reviewImage.isSaved ? undefined : handleReviewResend}
           isResending={resendingImageId === reviewImage.id}
           error={reviewImage.ai_error}
+          cropOnly={reviewImage.isSaved}
         />
       )}
     </>

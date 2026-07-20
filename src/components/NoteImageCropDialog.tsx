@@ -13,23 +13,36 @@ import {
 import CloseIcon from "@mui/icons-material/Close";
 import CheckIcon from "@mui/icons-material/Check";
 import Cropper, { Area } from "react-easy-crop";
+import type { CropRegion } from "@/components/NoteImageManager";
 
 type NoteImageCropDialogProps = {
   open: boolean;
   imageUrl: string;
+  initialCrop?: CropRegion | null;
   onCrop: (crop: Area) => void;
   onCancel: () => void;
 };
 
+function cropRegionToArea(crop: CropRegion): Area {
+  return {
+    x: crop.x_min * 100,
+    y: crop.y_min * 100,
+    width: (crop.x_max - crop.x_min) * 100,
+    height: (crop.y_max - crop.y_min) * 100,
+  };
+}
+
 export default function NoteImageCropDialog({
   open,
   imageUrl,
+  initialCrop,
   onCrop,
   onCancel,
 }: NoteImageCropDialogProps) {
-  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const initialArea = initialCrop ? cropRegionToArea(initialCrop) : null;
+  const [crop, setCrop] = useState({ x: initialArea?.x ?? 0, y: initialArea?.y ?? 0 });
   const [zoom, setZoom] = useState(1);
-  const [croppedArea, setCroppedArea] = useState<Area | null>(null);
+  const [croppedArea, setCroppedArea] = useState<Area | null>(initialArea);
 
   const onCropComplete = useCallback(
     (croppedArea: Area, _croppedAreaPixels: Area) => {

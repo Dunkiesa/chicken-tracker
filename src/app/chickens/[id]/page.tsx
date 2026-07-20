@@ -107,6 +107,10 @@ type NoteImage = {
   chicken_id: number;
   file_path: string;
   thumbnail_path: string | null;
+  crop_x_min: number | null;
+  crop_y_min: number | null;
+  crop_x_max: number | null;
+  crop_y_max: number | null;
   status: string;
   recorded_by: string;
   created_at: string;
@@ -448,6 +452,9 @@ function ProfileContent() {
           id: img.id,
           file_path: img.file_path,
           thumbnail_path: img.thumbnail_path,
+          crop: img.crop_x_min != null && img.crop_y_min != null && img.crop_x_max != null && img.crop_y_max != null
+            ? { x_min: img.crop_x_min, y_min: img.crop_y_min, x_max: img.crop_x_max, y_max: img.crop_y_max }
+            : null,
         }));
       }
     });
@@ -492,6 +499,7 @@ function ProfileContent() {
       createNoteApi({ chickenId, ...data }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["chicken-notes", chickenId] });
+      queryClient.invalidateQueries({ queryKey: ["note-images", chickenId] });
       setAddNoteDialogOpen(false);
       setAddNoteImages([]);
     },
@@ -508,6 +516,7 @@ function ProfileContent() {
     }) => updateNoteApi({ chickenId, ...data }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["chicken-notes", chickenId] });
+      queryClient.invalidateQueries({ queryKey: ["note-images", chickenId] });
     },
   });
 
@@ -1526,7 +1535,13 @@ const NoteItem = memo(function NoteItem({
 
   const handleOpenEdit = () => {
     setEditNoteImages(
-      images.map((img) => ({ id: img.id, file_path: img.file_path, crop: null, status: "pending" as const }))
+      images.map((img) => ({
+        id: img.id,
+        file_path: img.file_path,
+        crop: null,
+        status: "skipped" as const,
+        isSaved: true,
+      }))
     );
     setEditDialogOpen(true);
   };
