@@ -52,7 +52,7 @@ describe("NavMenu", () => {
     renderWithProviders(<NavMenu expanded />);
     expect(screen.getByText("Dashboard").closest("a")).toHaveAttribute(
       "href",
-      "/"
+      "/dashboard"
     );
     expect(screen.getByText("Roster").closest("a")).toHaveAttribute(
       "href",

@@ -27,10 +27,10 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   {
-    label: "Dashboard",
-    href: "/dashboard",
-    icon: DashboardIcon,
-    matchPrefix: ["/dashboard"],
+    label: "Log Egg",
+    href: "/log-egg",
+    icon: EggIcon,
+    matchPrefix: ["/log-egg"],
   },
   {
     label: "Roster",
@@ -39,10 +39,10 @@ const navItems: NavItem[] = [
     matchPrefix: ["/roster", "/chickens"],
   },
   {
-    label: "Log Egg",
-    href: "/log-egg",
-    icon: EggIcon,
-    matchPrefix: ["/log-egg"],
+    label: "Dashboard",
+    href: "/dashboard",
+    icon: DashboardIcon,
+    matchPrefix: ["/dashboard"],
   },
   {
     label: "Admin",

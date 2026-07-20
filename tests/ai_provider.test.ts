@@ -44,14 +44,12 @@ describe("callAIProvider", () => {
     expect(options.headers["Authorization"]).toBe("Bearer test-key");
 
     const body = JSON.parse(options.body);
-    expect(body.messages).toHaveLength(1);
-    expect(body.messages[0].role).toBe("user");
-    expect(body.messages[0].content).toHaveLength(2);
-    expect(body.messages[0].content[0]).toEqual({
-      type: "text",
-      text: "Analyze this image",
-    });
-    expect(body.messages[0].content[1]).toEqual({
+    expect(body.messages).toHaveLength(2);
+    expect(body.messages[0].role).toBe("system");
+    expect(body.messages[0].content).toBe("Analyze this image");
+    expect(body.messages[1].role).toBe("user");
+    expect(body.messages[1].content).toHaveLength(1);
+    expect(body.messages[1].content[0]).toEqual({
       type: "image_url",
       image_url: { url: "data:image/jpeg;base64,base64data" },
     });
