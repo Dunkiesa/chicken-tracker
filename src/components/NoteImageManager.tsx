@@ -141,6 +141,14 @@ export default function NoteImageManager({
     }
   }, [statuses, resendingImageId]);
 
+  useEffect(() => {
+    if (!reviewImage) return;
+    const latest = images.find((i) => i.id === reviewImage.id);
+    if (latest && latest !== reviewImage) {
+      setReviewImage(latest);
+    }
+  }, [images, reviewImage]);
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
