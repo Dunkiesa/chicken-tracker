@@ -87,6 +87,7 @@ export default function NoteImageManager({
   const [resendingImageId, setResendingImageId] = useState<number | null>(null);
   const fileInputKeyRef = useRef(0);
   const prevStatusesRef = useRef<Record<number, { status: string; text?: string }>>({});
+  const prevResendingSSEStatusRef = useRef<string | null>(null);
 
   const trackedIds = useMemo(() => images.map((i) => i.id), [images]);
   const { statuses, retryImage, resendImage } = useNoteImageSSE(chickenId, trackedIds);
@@ -140,9 +141,19 @@ export default function NoteImageManager({
   }, [statuses, images, onChange, reviewImage]);
 
   useEffect(() => {
-    if (resendingImageId === null) return;
+    if (resendingImageId === null) {
+      prevResendingSSEStatusRef.current = null;
+      return;
+    }
     const sse = statuses[resendingImageId];
-    if (sse && sse.status !== "processing" && sse.status !== "pending") {
+    if (!sse) return;
+    const prevStatus = prevResendingSSEStatusRef.current;
+    prevResendingSSEStatusRef.current = sse.status;
+    if (
+      (prevStatus === "processing" || prevStatus === "pending") &&
+      sse.status !== "processing" &&
+      sse.status !== "pending"
+    ) {
       setResendingImageId(null);
     }
   }, [statuses, resendingImageId]);

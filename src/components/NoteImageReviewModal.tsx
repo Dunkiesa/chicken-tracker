@@ -12,6 +12,7 @@ import {
   TextField,
   CircularProgress,
   Alert,
+  Chip,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import CheckIcon from "@mui/icons-material/Check";
@@ -245,26 +246,6 @@ export default function NoteImageReviewModal({
         </IconButton>
       </DialogTitle>
       <DialogContent sx={{ position: "relative" }}>
-        {isResending && (
-          <Box
-            sx={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              bgcolor: "rgba(0,0,0,0.7)",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              zIndex: 10,
-            }}
-          >
-            <CircularProgress size={48} sx={{ color: "white", mb: 2 }} />
-            <Box sx={{ color: "white", fontSize: "1.1rem" }}>Processing image...</Box>
-          </Box>
-        )}
         <Box
           ref={containerRef}
           sx={{
@@ -426,6 +407,26 @@ export default function NoteImageReviewModal({
                     </>
                   )}
                 </Box>
+                {isResending && (
+                  <Chip
+                    label="Processing..."
+                    color="info"
+                    size="small"
+                    data-testid="processing-badge"
+                    icon={<CircularProgress size={14} color="inherit" />}
+                    sx={{
+                      position: "absolute",
+                      zIndex: 10,
+                      fontWeight: 600,
+                      pointerEvents: "none",
+                    }}
+                    style={{
+                      left: `${rect.x + rect.width / 2}%`,
+                      top: `${rect.y + rect.height / 2}%`,
+                      transform: "translate(-50%, -50%)",
+                    }}
+                  />
+                )}
               </>
             );
           })()}
@@ -461,6 +462,7 @@ export default function NoteImageReviewModal({
             aria-label="Resend"
             disabled={isResending || !naturalDimensions}
             startIcon={isResending ? <CircularProgress size={20} /> : <RefreshIcon />}
+            sx={isResending ? { opacity: 0.5 } : undefined}
           >
             Resend
           </Button>

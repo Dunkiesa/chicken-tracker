@@ -163,8 +163,8 @@ export function useNoteImageSSE(
       setStatuses((prev) => ({
         ...prev,
         [imageId]: {
-          status: image.status,
-          error: image.ai_error ?? undefined,
+          status: "processing",
+          error: undefined,
         },
       }));
       return image;

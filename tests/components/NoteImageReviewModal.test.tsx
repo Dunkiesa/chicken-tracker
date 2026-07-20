@@ -145,6 +145,24 @@ describe("NoteImageReviewModal", () => {
     expect(resendBtn.querySelector(".MuiCircularProgress-root")).toBeTruthy();
   });
 
+  it("shows a processing badge on the image during resend", () => {
+    renderModal({ isResending: true });
+    mockImageDimensions(1000, 800);
+    expect(screen.getByTestId("processing-badge")).toBeInTheDocument();
+  });
+
+  it("does not show processing badge when not resending", () => {
+    renderModal({ isResending: false });
+    mockImageDimensions(1000, 800);
+    expect(screen.queryByTestId("processing-badge")).not.toBeInTheDocument();
+  });
+
+  it("dims the Resend button during resend", () => {
+    renderModal({ isResending: true });
+    const resendBtn = screen.getByRole("button", { name: /resend/i });
+    expect(resendBtn).toHaveStyle({ opacity: "0.5" });
+  });
+
   it("shows error message when error is present", () => {
     renderModal({ error: "AI processing failed" });
     expect(screen.getByText("AI processing failed")).toBeInTheDocument();
