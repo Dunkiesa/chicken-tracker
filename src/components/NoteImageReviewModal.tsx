@@ -69,6 +69,7 @@ export default function NoteImageReviewModal({
   const [cropRect, setCropRect] = useState<CropRect>({ x: 0, y: 0, width: 100, height: 100 });
   const [text, setText] = useState(initialText);
   const [naturalDimensions, setNaturalDimensions] = useState<{ width: number; height: number } | null>(null);
+  const [showSuccess, setShowSuccess] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const prevIsResendingRef = useRef(isResending);
   const dragStateRef = useRef<{
@@ -85,6 +86,9 @@ export default function NoteImageReviewModal({
   useEffect(() => {
     if (prevIsResendingRef.current && !isResending) {
       setText(initialText);
+      setShowSuccess(true);
+      const timer = setTimeout(() => setShowSuccess(false), 2000);
+      return () => clearTimeout(timer);
     }
     prevIsResendingRef.current = isResending;
   }, [isResending, initialText]);
@@ -240,7 +244,27 @@ export default function NoteImageReviewModal({
           <CloseIcon />
         </IconButton>
       </DialogTitle>
-      <DialogContent>
+      <DialogContent sx={{ position: "relative" }}>
+        {isResending && (
+          <Box
+            sx={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              bgcolor: "rgba(0,0,0,0.7)",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 10,
+            }}
+          >
+            <CircularProgress size={48} sx={{ color: "white", mb: 2 }} />
+            <Box sx={{ color: "white", fontSize: "1.1rem" }}>Processing image...</Box>
+          </Box>
+        )}
         <Box
           ref={containerRef}
           sx={{
@@ -409,6 +433,11 @@ export default function NoteImageReviewModal({
         {error && (
           <Alert severity="error" sx={{ mt: 2 }}>
             {error}
+          </Alert>
+        )}
+        {showSuccess && !error && (
+          <Alert severity="success" sx={{ mt: 2 }}>
+            Image processed successfully
           </Alert>
         )}
         <TextField
