@@ -104,7 +104,7 @@ export default function NoteImageManager({
       if (!sse) return img;
 
       const prevEntry = prev[img.id];
-      if (prevEntry && prevEntry.status === sse.status) return img;
+      if (prevEntry && prevEntry.status === sse.status && prevEntry.text === sse.text) return img;
 
       changed = true;
       next[img.id] = { status: sse.status, text: sse.text };
