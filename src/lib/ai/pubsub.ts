@@ -1,3 +1,5 @@
+import { aiLog, aiError } from "./logger";
+
 export type StatusEventPayload = {
   imageId: number;
   chickenId: number;
@@ -47,15 +49,15 @@ export function emitStatusEvent(
   const subscribers = getSubscribers();
   const set = subscribers.get(userEmail);
   if (!set) {
-    console.log(`[AI] emitStatusEvent: no subscribers for user ${userEmail} (event: imageId=${payload.imageId}, status=${payload.status})`);
+    aiLog(`[AI] emitStatusEvent: no subscribers for user ${userEmail} (event: imageId=${payload.imageId}, status=${payload.status})`);
     return;
   }
-  console.log(`[AI] emitStatusEvent: delivering to ${set.size} subscriber(s) for ${userEmail} (imageId=${payload.imageId}, status=${payload.status})`);
+  aiLog(`[AI] emitStatusEvent: delivering to ${set.size} subscriber(s) for ${userEmail} (imageId=${payload.imageId}, status=${payload.status})`);
   for (const cb of set) {
     try {
       cb(payload);
     } catch (err) {
-      console.error(`[AI] Subscriber callback error:`, err);
+      aiError(`[AI] Subscriber callback error:`, err);
     }
   }
 }

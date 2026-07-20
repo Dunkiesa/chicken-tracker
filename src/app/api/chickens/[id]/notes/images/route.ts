@@ -9,6 +9,7 @@ import {
   listPendingNoteImagesByChicken,
 } from "@/lib/note_images";
 import { processNoteImage } from "@/lib/ai";
+import { aiError } from "@/lib/ai/logger";
 
 export const dynamic = "force-dynamic";
 
@@ -53,7 +54,7 @@ export async function POST(
     });
 
     processNoteImage(row.id, session.user.email).catch((err) => {
-      console.error(`[AI] processNoteImage failed for image ${row.id}:`, err);
+      aiError(`[AI] processNoteImage failed for image ${row.id}:`, err);
     });
 
     return NextResponse.json(row, { status: 201 });

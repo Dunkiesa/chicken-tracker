@@ -4,6 +4,7 @@ import { loadAIConfig, substitutePrompt, type AIConfig } from "./config";
 import { callAIProvider } from "./provider";
 import { parseAIResponse, parseTextOnlyResponse } from "./parser";
 import { emitStatusEvent } from "./pubsub";
+import { aiLog, aiError } from "./logger";
 import {
   getNoteImage,
   updateNoteImageStatus,
@@ -16,17 +17,17 @@ export async function processNoteImage(
   note_image_id: number,
   userEmail: string
 ): Promise<void> {
-  console.log(`[AI] processNoteImage started: image_id=${note_image_id}, user=${userEmail}`);
+  aiLog(`[AI] processNoteImage started: image_id=${note_image_id}, user=${userEmail}`);
 
   const image = await getNoteImage(note_image_id);
   if (!image) {
-    console.error(`[AI] Note image ${note_image_id} not found`);
+    aiError(`[AI] Note image ${note_image_id} not found`);
     throw new Error(`Note image ${note_image_id} not found`);
   }
 
   const config = loadAIConfig();
   if (!config || !config.enabled) {
-    console.log(`[AI] AI disabled or no config, skipping image ${note_image_id}`);
+    aiLog(`[AI] AI disabled or no config, skipping image ${note_image_id}`);
     await updateNoteImageStatus(note_image_id, "succeeded", {
       ai_suggestion: null,
       ai_error: null,
@@ -39,7 +40,7 @@ export async function processNoteImage(
     return;
   }
 
-  console.log(`[AI] Config loaded: url=${config.url}, extra_args=${JSON.stringify(config.extra_args)}`);
+  aiLog(`[AI] Config loaded: url=${config.url}, extra_args=${JSON.stringify(config.extra_args)}`);
 
   emitStatusEvent(userEmail, {
     imageId: note_image_id,
@@ -52,9 +53,9 @@ export async function processNoteImage(
   let lastError: Error | null = null;
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      console.log(`[AI] Attempt ${attempt + 1}/2 for image ${note_image_id}`);
+      aiLog(`[AI] Attempt ${attempt + 1}/2 for image ${note_image_id}`);
       const result = await analyzeImageWithAI(image, config);
-      console.log(`[AI] Success for image ${note_image_id}: text="${result.text.substring(0, 80)}...", bbox=${JSON.stringify(result.bbox)}`);
+      aiLog(`[AI] Success for image ${note_image_id}: text="${result.text.substring(0, 80)}...", bbox=${JSON.stringify(result.bbox)}`);
       await updateNoteImageStatus(note_image_id, "succeeded", {
         ai_suggestion: result.text,
         ai_error: null,
@@ -69,12 +70,12 @@ export async function processNoteImage(
       return;
     } catch (err) {
       lastError = err as Error;
-      console.error(`[AI] Attempt ${attempt + 1}/2 failed for image ${note_image_id}: ${lastError.message}`);
+      aiError(`[AI] Attempt ${attempt + 1}/2 failed for image ${note_image_id}: ${lastError.message}`);
     }
   }
 
   const errorMessage = lastError?.message ?? "Unknown error";
-  console.error(`[AI] All attempts failed for image ${note_image_id}: ${errorMessage}`);
+  aiError(`[AI] All attempts failed for image ${note_image_id}: ${errorMessage}`);
   await updateNoteImageStatus(note_image_id, "failed", {
     ai_error: errorMessage,
   });
@@ -97,16 +98,16 @@ async function analyzeImageWithAI(
   const mimeType = mimeTypeFromPath(image.file_path);
 
   const dims = await readImageDimensions(image.file_path);
-  console.log(`[AI] Image: path=${image.file_path}, dims=${dims.width}x${dims.height}, mime=${mimeType}, size=${base64.length} chars base64`);
+  aiLog(`[AI] Image: path=${image.file_path}, dims=${dims.width}x${dims.height}, mime=${mimeType}, size=${base64.length} chars base64`);
 
   const prompt = substitutePrompt(config.prompt, {
     image_width: dims.width,
     image_height: dims.height,
   });
 
-  console.log(`[AI] Calling provider at ${config.url}`);
+  aiLog(`[AI] Calling provider at ${config.url}`);
   const rawResponse = await callAIProvider(config, base64, mimeType, prompt);
-  console.log(`[AI] Raw response (${rawResponse.length} chars): "${rawResponse.substring(0, 200)}"`);
+  aiLog(`[AI] Raw response (${rawResponse.length} chars): "${rawResponse.substring(0, 200)}"`);
   return parseAIResponse(rawResponse, config.bbox_format);
 }
 
@@ -115,11 +116,11 @@ export async function resendNoteImage(
   crop: CropRegion,
   userEmail: string
 ): Promise<void> {
-  console.log(`[AI] resendNoteImage started: image_id=${note_image_id}, user=${userEmail}`);
+  aiLog(`[AI] resendNoteImage started: image_id=${note_image_id}, user=${userEmail}`);
 
   const image = await getNoteImage(note_image_id);
   if (!image) {
-    console.error(`[AI] Note image ${note_image_id} not found`);
+    aiError(`[AI] Note image ${note_image_id} not found`);
     throw new Error(`Note image ${note_image_id} not found`);
   }
 
@@ -142,9 +143,9 @@ export async function resendNoteImage(
   let lastError: Error | null = null;
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      console.log(`[AI] Resend attempt ${attempt + 1}/2 for image ${note_image_id}`);
+      aiLog(`[AI] Resend attempt ${attempt + 1}/2 for image ${note_image_id}`);
       const text = await analyzeCroppedRegionWithAI(image, crop, config);
-      console.log(`[AI] Resend success for image ${note_image_id}: text="${text.substring(0, 80)}"`);
+      aiLog(`[AI] Resend success for image ${note_image_id}: text="${text.substring(0, 80)}"`);
       await updateNoteImageStatus(note_image_id, "succeeded", {
         ai_suggestion: text,
         ai_error: null,
@@ -159,12 +160,12 @@ export async function resendNoteImage(
       return;
     } catch (err) {
       lastError = err as Error;
-      console.error(`[AI] Resend attempt ${attempt + 1}/2 failed for image ${note_image_id}: ${lastError.message}`);
+      aiError(`[AI] Resend attempt ${attempt + 1}/2 failed for image ${note_image_id}: ${lastError.message}`);
     }
   }
 
   const errorMessage = lastError?.message ?? "Unknown error";
-  console.error(`[AI] All resend attempts failed for image ${note_image_id}: ${errorMessage}`);
+  aiError(`[AI] All resend attempts failed for image ${note_image_id}: ${errorMessage}`);
   await updateNoteImageStatus(note_image_id, "failed", {
     ai_error: errorMessage,
   });
@@ -204,9 +205,9 @@ async function analyzeCroppedRegionWithAI(
   const base64 = croppedBuffer.toString("base64");
   const mimeType = mimeTypeFromPath(image.file_path);
 
-  console.log(`[AI] Cropped region: ${extractWidth}x${extractHeight} from ${dims.width}x${dims.height}, mime=${mimeType}`);
+  aiLog(`[AI] Cropped region: ${extractWidth}x${extractHeight} from ${dims.width}x${dims.height}, mime=${mimeType}`);
 
   const rawResponse = await callAIProvider(config, base64, mimeType, config.resend_prompt);
-  console.log(`[AI] Resend raw response (${rawResponse.length} chars): "${rawResponse.substring(0, 200)}"`);
+  aiLog(`[AI] Resend raw response (${rawResponse.length} chars): "${rawResponse.substring(0, 200)}"`);
   return parseTextOnlyResponse(rawResponse);
 }

@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getChicken } from "@/lib/chickens";
 import { subscribeToStatusEvents, type StatusEventPayload } from "@/lib/ai/pubsub";
+import { aiLog, aiError } from "@/lib/ai/logger";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +32,7 @@ export async function GET(
   const { readable, writable } = new TransformStream();
   const writer = writable.getWriter();
 
-  console.log(`[AI] SSE connection opened for user=${userEmail}, chickenId=${chickenId}`);
+  aiLog(`[AI] SSE connection opened for user=${userEmail}, chickenId=${chickenId}`);
 
   const unsubscribe = subscribeToStatusEvents(
     userEmail,
@@ -44,15 +45,15 @@ export async function GET(
         ...(payload.bbox !== undefined ? { bbox: payload.bbox } : {}),
         ...(payload.error !== undefined ? { error: payload.error } : {}),
       });
-      console.log(`[AI] SSE writing event: ${data}`);
+      aiLog(`[AI] SSE writing event: ${data}`);
       writer.write(encoder.encode(`data: ${data}\n\n`)).catch((err) => {
-        console.error(`[AI] SSE write error:`, err);
+        aiError(`[AI] SSE write error:`, err);
       });
     }
   );
 
   const cleanup = () => {
-    console.log(`[AI] SSE connection closed for user=${userEmail}, chickenId=${chickenId}`);
+    aiLog(`[AI] SSE connection closed for user=${userEmail}, chickenId=${chickenId}`);
     unsubscribe();
     writer.close().catch(() => {});
   };

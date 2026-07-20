@@ -1,4 +1,5 @@
 import type { AIConfig } from "./config";
+import { aiLog, aiError } from "./logger";
 
 export type AIProviderErrorCode = "HTTP_ERROR" | "NO_CHOICES" | "MISSING_CONTENT";
 
@@ -45,7 +46,7 @@ export async function callAIProvider(
     body.chat_template_kwargs = config.chat_template_kwargs;
   }
 
-  console.log(`[AI] POST ${config.url} (body keys: ${Object.keys(body).join(", ")})`);
+  aiLog(`[AI] POST ${config.url} (body keys: ${Object.keys(body).join(", ")})`);
   const response = await fetch(config.url, {
     method: "POST",
     headers: {
@@ -57,14 +58,14 @@ export async function callAIProvider(
 
   if (!response.ok) {
     const text = await response.text().catch(() => "");
-    console.error(`[AI] Provider returned ${response.status}: ${text}`);
+    aiError(`[AI] Provider returned ${response.status}: ${text}`);
     throw new AIProviderError(
       "HTTP_ERROR",
       `AI provider returned ${response.status}: ${text}`
     );
   }
 
-  console.log(`[AI] Provider returned 200 OK`);
+  aiLog(`[AI] Provider returned 200 OK`);
 
   const json = (await response.json()) as Record<string, unknown>;
   const choices = json.choices as Array<Record<string, unknown>> | undefined;

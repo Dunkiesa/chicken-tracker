@@ -1,5 +1,6 @@
 import { readFileSync } from "fs";
 import { parse as parseYaml } from "yaml";
+import { aiError } from "./logger";
 
 export type BBoxFormat = "json" | "gemma";
 
@@ -31,12 +32,12 @@ export function loadAIConfig(
   try {
     parsed = parseYaml(content);
   } catch {
-    console.error("AI config: failed to parse YAML");
+    aiError("AI config: failed to parse YAML");
     return null;
   }
 
   if (!parsed || typeof parsed !== "object") {
-    console.error("AI config: parsed YAML is not an object");
+    aiError("AI config: parsed YAML is not an object");
     return null;
   }
 
