@@ -28,9 +28,9 @@ interface NavItem {
 const navItems: NavItem[] = [
   {
     label: "Dashboard",
-    href: "/",
+    href: "/dashboard",
     icon: DashboardIcon,
-    matchPrefix: ["/"],
+    matchPrefix: ["/dashboard"],
   },
   {
     label: "Roster",
