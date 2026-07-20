@@ -63,9 +63,13 @@ export async function POST(
     const body = await request.json();
     const { content, date, imageIds, crops, aiTexts } = body;
 
-    if (!content || typeof content !== "string" || content.trim().length === 0) {
+    const ids: number[] = Array.isArray(imageIds) ? imageIds : [];
+
+    const hasContent = typeof content === "string" && content.trim().length > 0;
+    const hasImages = ids.length > 0;
+    if (!hasContent && !hasImages) {
       return NextResponse.json(
-        { message: "content is required" },
+        { message: "content or at least one image is required" },
         { status: 400 }
       );
     }
@@ -77,9 +81,8 @@ export async function POST(
       );
     }
 
-    const ids: number[] = Array.isArray(imageIds) ? imageIds : [];
     const orderedAiTexts = parseAiTexts(aiTexts, ids);
-    const combinedContent = combineNoteContent(content.trim(), orderedAiTexts);
+    const combinedContent = combineNoteContent((content ?? "").trim(), orderedAiTexts);
 
     const note = await createNote({
       chicken_id: chickenId,

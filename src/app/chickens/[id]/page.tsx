@@ -291,14 +291,14 @@ async function updateChickenApi(
 }
 
 const addNoteSchema = z.object({
-  content: z.string().min(1, "Content is required"),
+  content: z.string(),
   date: z.string().min(1, "Date is required"),
 });
 
 type AddNoteFormValues = z.infer<typeof addNoteSchema>;
 
 const editNoteSchema = z.object({
-  content: z.string().min(1, "Content is required"),
+  content: z.string(),
   date: z.string().min(1, "Date is required"),
 });
 
@@ -634,6 +634,10 @@ function ProfileContent() {
   };
 
   const handleAddNote = (data: AddNoteFormValues) => {
+    if (!data.content.trim() && addNoteImages.length === 0) {
+      addNoteForm.setError("content", { message: "Content or at least one image is required" });
+      return;
+    }
     addNoteMutation.mutate({
       ...data,
       ...buildImagePayload(addNoteImages),
@@ -1527,6 +1531,10 @@ const NoteItem = memo(function NoteItem({
   };
 
   const handleSubmit = (data: EditNoteFormValues) => {
+    if (!data.content.trim() && editNoteImages.length === 0) {
+      form.setError("content", { message: "Content or at least one image is required" });
+      return;
+    }
     onSave({
       ...data,
       ...buildImagePayload(editNoteImages),
