@@ -119,6 +119,26 @@ export async function setPhotoThumbnail(
     .query("UPDATE photos SET thumbnail_path = @thumbnail_path WHERE id = @id");
 }
 
+export type PhotoWithChicken = Photo & {
+  chicken_name: string;
+};
+
+export async function listAllPhotos(): Promise<PhotoWithChicken[]> {
+  const pool = await getPool();
+  const result = await pool
+    .request()
+    .query(`
+      SELECT
+        p.id, p.chicken_id, p.file_path, p.thumbnail_path, p.description, p.recorded_by,
+        CONVERT(varchar, p.created_at, 20) AS created_at,
+        c.name AS chicken_name
+      FROM photos p
+      JOIN chickens c ON c.id = p.chicken_id
+      ORDER BY p.created_at ASC
+    `);
+  return result.recordset as PhotoWithChicken[];
+}
+
 export function getImageDirectory(): string {
   return process.env.IMAGE_DIR || "./images";
 }

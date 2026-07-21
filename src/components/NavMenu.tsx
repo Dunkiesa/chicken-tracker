@@ -8,6 +8,7 @@ import DashboardIcon from "@mui/icons-material/Dashboard";
 import ListAltIcon from "@mui/icons-material/ListAlt";
 import EggIcon from "@mui/icons-material/Egg";
 import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
+import PhotoLibraryIcon from "@mui/icons-material/PhotoLibrary";
 import {
   List,
   ListItem,
@@ -43,6 +44,12 @@ const navItems: NavItem[] = [
     href: "/dashboard",
     icon: DashboardIcon,
     matchPrefix: ["/dashboard"],
+  },
+  {
+    label: "Gallery",
+    href: "/gallery",
+    icon: PhotoLibraryIcon,
+    matchPrefix: ["/gallery"],
   },
   {
     label: "Admin",
