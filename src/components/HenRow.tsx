@@ -66,22 +66,34 @@ function HenRowInner({ hen, weight, existing, warning, error, disabled, onWeight
           size="small"
           value={weight}
           onChange={(e) => onWeightChange(hen.id, e.target.value)}
-          placeholder="Weight (g)"
+          placeholder="Mass (g)"
           disabled={disabled}
           error={!!error}
           helperText={error}
           sx={{
-            width: 110,
+            width: 100,
             flexShrink: 0,
             "& .MuiOutlinedInput-root": {
               fontSize: "0.9rem",
+            },
+            "& input[type=number]": {
+              MozAppearance: "textfield",
+              WebkitAppearance: "none",
+            },
+            "& input[type=number]::-webkit-inner-spin-button": {
+              WebkitAppearance: "none",
+              margin: 0,
+            },
+            "& input[type=number]::-webkit-outer-spin-button": {
+              WebkitAppearance: "none",
+              margin: 0,
             },
           }}
           slotProps={{
             htmlInput: {
               step: 0.01,
               min: 0,
-              style: { textAlign: "right" },
+              style: { textAlign: "left" },
             }
           }}
         />
