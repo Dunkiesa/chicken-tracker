@@ -431,10 +431,6 @@ function AdminContent() {
 
   return (
     <Box sx={{ maxWidth: 900, mx: "auto", p: { xs: 1, sm: 2 } }}>
-      <Typography variant="h5" gutterBottom>
-        Admin
-      </Typography>
-
       <Card sx={{ p: { xs: 1.5, sm: 2 } }}>
         <Tabs
           value={tabIndex}

@@ -206,10 +206,6 @@ export default function GalleryPage() {
 
   return (
     <Box sx={{ maxWidth: 1200, mx: "auto", p: { xs: 1, sm: 2 } }}>
-      <Typography variant="h5" gutterBottom>
-        Gallery
-      </Typography>
-
       <Card sx={{ p: { xs: 1.5, sm: 2 } }}>
         <Tabs
           value={tabIndex}

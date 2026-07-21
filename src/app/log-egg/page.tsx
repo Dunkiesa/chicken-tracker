@@ -360,9 +360,6 @@ function LogEggContent() {
 
   return (
     <Box sx={{ maxWidth: 700, mx: "auto", p: 2, overflowX: "hidden" }}>
-      <Typography variant="h5" gutterBottom>
-        Log
-      </Typography>
       <Card sx={{ p: 2, mb: 2, overflow: "hidden" }}>
         <Stack spacing={2}>
           <Controller

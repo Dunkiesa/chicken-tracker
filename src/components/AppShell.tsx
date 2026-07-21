@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useSession } from "next-auth/react";
+import { usePathname } from "next/navigation";
 import { useTheme } from "@mui/material/styles";
 import { useMediaQuery } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
@@ -21,12 +22,29 @@ import ThemeToggle from "./ThemeToggle";
 const DRAWER_COLLAPSED = 80;
 const DRAWER_EXPANDED = 240;
 
+const PAGE_TITLES: { prefix: string; title: string }[] = [
+  { prefix: "/log-egg", title: "Log Egg" },
+  { prefix: "/roster", title: "Roster" },
+  { prefix: "/chickens", title: "Roster" },
+  { prefix: "/dashboard", title: "Dashboard" },
+  { prefix: "/gallery", title: "Gallery" },
+  { prefix: "/admin", title: "Admin" },
+  { prefix: "/egg-history", title: "Egg History" },
+];
+
+function usePageTitle(): string | null {
+  const pathname = usePathname();
+  const match = PAGE_TITLES.find((p) => pathname.startsWith(p.prefix));
+  return match?.title ?? null;
+}
+
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession();
   const theme = useTheme();
   const isDesktop = useMediaQuery(theme.breakpoints.up("md"));
   const [drawerHovered, setDrawerHovered] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const pageTitle = usePageTitle();
 
   const isAuthenticated = status === "authenticated";
   const drawerWidth = drawerHovered ? DRAWER_EXPANDED : DRAWER_COLLAPSED;
@@ -62,13 +80,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               <MenuIcon />
             </IconButton>
           )}
-          <Typography
-            variant="h6"
-            noWrap
-            sx={{ fontWeight: 700, color: "primary" }}
-          >
-            ChickenTrack
-          </Typography>
+          {pageTitle && (
+            <Typography variant="subtitle1" noWrap sx={{ fontWeight: 500 }}>
+              {pageTitle}
+            </Typography>
+          )}
           <Box sx={{ flexGrow: 1 }} />
           {isAuthenticated && (
             <>

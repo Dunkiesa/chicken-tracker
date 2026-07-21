@@ -244,50 +244,38 @@ function RosterContent() {
 
   return (
     <Box sx={{ p: { xs: 1, sm: 2 } }}>
-      <Stack
-        direction="row"
-        alignItems="center"
-        justifyContent="space-between"
-        sx={{ mb: 2 }}
-      >
-        <Typography variant="h5">Roster</Typography>
-        {isAdmin && (
-          <Button
-            component={Link}
-            href="/roster/enrol"
-            variant="outlined"
-            aria-label="Enrol Chicken"
-            sx={{ minWidth: 0, p: 1, width: 40, height: 40 }}
-          >
-            <AddIcon />
-          </Button>
-        )}
-      </Stack>
-
       <Card sx={{ p: { xs: 1.5, sm: 2 } }}>
         <Stack spacing={2}>
-          <Stack
-            direction={{ xs: "column", sm: "row" }}
-            spacing={{ xs: 1, sm: 2 }}
-            alignItems={{ xs: "stretch", sm: "center" }}
-          >
-            <TextField
-              placeholder="Search chickens..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              size="small"
-              fullWidth={isMobile}
-              sx={isMobile ? undefined : { minWidth: 220 }}
-              slotProps={{
-                input: {
-                  startAdornment: (
-                    <SearchIcon
-                      sx={{ mr: 1, color: "text.secondary", fontSize: 20 }}
-                    />
-                  ),
-                },
-              }}
-            />
+          <Stack spacing={1}>
+            <Stack direction="row" spacing={1} alignItems="center">
+              <TextField
+                placeholder="Search chickens..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                size="small"
+                sx={{ flexGrow: 1 }}
+                slotProps={{
+                  input: {
+                    startAdornment: (
+                      <SearchIcon
+                        sx={{ mr: 1, color: "text.secondary", fontSize: 20 }}
+                      />
+                    ),
+                  },
+                }}
+              />
+              {isAdmin && (
+                <Button
+                  component={Link}
+                  href="/roster/enrol"
+                  variant="outlined"
+                  aria-label="Enrol Chicken"
+                  sx={{ minWidth: 0, p: 1, width: 40, height: 40 }}
+                >
+                  <AddIcon />
+                </Button>
+              )}
+            </Stack>
             <FormControlLabel
               control={
                 <Checkbox

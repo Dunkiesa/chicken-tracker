@@ -217,10 +217,6 @@ function DashboardContent() {
   return (
     <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
       <Stack spacing={3} sx={{ maxWidth: 1200, mx: "auto" }}>
-        <Typography variant="h5" component="h1">
-          Analytics Dashboard
-        </Typography>
-
         <Card>
           <CardContent>
             <Stack spacing={2}>

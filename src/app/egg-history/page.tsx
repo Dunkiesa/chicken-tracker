@@ -180,8 +180,7 @@ function EggHistoryContent() {
 
   return (
     <Box sx={{ maxWidth: 700, mx: "auto", p: 2, overflowX: "hidden" }}>
-      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
-        <Typography variant="h5">Egg History</Typography>
+      <Stack direction="row" alignItems="center" justifyContent="flex-end" sx={{ mb: 2 }}>
         <Button
           variant="outlined"
           component={Link}
