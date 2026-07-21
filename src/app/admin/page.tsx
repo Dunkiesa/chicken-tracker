@@ -68,9 +68,9 @@ type DynamicListEntry = {
 type ListType = "breeds" | "origin-sources" | "acquisition-types";
 
 const LIST_CONFIGS: { type: ListType; label: string; singular: string }[] = [
-  { type: "breeds", label: "Breeds", singular: "Breed" },
-  { type: "origin-sources", label: "Origin Sources", singular: "Origin Source" },
-  { type: "acquisition-types", label: "Acquisition Types", singular: "Acquisition Type" },
+  { type: "breeds", label: "Breed", singular: "Breed" },
+  { type: "origin-sources", label: "Origin", singular: "Origin" },
+  { type: "acquisition-types", label: "Stage", singular: "Stage" },
 ];
 
 async function fetchUsersApi(): Promise<User[]> {
@@ -197,10 +197,6 @@ const userColumns = [
     header: "Email",
   }),
   userColumnHelper.accessor("role", {
-    header: "Role",
-  }),
-  userColumnHelper.display({
-    id: "actions",
     header: "",
   }),
 ];
@@ -444,12 +440,13 @@ function AdminContent() {
           value={tabIndex}
           onChange={(_, v) => setTabIndex(v)}
           aria-label="Admin sections"
-          variant="fullWidth"
+          variant="scrollable"
+          scrollButtons="auto"
           sx={{ mb: 2 }}
         >
-          <Tab label="Users" id={tabLabelId(0)} aria-controls={tabPanelId(0)} />
+          <Tab label="User" id={tabLabelId(0)} aria-controls={tabPanelId(0)} sx={{ minWidth: { xs: 64, sm: 90 }, px: { xs: 1, sm: 2 } }} />
           {LIST_CONFIGS.map((c, i) => (
-            <Tab key={c.type} label={c.label} id={tabLabelId(i + 1)} aria-controls={tabPanelId(i + 1)} />
+            <Tab key={c.type} label={c.label} id={tabLabelId(i + 1)} aria-controls={tabPanelId(i + 1)} sx={{ minWidth: { xs: 64, sm: 90 }, px: { xs: 1, sm: 2 } }} />
           ))}
         </Tabs>
 
@@ -551,8 +548,8 @@ function AdminContent() {
                       {userTable.getHeaderGroups().map((headerGroup) => (
                         <TableRow key={headerGroup.id}>
                           {headerGroup.headers.map((header) => (
-                            <TableCell key={header.id} sx={{ py: { xs: 0.5, sm: 1 } }}>
-                              {header.isPlaceholder ? null : header.id === "actions" ? null : (
+                            <TableCell key={header.id} sx={{ py: { xs: 0.5, sm: 1 }, px: { xs: 0.5, sm: 2 } }}>
+                              {header.isPlaceholder ? null : (
                                 <TableSortLabel
                                   active={header.column.getIsSorted() !== false}
                                   direction={
@@ -576,39 +573,38 @@ function AdminContent() {
                     <TableBody>
                       {userTable.getRowModel().rows.map((row) => (
                         <TableRow key={row.original.email}>
-                          <TableCell sx={{ py: { xs: 0.5, sm: 1 } }}>{row.original.email}</TableCell>
-                          <TableCell sx={{ py: { xs: 0.5, sm: 1 } }}>
-                            <Select
-                              value={row.original.role}
-                              onChange={(e) =>
-                                updateRoleMutation.mutate({
-                                  email: row.original.email,
-                                  role: e.target.value,
-                                })
-                              }
-                              size="small"
-                              sx={{
-                                minWidth: { xs: 80, sm: 100 },
-                                fontSize: "0.8rem",
-                                fontWeight: 600,
-                              }}
-                              disabled={updateRoleMutation.isPending}
-                            >
-                              <MenuItem value="Viewer">Viewer</MenuItem>
-                              <MenuItem value="Admin">Admin</MenuItem>
-                            </Select>
-                          </TableCell>
-                          <TableCell sx={{ py: { xs: 0.5, sm: 1 } }} align="right">
-                            {row.original.email !== session?.user?.email && (
+                          <TableCell sx={{ py: { xs: 0.5, sm: 1 }, px: { xs: 0.5, sm: 2 }, maxWidth: 150, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.original.email}</TableCell>
+                          <TableCell sx={{ py: { xs: 0.5, sm: 1 }, px: { xs: 0.5, sm: 2 } }}>
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, justifyContent: "flex-end" }}>
+                              <Select
+                                value={row.original.role}
+                                onChange={(e) =>
+                                  updateRoleMutation.mutate({
+                                    email: row.original.email,
+                                    role: e.target.value,
+                                  })
+                                }
+                                size="small"
+                                sx={{
+                                  minWidth: { xs: 80, sm: 100 },
+                                  fontSize: "0.8rem",
+                                  fontWeight: 600,
+                                }}
+                                disabled={updateRoleMutation.isPending}
+                              >
+                                <MenuItem value="Viewer">Viewer</MenuItem>
+                                <MenuItem value="Admin">Admin</MenuItem>
+                              </Select>
                               <IconButton
                                 size="small"
                                 color="error"
                                 onClick={() => setRemoveUserEmail(row.original.email)}
                                 aria-label="Remove user"
+                                disabled={row.original.email === session?.user?.email}
                               >
                                 <DeleteIcon fontSize="small" />
                               </IconButton>
-                            )}
+                            </Box>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -722,9 +718,10 @@ function AdminContent() {
                               flexDirection: "column",
                               alignItems: "stretch",
                               py: 1,
+                              overflow: "hidden",
                             }}
                           >
-                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, minWidth: 0 }}>
                               {isRenaming ? (
                                 <Box
                                   component="form"
@@ -779,7 +776,7 @@ function AdminContent() {
                                       <MergeTypeIcon fontSize="small" />
                                     </IconButton>
                                   )}
-                                  <ListItemText primary={entry.value} sx={{ flex: 1 }} />
+                                  <ListItemText primary={entry.value} sx={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }} />
                                   <IconButton
                                     size="small"
                                     onClick={() => handleStartRename(type, entry)}
