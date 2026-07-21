@@ -51,6 +51,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import AddIcon from "@mui/icons-material/Add";
 import PhotoCameraIcon from "@mui/icons-material/PhotoCamera";
+import CollectionsIcon from "@mui/icons-material/Collections";
 import StarIcon from "@mui/icons-material/Star";
 import CloseIcon from "@mui/icons-material/Close";
 import CheckIcon from "@mui/icons-material/Check";
@@ -1102,6 +1103,10 @@ function ProfileContent() {
         <UploadPhotoForm
           fileInputKey={fileInputKey}
           onUpload={handleUploadPhoto}
+          onClose={() => {
+            setUploadDialogOpen(false);
+            setUploadSetPrimary(false);
+          }}
           isPending={uploadPhotoMutation.isPending}
           error={uploadPhotoMutation.isError ? uploadPhotoMutation.error.message : null}
           setPrimary={uploadSetPrimary}
@@ -1389,6 +1394,7 @@ function PhotoGallery({
 function UploadPhotoForm({
   fileInputKey,
   onUpload,
+  onClose,
   isPending,
   error,
   setPrimary,
@@ -1396,6 +1402,7 @@ function UploadPhotoForm({
 }: {
   fileInputKey: number;
   onUpload: (file: File, description: string) => void;
+  onClose: () => void;
   isPending: boolean;
   error: string | null;
   setPrimary: boolean;
@@ -1415,14 +1422,41 @@ function UploadPhotoForm({
       <DialogTitle>Upload Photo</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
-          <input
-            key={fileInputKey}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            onChange={(e) => setFile(e.target.files?.[0] || null)}
-            disabled={isPending}
-          />
+          <Stack direction="row" spacing={2}>
+            <Button
+              component="label"
+              variant="outlined"
+              startIcon={<PhotoCameraIcon />}
+              disabled={isPending}
+            >
+              Camera
+              <input
+                key={`camera-${fileInputKey}`}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                hidden
+                onChange={(e) => setFile(e.target.files?.[0] || null)}
+                disabled={isPending}
+              />
+            </Button>
+            <Button
+              component="label"
+              variant="outlined"
+              startIcon={<CollectionsIcon />}
+              disabled={isPending}
+            >
+              Gallery
+              <input
+                key={`gallery-${fileInputKey}`}
+                type="file"
+                accept="image/*"
+                hidden
+                onChange={(e) => setFile(e.target.files?.[0] || null)}
+                disabled={isPending}
+              />
+            </Button>
+          </Stack>
           <TextField
             label="Description (optional)"
             value={description}
@@ -1445,7 +1479,7 @@ function UploadPhotoForm({
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button onClick={() => setFile(null)} disabled={isPending} aria-label="Cancel">
+        <Button onClick={onClose} disabled={isPending} aria-label="Cancel">
           <CloseIcon />
         </Button>
         <Button type="submit" variant="contained" disabled={isPending || !file} aria-label={isPending ? "Uploading" : "Upload"}>

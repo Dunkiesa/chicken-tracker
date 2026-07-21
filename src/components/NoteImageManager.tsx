@@ -14,6 +14,8 @@ import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
 import CheckIcon from "@mui/icons-material/Check";
 import RefreshIcon from "@mui/icons-material/Refresh";
+import PhotoCameraIcon from "@mui/icons-material/PhotoCamera";
+import CollectionsIcon from "@mui/icons-material/Collections";
 import NoteImageCropDialog from "@/components/NoteImageCropDialog";
 import NoteImageReviewModal from "@/components/NoteImageReviewModal";
 import { useNoteImageSSE } from "@/hooks/useNoteImageSSE";
@@ -260,27 +262,49 @@ export default function NoteImageManager({
   return (
     <>
       <Stack spacing={1}>
-        <Button
-          component="label"
-          variant="outlined"
-          size="small"
-          disabled={disabled || uploading}
-          startIcon={
-            uploading ? <CircularProgress size={16} /> : <AddIcon />
-          }
-          aria-label="Add image"
-        >
-          Add image
-          <input
-            key={fileInputKeyRef.current}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            hidden
-            onChange={handleFileChange}
+        <Stack direction="row" spacing={1}>
+          <Button
+            component="label"
+            variant="outlined"
+            size="small"
             disabled={disabled || uploading}
-          />
-        </Button>
+            startIcon={
+              uploading ? <CircularProgress size={16} /> : <PhotoCameraIcon />
+            }
+            aria-label="Take photo"
+          >
+            Camera
+            <input
+              key={`camera-${fileInputKeyRef.current}`}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              hidden
+              onChange={handleFileChange}
+              disabled={disabled || uploading}
+            />
+          </Button>
+          <Button
+            component="label"
+            variant="outlined"
+            size="small"
+            disabled={disabled || uploading}
+            startIcon={
+              uploading ? <CircularProgress size={16} /> : <CollectionsIcon />
+            }
+            aria-label="Browse gallery"
+          >
+            Gallery
+            <input
+              key={`gallery-${fileInputKeyRef.current}`}
+              type="file"
+              accept="image/*"
+              hidden
+              onChange={handleFileChange}
+              disabled={disabled || uploading}
+            />
+          </Button>
+        </Stack>
 
         {uploadError && <Alert severity="error">{uploadError}</Alert>}
 

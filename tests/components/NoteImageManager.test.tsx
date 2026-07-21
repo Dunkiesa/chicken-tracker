@@ -92,17 +92,23 @@ function makeFile(name = "test.jpg"): File {
 }
 
 describe("NoteImageManager", () => {
-  it("renders an Add image button with a file input", () => {
+  it("renders Camera and Gallery buttons with file inputs", () => {
     const onChange = jest.fn();
     renderWithProviders(
       <NoteImageManager chickenId={1} images={[]} onChange={onChange} />
     );
-    const btn = screen.getByRole("button", { name: /add image/i });
-    expect(btn).toBeInTheDocument();
-    const input = btn.querySelector('input[type="file"]');
-    expect(input).toBeTruthy();
-    expect(input?.getAttribute("accept")).toBe("image/*");
-    expect(input?.getAttribute("capture")).toBe("environment");
+    const cameraBtn = screen.getByRole("button", { name: /take photo/i });
+    const galleryBtn = screen.getByRole("button", { name: /browse gallery/i });
+    expect(cameraBtn).toBeInTheDocument();
+    expect(galleryBtn).toBeInTheDocument();
+    const cameraInput = cameraBtn.querySelector('input[type="file"]');
+    const galleryInput = galleryBtn.querySelector('input[type="file"]');
+    expect(cameraInput).toBeTruthy();
+    expect(galleryInput).toBeTruthy();
+    expect(cameraInput?.getAttribute("accept")).toBe("image/*");
+    expect(cameraInput?.getAttribute("capture")).toBe("environment");
+    expect(galleryInput?.getAttribute("accept")).toBe("image/*");
+    expect(galleryInput?.getAttribute("capture")).toBeNull();
   });
 
   it("uploads an image and calls onChange with the new entry", async () => {
@@ -121,7 +127,7 @@ describe("NoteImageManager", () => {
       <NoteImageManager chickenId={1} images={[]} onChange={onChange} />
     );
 
-    const input = screen.getByRole("button", { name: /add image/i }).querySelector('input[type="file"]')!;
+    const input = screen.getByRole("button", { name: /gallery/i }).querySelector('input[type="file"]')!;
     fireEvent.change(input, { target: { files: [makeFile()] } });
 
     await waitFor(() => {
@@ -149,11 +155,11 @@ describe("NoteImageManager", () => {
       <NoteImageManager chickenId={1} images={[]} onChange={onChange} />
     );
 
-    const input = screen.getByRole("button", { name: /add image/i }).querySelector('input[type="file"]')!;
+    const input = screen.getByRole("button", { name: /gallery/i }).querySelector('input[type="file"]')!;
     fireEvent.change(input, { target: { files: [makeFile()] } });
 
     await waitFor(() => {
-      const btn = screen.getByRole("button", { name: /add image/i });
+      const btn = screen.getByRole("button", { name: /gallery/i });
       const input = btn.querySelector('input[type="file"]');
       expect(input).not.toBeNull();
       expect(input!).toBeDisabled();
@@ -165,7 +171,7 @@ describe("NoteImageManager", () => {
     });
 
     await waitFor(() => {
-      const btn = screen.getByRole("button", { name: /add image/i });
+      const btn = screen.getByRole("button", { name: /gallery/i });
       const input = btn.querySelector('input[type="file"]');
       expect(input).not.toBeNull();
       expect(input!).not.toBeDisabled();
@@ -183,7 +189,7 @@ describe("NoteImageManager", () => {
       <NoteImageManager chickenId={1} images={[]} onChange={onChange} />
     );
 
-    const input = screen.getByRole("button", { name: /add image/i }).querySelector('input[type="file"]')!;
+    const input = screen.getByRole("button", { name: /gallery/i }).querySelector('input[type="file"]')!;
     fireEvent.change(input, { target: { files: [makeFile()] } });
 
     await waitFor(() => {
