@@ -761,7 +761,7 @@ function ProfileContent() {
                     aria-label="Upload photo"
                     sx={{ minWidth: 0, p: 1, width: 38, height: 38 }}
                   >
-                    <PhotoCameraIcon />
+                    <AddIcon />
                   </Button>
                 )}
               </Stack>
