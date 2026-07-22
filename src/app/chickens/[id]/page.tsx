@@ -1568,6 +1568,7 @@ const NoteItem = memo(function NoteItem({
   });
 
   const handleOpenEdit = () => {
+    form.reset({ content: note.content, date: note.date });
     setEditNoteImages(
       images.map((img) => ({
         id: img.id,
