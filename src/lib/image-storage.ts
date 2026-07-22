@@ -113,9 +113,10 @@ export async function readExifDateTimeOriginal(
       parsed.Photo?.DateTimeDigitized ??
       parsed.Photo?.DateTime;
     if (!raw) return null;
-    if (raw instanceof Date) return raw;
-    const date = parseExifDateTime(raw);
-    return date;
+    if (typeof raw === "string") {
+      return parseExifDateTime(raw);
+    }
+    return raw;
   } catch {
     return null;
   }
