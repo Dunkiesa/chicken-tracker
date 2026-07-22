@@ -39,11 +39,19 @@ export async function ensureDatabase(): Promise<void> {
 
 export async function closePool(): Promise<void> {
   if (migrationsPromise) {
-    await migrationsPromise;
+    try {
+      await migrationsPromise;
+    } catch {
+      // Ignore migration errors during cleanup
+    }
   }
   if (poolPromise) {
-    const pool = await poolPromise;
-    await pool.close();
+    try {
+      const pool = await poolPromise;
+      await pool.close();
+    } catch {
+      // Ignore connection errors during cleanup
+    }
     poolPromise = null;
   }
 }

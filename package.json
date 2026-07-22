@@ -10,10 +10,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "test": "jest --runInBand",
-    "test:integration": "jest --config jest.integration.config.ts",
+    "test": "jest --runInBand --forceExit",
+    "test:integration": "jest --config jest.integration.config.ts --forceExit",
     "test:components": "jest --config jest.component.config.ts",
-    "test:all": "jest --runInBand && jest --config jest.component.config.ts",
+    "test:all": "jest --runInBand --forceExit && jest --config jest.component.config.ts",
     "migrate:shard-images": "ts-node --compiler-options \"{\\\"module\\\":\\\"commonjs\\\",\\\"moduleResolution\\\":\\\"node\\\"}\" scripts/migrate-sharded-images.ts",
     "migrate:shard-images:dry": "ts-node --compiler-options \"{\\\"module\\\":\\\"commonjs\\\",\\\"moduleResolution\\\":\\\"node\\\"}\" scripts/migrate-sharded-images.ts --dry-run"
   },
