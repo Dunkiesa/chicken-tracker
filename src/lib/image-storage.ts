@@ -1,6 +1,7 @@
 import sharp from "sharp";
 import { readFile, mkdir, unlink } from "fs/promises";
 import { dirname, isAbsolute, join, relative, resolve } from "path";
+import exifReader from "exif-reader";
 import { getImageDirectory } from "./photos";
 
 export const ALLOWED_MIME_TYPES = [
@@ -94,6 +95,42 @@ export async function readImageDimensions(
     width: needsSwap ? metadata.height : metadata.width,
     height: needsSwap ? metadata.width : metadata.height,
   };
+}
+
+export async function readExifDateTimeOriginal(
+  buffer: Buffer
+): Promise<Date | null> {
+  try {
+    const metadata = await sharp(buffer).metadata();
+    if (!metadata.exif) return null;
+    let exifBuffer = metadata.exif;
+    if (exifBuffer.slice(0, 6).toString("ascii") === "Exif\0\0") {
+      exifBuffer = exifBuffer.slice(6);
+    }
+    const parsed = exifReader(exifBuffer);
+    const raw =
+      parsed.Photo?.DateTimeOriginal ??
+      parsed.Photo?.DateTimeDigitized ??
+      parsed.Photo?.DateTime;
+    if (!raw) return null;
+    if (raw instanceof Date) return raw;
+    const date = parseExifDateTime(raw);
+    return date;
+  } catch {
+    return null;
+  }
+}
+
+function parseExifDateTime(value: string): Date | null {
+  const match = value.match(
+    /^(\d{4}):(\d{2}):(\d{2})\s+(\d{2}):(\d{2}):(\d{2})/
+  );
+  if (!match) return null;
+  const [, year, month, day, hour, minute, second] = match;
+  const iso = `${year}-${month}-${day}T${hour}:${minute}:${second}`;
+  const date = new Date(iso);
+  if (isNaN(date.getTime())) return null;
+  return date;
 }
 
 function clampCropRegion(crop: CropRegion): CropRegion {

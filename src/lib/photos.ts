@@ -16,6 +16,7 @@ export type CreatePhotoInput = {
   file_path: string;
   description?: string;
   recorded_by: string;
+  created_at?: Date;
 };
 
 export type UpdatePhotoInput = {
@@ -31,17 +32,29 @@ const PHOTO_SELECT_SQL = `
 
 export async function createPhoto(input: CreatePhotoInput): Promise<Photo> {
   const pool = await getPool();
-  const result = await pool
+  const request = pool
     .request()
     .input("chicken_id", sql.Int, input.chicken_id)
     .input("file_path", sql.NVarChar(500), input.file_path)
     .input("description", sql.NVarChar(1000), input.description ?? null)
-    .input("recorded_by", sql.NVarChar(255), input.recorded_by)
-    .query(`
-      INSERT INTO photos (chicken_id, file_path, description, recorded_by)
+    .input("recorded_by", sql.NVarChar(255), input.recorded_by);
+
+  if (input.created_at) {
+    request.input("created_at", sql.DateTime2, input.created_at);
+    const result = await request.query(`
+      INSERT INTO photos (chicken_id, file_path, description, recorded_by, created_at)
       OUTPUT INSERTED.id
-      VALUES (@chicken_id, @file_path, @description, @recorded_by)
+      VALUES (@chicken_id, @file_path, @description, @recorded_by, @created_at)
     `);
+    const id = result.recordset[0].id;
+    return (await getPhoto(id))!;
+  }
+
+  const result = await request.query(`
+    INSERT INTO photos (chicken_id, file_path, description, recorded_by)
+    OUTPUT INSERTED.id
+    VALUES (@chicken_id, @file_path, @description, @recorded_by)
+  `);
 
   const id = result.recordset[0].id;
   return (await getPhoto(id))!;

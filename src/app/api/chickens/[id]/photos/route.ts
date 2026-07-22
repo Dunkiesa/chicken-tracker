@@ -6,7 +6,7 @@ import { createPhoto, listPhotos, getImageDirectory } from "@/lib/photos";
 import { writeFile, mkdir } from "fs/promises";
 import { dirname, join } from "path";
 import { randomUUID } from "crypto";
-import { shardPhotoFilename, ALLOWED_MIME_TYPES, MAX_FILE_SIZE_BYTES } from "@/lib/image-storage";
+import { shardPhotoFilename, ALLOWED_MIME_TYPES, MAX_FILE_SIZE_BYTES, readExifDateTimeOriginal } from "@/lib/image-storage";
 
 export const dynamic = "force-dynamic";
 
@@ -122,11 +122,14 @@ export async function POST(
     await mkdir(dirname(filePath), { recursive: true });
     await writeFile(filePath, buffer);
 
+    const exifDate = await readExifDateTimeOriginal(buffer);
+
     const photo = await createPhoto({
       chicken_id: chickenId,
       file_path: shardedFilename,
       description: description ?? undefined,
       recorded_by: session.user.email,
+      created_at: exifDate ?? undefined,
     });
 
     return NextResponse.json(photo, { status: 201 });

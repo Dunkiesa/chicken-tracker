@@ -11,6 +11,7 @@ import {
   generateThumbnail,
   getNotesImageDirectory,
   getPendingImageDirectory,
+  readExifDateTimeOriginal,
   readImageDimensions,
   resolveImagePath,
   shardFilename,
@@ -89,6 +90,7 @@ export type CreatePendingNoteImageInput = {
   original_width: number | null;
   original_height: number | null;
   recorded_by: string;
+  created_at?: Date;
 };
 
 export type AttachNoteImageInput = {
@@ -180,20 +182,35 @@ export async function createPendingNoteImage(
   input: CreatePendingNoteImageInput
 ): Promise<NoteImage> {
   const pool = await getPool();
-  const result = await pool
+  const request = pool
     .request()
     .input("chicken_id", sql.Int, input.chicken_id)
     .input("file_path", sql.NVarChar(500), input.file_path)
     .input("original_width", sql.Int, input.original_width)
     .input("original_height", sql.Int, input.original_height)
-    .input("recorded_by", sql.NVarChar(255), input.recorded_by)
-    .query(`
+    .input("recorded_by", sql.NVarChar(255), input.recorded_by);
+
+  if (input.created_at) {
+    request.input("created_at", sql.DateTime2, input.created_at);
+    const result = await request.query(`
       INSERT INTO note_images
-        (chicken_id, file_path, original_width, original_height, status, recorded_by)
+        (chicken_id, file_path, original_width, original_height, status, recorded_by, created_at)
       OUTPUT INSERTED.id
       VALUES
-        (@chicken_id, @file_path, @original_width, @original_height, 'pending', @recorded_by)
+        (@chicken_id, @file_path, @original_width, @original_height, 'pending', @recorded_by, @created_at)
     `);
+    const id = result.recordset[0].id;
+    const row = await getNoteImage(id);
+    return row!;
+  }
+
+  const result = await request.query(`
+    INSERT INTO note_images
+      (chicken_id, file_path, original_width, original_height, status, recorded_by)
+    OUTPUT INSERTED.id
+    VALUES
+      (@chicken_id, @file_path, @original_width, @original_height, 'pending', @recorded_by)
+  `);
 
   const id = result.recordset[0].id;
   const row = await getNoteImage(id);
@@ -608,6 +625,7 @@ export async function createPendingNoteImageFromUpload(
   await generateThumbnail(relativeFilePath, relativeThumbnailPath);
 
   const dims = await readImageDimensions(relativeFilePath);
+  const exifDate = await readExifDateTimeOriginal(input.buffer);
 
   return createPendingNoteImage({
     chicken_id: input.chicken_id,
@@ -615,6 +633,7 @@ export async function createPendingNoteImageFromUpload(
     original_width: dims.width,
     original_height: dims.height,
     recorded_by: input.recorded_by,
+    created_at: exifDate ?? undefined,
   });
 }
 

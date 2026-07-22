@@ -46,6 +46,21 @@ describe("Photo CRUD", () => {
     expect(typeof photo.id).toBe("number");
   }, 15000);
 
+  it("creates a photo with a custom created_at date", async () => {
+    const hen = await ensureHen("Photo Custom Date Test");
+    const customDate = new Date("2023-06-15T10:30:00Z");
+    const photo = await createPhoto({
+      chicken_id: hen.id,
+      file_path: "test-photo-custom-date.jpg",
+      description: "Photo with custom date",
+      recorded_by: RECORDED_BY,
+      created_at: customDate,
+    });
+
+    expect(photo).toBeDefined();
+    expect(photo.created_at).toBe("2023-06-15 10:30:00");
+  }, 15000);
+
   it("retrieves a photo by ID", async () => {
     const hen = await ensureHen("Photo Get Test");
     const photo = await createPhoto({
