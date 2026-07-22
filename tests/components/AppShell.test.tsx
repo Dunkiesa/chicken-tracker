@@ -26,18 +26,22 @@ import { useMediaQuery } from "@mui/material";
 
 beforeEach(() => {
   jest.clearAllMocks();
+  const { usePathname } = require("next/navigation");
+  (usePathname as jest.Mock).mockReturnValue("/");
   global.fetch = jest.fn(() => new Promise(() => {})) as jest.Mock;
   (useMediaQuery as jest.Mock).mockReturnValue(true);
 });
 
 describe("AppShell", () => {
-  it("renders the ChickenTrack title regardless of auth state", () => {
+  it("renders the page title regardless of auth state", () => {
+    const { usePathname } = require("next/navigation");
+    (usePathname as jest.Mock).mockReturnValue("/roster");
     (useSession as jest.Mock).mockReturnValue({
       data: null,
       status: "unauthenticated",
     });
     renderWithProviders(<AppShell>child</AppShell>);
-    expect(screen.getByText("ChickenTrack")).toBeInTheDocument();
+    expect(screen.getByText("Roster")).toBeInTheDocument();
   });
 
   it("shows nav items and user menu when authenticated", async () => {
