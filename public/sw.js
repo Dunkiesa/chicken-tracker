@@ -1,4 +1,4 @@
-const CACHE_NAME = "chickentrack-v2";
+const CACHE_NAME = "chickentrack-v3";
 
 self.addEventListener("install", (event) => {
   self.skipWaiting();
