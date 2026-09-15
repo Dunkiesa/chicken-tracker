@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
-import { ensureDatabase, checkConnection } from "@/lib/db";
+import { checkConnection } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    await ensureDatabase();
     const healthy = await checkConnection();
 
     if (healthy) {

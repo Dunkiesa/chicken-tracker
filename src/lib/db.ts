@@ -17,24 +17,86 @@ const config: sql.config = {
   },
 };
 
+let activePool: sql.ConnectionPool | null = null;
 let poolPromise: Promise<sql.ConnectionPool> | null = null;
-
-export async function getPool(): Promise<sql.ConnectionPool> {
-  if (!poolPromise) {
-    poolPromise = new sql.ConnectionPool(config).connect();
-  }
-  return poolPromise;
-}
+let migrationsRun = false;
+let migrationsPromise: Promise<void> | null = null;
 
 export async function ensureDatabase(): Promise<void> {
   const masterConfig = { ...config, database: "master" };
   const masterPool = new sql.ConnectionPool(masterConfig);
-  await masterPool.connect();
-  await masterPool.request().query(
-    `IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = '${config.database}')
-     CREATE DATABASE ${config.database}`
-  );
-  await masterPool.close();
+  masterPool.on("error", (err) => {
+    // Prevent unhandled error event on temporary master connection
+  });
+  try {
+    await masterPool.connect();
+    await masterPool.request().query(
+      `IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = '${config.database}')
+       CREATE DATABASE ${config.database}`
+    );
+  } finally {
+    try {
+      await masterPool.close();
+    } catch {
+      // Ignore cleanup error on master pool
+    }
+  }
+}
+
+export async function getPool(): Promise<sql.ConnectionPool> {
+  if (activePool && activePool.connected) {
+    return activePool;
+  }
+
+  if (activePool && !activePool.connected) {
+    try {
+      await activePool.close();
+    } catch {
+      // Ignore close error on dead pool
+    }
+    activePool = null;
+    poolPromise = null;
+  }
+
+  if (poolPromise) {
+    return poolPromise;
+  }
+
+  poolPromise = (async () => {
+    await ensureDatabase();
+
+    const pool = new sql.ConnectionPool(config);
+
+    pool.on("error", (err) => {
+      console.error("Database pool background error:", err);
+      if (!pool.connected) {
+        if (activePool === pool) {
+          activePool = null;
+        }
+        poolPromise = null;
+      }
+    });
+
+    await pool.connect();
+    activePool = pool;
+
+    await ensureMigrationsInternal(pool);
+
+    return pool;
+  })().catch((err) => {
+    poolPromise = null;
+    if (activePool) {
+      try {
+        activePool.close();
+      } catch {
+        // Ignore close error
+      }
+      activePool = null;
+    }
+    throw err;
+  });
+
+  return poolPromise;
 }
 
 export async function closePool(): Promise<void> {
@@ -47,12 +109,21 @@ export async function closePool(): Promise<void> {
   }
   if (poolPromise) {
     try {
-      const pool = await poolPromise;
+      await poolPromise;
+    } catch {
+      // Ignore connection errors during cleanup
+    }
+  }
+  const pool = activePool;
+  activePool = null;
+  poolPromise = null;
+  migrationsRun = false;
+  if (pool) {
+    try {
       await pool.close();
     } catch {
       // Ignore connection errors during cleanup
     }
-    poolPromise = null;
   }
 }
 
@@ -62,12 +133,13 @@ export async function checkConnection(): Promise<boolean> {
     await p.request().query("SELECT 1 AS result");
     return true;
   } catch {
+    await closePool();
     return false;
   }
 }
 
-export async function runMigrations(): Promise<void> {
-  const p = await getPool();
+export async function runMigrations(existingPool?: sql.ConnectionPool): Promise<void> {
+  const p = existingPool || (await getPool());
 
   // -- Dynamic list tables --
   await p.request().query(`
@@ -317,21 +389,31 @@ export async function runMigrations(): Promise<void> {
     }
   }
 }
-let migrationsRun = false;
-let migrationsPromise: Promise<void> | null = null;
 
-export async function ensureMigrations(): Promise<void> {
-  if (migrationsPromise) return migrationsPromise;
+async function ensureMigrationsInternal(pool?: sql.ConnectionPool): Promise<void> {
   if (migrationsRun) return;
-  migrationsPromise = runMigrations();
-  try {
-    await migrationsPromise;
+  if (migrationsPromise) return migrationsPromise;
+  if (pool && !pool.connected) return;
+
+  migrationsPromise = (async () => {
+    await runMigrations(pool);
     migrationsRun = true;
-  } finally {
+  })().finally(() => {
     migrationsPromise = null;
-  }
+  });
+
+  return migrationsPromise;
 }
 
+export async function ensureMigrations(): Promise<void> {
+  if (migrationsRun) return;
+  if (migrationsPromise) return migrationsPromise;
+  const pool = await getPool();
+  if (migrationsRun) return;
+  return ensureMigrationsInternal(pool);
+}
+
+// Background auto-run on module load (non-blocking, logs warning if DB not yet up)
 ensureMigrations().catch((err) => {
-  console.error("Migration failed:", err);
+  console.warn("Initial DB connection/migration deferred (DB not ready):", err instanceof Error ? err.message : err);
 });
