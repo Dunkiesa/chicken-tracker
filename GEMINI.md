@@ -11,12 +11,13 @@ The project uses a single-context layout with `CONTEXT.md` at the root. See `doc
 
 ## Improve skill workflow
 
-When using the `improve` skill's `execute` variant, use a **named branch + worktree** approach:
+When using the `improve` skill's `execute` variant, use a **named branch + in-repo worktree** approach:
 
 1. Create a branch from `HEAD`: `git branch improve/<plan-number>-<slug> HEAD`
-2. Create a worktree from that branch: `git worktree add <worktree-path> improve/<plan-number>-<slug>`
-2a. Make the main repo's `.env` available: `Copy-Item "$(git rev-parse --show-toplevel)\.env" <worktree-path>\.env`
-3. Dispatch the executor to work in the worktree and commit to the branch
+2. Create a worktree inside the workspace: `git worktree add .worktrees/<plan-number>-<slug> improve/<plan-number>-<slug>`
+2a. Make the main repo's `.env` available: `Copy-Item "$(git rev-parse --show-toplevel)\.env" .worktrees\<plan-number>-<slug>\.env`
+2b. Junction node_modules to avoid reinstalling: `cmd /c mklink /J .worktrees\<plan-number>-<slug>\node_modules .\node_modules`
+3. Dispatch the executor to work in `.worktrees/<plan-number>-<slug>` and commit to the branch
 4. Leave both the branch and worktree in place for the user to inspect and merge
 
 Do NOT use a detached HEAD worktree, and do NOT remove the worktree after review. The user reviews the diff at their convenience and merges when ready.

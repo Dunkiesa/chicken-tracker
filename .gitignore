@@ -8,3 +8,4 @@ next-env.d.ts
 .vscode/chrome-profile/
 /images/
 /config/ai.yaml
+.worktrees/
