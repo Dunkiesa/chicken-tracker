@@ -129,7 +129,7 @@ describe("Database connection resilience and recovery", () => {
     expect(pool1.connected).toBe(true);
 
     // Simulate connection drop / socket error
-    pool1.connected = false;
+    (pool1 as any).connected = false;
     pool1.emit("error", new Error("Socket closed unexpectedly"));
 
     // Next getPool() should recycle dead pool and create a new connection
