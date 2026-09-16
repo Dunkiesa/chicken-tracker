@@ -38,7 +38,7 @@ import type {
 } from "@/lib/analytics";
 import {
   todayStr,
-  oneYearAgoStr,
+  oneMonthAgoStr,
   formatDateForPicker,
   formatDateForApi,
   formatDateForDisplay,
@@ -73,7 +73,7 @@ function DashboardContent() {
   const { data: session, status } = useSession();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const [dateFrom, setDateFrom] = useState(() => searchParams.get("from") || oneYearAgoStr());
+  const [dateFrom, setDateFrom] = useState(() => searchParams.get("from") || oneMonthAgoStr());
   const [dateTo, setDateTo] = useState(() => searchParams.get("to") || todayStr());
   const [granularity, setGranularity] = useState<TimeGranularity>("monthly");
   const [dryThreshold, setDryThreshold] = useState(4);

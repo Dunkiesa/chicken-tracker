@@ -29,7 +29,7 @@ Identity comes from **Google login**, but access is restricted by an **allowlist
 
 ## Derived metrics (dashboard)
 
-Computed from egg and chicken data, never stored. All obey one **date-range selector**, defaulting to the **last 12 months**, and are computed over laying-eligible birds (departed birds' history counts within their active periods):
+Computed from egg and chicken data, never stored. All obey one **date-range selector**, defaulting to the **last month**, and are computed over laying-eligible birds (departed birds' history counts within their active periods):
 
 - **Production over time** — egg counts per day/week/month, flock-wide and per hen.
 - **Average weight** — mean egg weight per hen and flock-wide.

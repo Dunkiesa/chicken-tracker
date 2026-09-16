@@ -1,5 +1,6 @@
 import sql from "mssql";
 import { getPool } from "./db";
+import { todayStr, oneMonthAgoStr } from "./dateUtils";
 
 export type ProductionTimeSeries = {
   date: string;
@@ -91,16 +92,7 @@ function seasonForMonth(m: number): string {
 }
 
 function defaultDateRange(): { from: string; to: string } {
-  const to = new Date();
-  const from = new Date();
-  from.setFullYear(from.getFullYear() - 1);
-  const fmt = (d: Date) => {
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    return `${y}-${m}-${day}`;
-  };
-  return { from: fmt(from), to: fmt(to) };
+  return { from: oneMonthAgoStr(), to: todayStr() };
 }
 
 async function getSummary(
