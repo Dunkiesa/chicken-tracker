@@ -460,8 +460,8 @@ async function getSeasonalTrends(
     }
   }
   return Array.from(aggregated.values()).sort((a, b) => {
-    if (a.year !== b.year) return a.year - b.year;
-    return seasonOrder[a.season]! - seasonOrder[b.season]!;
+    if (a.year !== b.year) return b.year - a.year;
+    return seasonOrder[b.season]! - seasonOrder[a.season]!;
   });
 }
 

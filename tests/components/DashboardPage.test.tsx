@@ -94,4 +94,31 @@ describe("DashboardPage", () => {
       );
     });
   });
+
+  it("renders seasonal trends table with data", async () => {
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          ...mockAnalyticsData,
+          seasonal_trends: [
+            { year: 2026, season: "Winter", egg_count: 142 },
+            { year: 2026, season: "Autumn", egg_count: 35 },
+            { year: 2025, season: "Spring", egg_count: 50 },
+          ],
+        }),
+    });
+
+    renderWithProviders(<DashboardPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Seasonal Trends")).toBeInTheDocument();
+      expect(screen.getByText("Winter")).toBeInTheDocument();
+      expect(screen.getByText("142")).toBeInTheDocument();
+      expect(screen.getByText("Autumn")).toBeInTheDocument();
+      expect(screen.getByText("35")).toBeInTheDocument();
+      expect(screen.getByText("Spring")).toBeInTheDocument();
+      expect(screen.getByText("50")).toBeInTheDocument();
+    });
+  });
 });

@@ -145,6 +145,25 @@ describe("Seasonal trends and attrition", () => {
     expect(winterEntry!.egg_count).toBeGreaterThanOrEqual(1);
   }, 15000);
 
+  it("computes seasonal trends in descending order (latest dates first)", async () => {
+    const hen = await createTestHen("Analytics Test Seasonal Order");
+    await createTestEgg(hen.id, 50.00, "2025-01-15");
+    await createTestEgg(hen.id, 52.00, "2025-10-15");
+    await createTestEgg(hen.id, 55.00, "2026-07-15");
+
+    const data = await getAnalytics("2025-01-01", "2026-12-31");
+    const seasonOrder: Record<string, number> = { Summer: 0, Autumn: 1, Winter: 2, Spring: 3 };
+    for (let i = 1; i < data.seasonal_trends.length; i++) {
+      const prev = data.seasonal_trends[i - 1]!;
+      const curr = data.seasonal_trends[i]!;
+      if (prev.year === curr.year) {
+        expect(seasonOrder[prev.season]!).toBeGreaterThanOrEqual(seasonOrder[curr.season]!);
+      } else {
+        expect(prev.year).toBeGreaterThan(curr.year);
+      }
+    }
+  }, 15000);
+
   it("reports attrition by reason", async () => {
     const hen = await createTestHen("Analytics Test Attrition");
     await updateChicken(hen.id, {
