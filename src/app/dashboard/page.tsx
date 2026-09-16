@@ -5,8 +5,18 @@ import { useSession, signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
-import { BarChart } from "@mui/x-charts/BarChart";
-import { PieChart } from "@mui/x-charts/PieChart";
+import {
+  BarChart,
+  PieChart,
+  ResponsiveChartContainer,
+  BarPlot,
+  LinePlot,
+  MarkPlot,
+  ChartsXAxis,
+  ChartsYAxis,
+  ChartsTooltip,
+  ChartsGrid,
+} from "@mui/x-charts";
 import {
   Box,
   Card,
@@ -343,22 +353,41 @@ function DashboardContent() {
                     No eggs logged in this period.
                   </Typography>
                 ) : (
-                  <BarChart
-                    dataset={productionData}
-                    xAxis={[
-                      {
-                        scaleType: "band",
-                        dataKey: "date",
-                        valueFormatter: (d: string) => formatDateForDisplay(d),
-                      },
-                    ]}
-                    series={[{ dataKey: "count" }]}
-                    height={300}
-                    slotProps={{ legend: { hidden: true } }}
-                    grid={{ horizontal: true }}
-                    onItemClick={handleBarClick}
-                    sx={{ width: "100%", "& .MuiBarElement-root": { cursor: displayGranularity !== "daily" ? "pointer" : "default" } }}
-                  />
+                  (() => {
+                    const dataWithTrend = productionData.map((d, i, arr) => {
+                      const start = Math.max(0, i - 2);
+                      const slice = arr.slice(start, i + 1);
+                      const avg = slice.reduce((sum, item) => sum + item.count, 0) / slice.length;
+                      return { ...d, trend: avg };
+                    });
+                    return (
+                      <ResponsiveChartContainer
+                        dataset={dataWithTrend}
+                        xAxis={[
+                          {
+                            scaleType: "band",
+                            dataKey: "date",
+                            id: "x-axis",
+                            valueFormatter: (d: string) => formatDateForDisplay(d),
+                          },
+                        ]}
+                        series={[
+                          { type: "bar", dataKey: "count", label: "Eggs", id: "bar" },
+                          { type: "line", dataKey: "trend", label: "Trend", color: "#f57c00", id: "line" },
+                        ]}
+                        height={300}
+                        sx={{ width: "100%", "& .MuiBarElement-root": { cursor: displayGranularity !== "daily" ? "pointer" : "default" } }}
+                      >
+                        <ChartsGrid horizontal />
+                        <BarPlot onItemClick={handleBarClick} />
+                        <LinePlot />
+                        <MarkPlot />
+                        <ChartsXAxis />
+                        <ChartsYAxis />
+                        <ChartsTooltip trigger="axis" />
+                      </ResponsiveChartContainer>
+                    );
+                  })()
                 )}
               </CardContent>
             </Card>
@@ -394,63 +423,30 @@ function DashboardContent() {
                     avg_weight: weightMap.get(h.chicken_id)!,
                     max_weight: h.max_weight!,
                   }));
-                  const L = 55, R = 20, T = 20, B = 55;
-                  const barGap = 40;
-                  const padH = 20;
-                  const totalH = 300;
-                  const innerH = totalH - T - B;
-                  const totalW = L + R + padH * 2 + chartData.length * barGap;
-                  const dataMin = Math.min(...chartData.map((d) => d.min_weight));
-                  const dataMax = Math.max(...chartData.map((d) => d.max_weight));
-                  const padding = (dataMax - dataMin) * 0.1 || 1;
-                  const yMin = dataMin - padding;
-                  const yMax = dataMax + padding;
-                  const yPos = (v: number) => T + innerH - ((v - yMin) / (yMax - yMin)) * innerH;
-                  const yTicks: number[] = [];
-                  const yTickStep = (yMax - yMin) / 5;
-                  for (let i = 0; i <= 5; i++) yTicks.push(Math.round(yMin + yTickStep * i));
+                  const rangeData = chartData.map(d => ({
+                    ...d,
+                    range_weight: d.max_weight - d.min_weight
+                  }));
+
                   return (
-                    <Box sx={{ width: "100%", overflowX: "auto" }}>
-                      <svg
-                        viewBox={`0 0 ${totalW} ${totalH}`}
-                        style={{ width: "100%", minWidth: chartData.length * 40 + 100 }}
-                      >
-                        <line x1={L} y1={T} x2={L} y2={T + innerH} stroke="#ccc" strokeWidth={1} />
-                        <line x1={totalW - R} y1={T} x2={totalW - R} y2={T + innerH} stroke="#ccc" strokeWidth={1} />
-                        <line x1={L} y1={T + innerH} x2={totalW - R} y2={T + innerH} stroke="#ccc" strokeWidth={1} />
-                        {yTicks.map((t, i) => (
-                          <g key={i}>
-                            <line x1={L} y1={yPos(t)} x2={totalW - R} y2={yPos(t)} stroke="#eee" strokeWidth={1} />
-                            <text x={L - 8} y={yPos(t)} textAnchor="end" dominantBaseline="central" fontSize={10} fill="#888">
-                              {t}g
-                            </text>
-                          </g>
-                        ))}
-                        {chartData.map((d, i) => {
-                          const cx = L + padH + barGap * i + barGap / 2;
-                          const yHigh = yPos(d.min_weight);
-                          const yLow = yPos(d.max_weight);
-                          const yAvg = yPos(d.avg_weight);
-                          return (
-                            <g key={d.chicken_name}>
-                              <line x1={cx} y1={yHigh} x2={cx} y2={yLow} stroke="#90a4ae" strokeWidth={1.5} />
-                              <circle cx={cx} cy={yAvg} r={4} fill="#1565c0" />
-                              <text
-                                x={cx}
-                                y={T + innerH + 6}
-                                textAnchor="start"
-                                dominantBaseline="hanging"
-                                fontSize={8}
-                                fill="#666"
-                                transform={`rotate(45, ${cx}, ${T + innerH + 6})`}
-                              >
-                                {d.chicken_name}
-                              </text>
-                            </g>
-                          );
-                        })}
-                      </svg>
-                    </Box>
+                    <ResponsiveChartContainer
+                      dataset={rangeData}
+                      xAxis={[{ scaleType: "band", dataKey: "chicken_name" }]}
+                      series={[
+                        { type: "bar", dataKey: "min_weight", stack: "A", color: "transparent", label: "Min (invisible)" },
+                        { type: "bar", dataKey: "range_weight", stack: "A", color: "#90caf9", label: "Range" },
+                        { type: "line", dataKey: "avg_weight", color: "#1565c0", label: "Average" }
+                      ]}
+                      height={300}
+                      sx={{ width: "100%" }}
+                    >
+                      <ChartsGrid horizontal />
+                      <BarPlot />
+                      <MarkPlot />
+                      <ChartsXAxis />
+                      <ChartsYAxis />
+                      <ChartsTooltip trigger="axis" />
+                    </ResponsiveChartContainer>
                   );
                 })()}
               </CardContent>
@@ -462,33 +458,27 @@ function DashboardContent() {
                   Productivity
                 </Typography>
                 {(() => {
-                  if (data.most_productive.length === 0) {
+                  if (data.production_consistency.length === 0) {
                     return (
                       <Typography variant="body2" color="text.secondary">
-                        No eggs logged in this period.
+                        No data in this period.
                       </Typography>
                     );
                   }
-                  const top10 = data.most_productive.slice(0, 10);
-                  const rest = data.most_productive.slice(10);
-                  const otherCount = rest.reduce((sum, h) => sum + h.egg_count, 0);
-                  const pieData = top10.map((h) => ({
-                    id: h.chicken_id,
-                    value: h.egg_count,
-                    label: h.chicken_name,
-                  }));
-                  if (otherCount > 0) {
-                    pieData.push({ id: -1, value: otherCount, label: "Other" });
-                  }
-                  const handleSliceClick = (
-                    _event: React.MouseEvent<SVGPathElement>,
-                    pieItemIdentifier: { dataIndex: number }
+                  const top10 = [...data.production_consistency]
+                    .sort((a, b) => b.laying_rate - a.laying_rate)
+                    .slice(0, 10)
+                    .reverse(); // Reverse so the highest is at the top in horizontal layout
+                  
+                  const handleLocalBarClick = (
+                    _event: React.MouseEvent<SVGElement, MouseEvent>,
+                    barItemIdentifier: { dataIndex: number }
                   ) => {
-                    const entry = pieData[pieItemIdentifier.dataIndex];
-                    if (entry && entry.id !== undefined && Number(entry.id) > 0) {
+                    const entry = top10[barItemIdentifier.dataIndex];
+                    if (entry) {
                       const params = new URLSearchParams();
-                      params.set("chicken_id", String(entry.id));
-                      params.set("chicken_name", entry.label);
+                      params.set("chicken_id", String(entry.chicken_id));
+                      params.set("chicken_name", entry.chicken_name);
                       params.set("from", dateFrom);
                       params.set("to", dateTo);
                       router.push(`/dashboard/eggs?${params.toString()}`);
@@ -496,32 +486,15 @@ function DashboardContent() {
                   };
 
                   return (
-                    <PieChart
-                      series={[
-                        {
-                          data: pieData,
-                          arcLabel: (item) => String(item.value),
-                          arcLabelRadius: "85%",
-                        },
-                      ]}
+                    <BarChart
+                      dataset={top10}
+                      layout="horizontal"
+                      yAxis={[{ scaleType: "band", dataKey: "chicken_name" }]}
+                      series={[{ dataKey: "laying_rate", label: "Laying Rate (%)", color: "#4caf50" }]}
                       height={300}
-                      margin={{ right: 140 }}
-                      onItemClick={handleSliceClick}
-                      slotProps={{
-                        pieArcLabel: {
-                          fill: "#000",
-                          fontWeight: 700,
-                          fontSize: 12,
-                        },
-                        legend: {
-                          direction: "column",
-                          position: { vertical: "middle", horizontal: "right" },
-                          labelStyle: { fontSize: 11 },
-                          padding: 0,
-                          itemGap: 4,
-                        },
-                      }}
-                      sx={{ width: "100%", "& .MuiPieArc-root": { cursor: "pointer" } }}
+                      margin={{ left: 100 }}
+                      onItemClick={handleLocalBarClick}
+                      sx={{ width: "100%", "& .MuiBarElement-root": { cursor: "pointer" } }}
                     />
                   );
                 })()}
@@ -647,53 +620,40 @@ function DashboardContent() {
                 <Typography variant="h6" sx={{ mb: 2 }}>
                   Seasonal Trends
                 </Typography>
-                {data.seasonal_trends.length === 0 ? (
-                  <Typography variant="body2" color="text.secondary">
-                    No data.
-                  </Typography>
-                ) : (
-                  <TableContainer>
-                    <Table size="small">
-                      <TableHead>
-                        <TableRow>
-                          <TableCell>Period</TableCell>
-                          <TableCell>Season</TableCell>
-                          <TableCell align="right">Eggs</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {data.seasonal_trends.map((s, i) => (
-                          <TableRow key={i}>
-                            <TableCell>
-                              {i === 0 || s.year !== data.seasonal_trends[i - 1]!.year
-                                ? s.year
-                                : ""}
-                            </TableCell>
-                            <TableCell>
-                              <Chip
-                                label={s.season}
-                                size="small"
-                                color={
-                                  s.season === "Summer"
-                                    ? "warning"
-                                    : s.season === "Autumn"
-                                      ? "error"
-                                      : s.season === "Winter"
-                                        ? "info"
-                                        : "success"
-                                }
-                                variant="outlined"
-                              />
-                            </TableCell>
-                            <TableCell align="right" sx={{ fontWeight: 600 }}>
-                              {s.egg_count}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                )}
+                {(() => {
+                  if (data.seasonal_trends.length === 0) {
+                    return (
+                      <Typography variant="body2" color="text.secondary">
+                        No data.
+                      </Typography>
+                    );
+                  }
+                  
+                  const years = Array.from(new Set(data.seasonal_trends.map(s => s.year))).sort();
+                  const dataset = years.map(year => {
+                    const yearData: any = { year: String(year) };
+                    const trendsForYear = data.seasonal_trends.filter(s => s.year === year);
+                    for (const t of trendsForYear) {
+                      yearData[t.season] = t.egg_count;
+                    }
+                    return yearData;
+                  });
+
+                  return (
+                    <BarChart
+                      dataset={dataset}
+                      xAxis={[{ scaleType: "band", dataKey: "year" }]}
+                      series={[
+                        { dataKey: "Spring", label: "Spring", color: "#4caf50" },
+                        { dataKey: "Summer", label: "Summer", color: "#ff9800" },
+                        { dataKey: "Autumn", label: "Autumn", color: "#f44336" },
+                        { dataKey: "Winter", label: "Winter", color: "#2196f3" },
+                      ]}
+                      height={300}
+                      sx={{ width: "100%" }}
+                    />
+                  );
+                })()}
               </CardContent>
             </Card>
 

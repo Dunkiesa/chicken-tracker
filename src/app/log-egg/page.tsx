@@ -243,7 +243,7 @@ function LogEggContent() {
   const hens = useMemo(() => {
     if (!allChickens) return [];
     return allChickens.filter(
-      (c) => !c.departed && (showAll || c.sex !== "Rooster")
+      (c) => !c.departed && (showAll || c.sex === "Hen")
     );
   }, [allChickens, showAll]);
 
