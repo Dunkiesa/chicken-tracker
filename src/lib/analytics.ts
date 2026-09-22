@@ -63,6 +63,7 @@ export type AnalyticsSummary = {
   average_weight: number | null;
   total_laying_chickens: number;
   active_laying_chickens: number;
+  withdrawn_eggs: number;
 };
 
 export type AnalyticsData = {
@@ -109,9 +110,18 @@ async function getSummary(
         COUNT(e.id) AS total_eggs,
         AVG(CAST(e.weight AS DECIMAL(10,4))) AS average_weight,
         (SELECT COUNT(*) FROM chickens WHERE sex IN ('Hen', 'Unknown')) AS total_laying_chickens,
-        (SELECT COUNT(*) FROM chickens WHERE sex IN ('Hen', 'Unknown') AND departed = 0) AS active_laying_chickens
+        (SELECT COUNT(*) FROM chickens WHERE sex IN ('Hen', 'Unknown') AND departed = 0) AS active_laying_chickens,
+        SUM(ISNULL(w.is_withdrawn, 0)) AS withdrawn_eggs
       FROM eggs e
       JOIN chickens c ON e.chicken_id = c.id
+      OUTER APPLY (
+        SELECT TOP 1 1 AS is_withdrawn
+        FROM notes n
+        WHERE n.chicken_id = e.chicken_id 
+          AND n.is_medication = 1
+          AND e.date >= n.date
+          AND e.date <= DATEADD(day, ISNULL(n.medication_duration_days, 0) + ISNULL(n.withdrawal_days, 0), n.date)
+      ) w
       WHERE c.sex IN ('Hen', 'Unknown')
         AND e.date >= @from AND e.date <= @to
         AND (c.departed = 0 OR e.date <= c.departure_date)
