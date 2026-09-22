@@ -61,7 +61,7 @@ export async function POST(
     }
 
     const body = await request.json();
-    const { content, date, imageIds, crops, aiTexts } = body;
+    const { content, date, imageIds, crops, aiTexts, is_medication, medication_duration_days, withdrawal_days } = body;
 
     const ids: number[] = Array.isArray(imageIds) ? imageIds : [];
 
@@ -88,6 +88,9 @@ export async function POST(
       chicken_id: chickenId,
       content: combinedContent,
       date,
+      is_medication,
+      medication_duration_days,
+      withdrawal_days,
       recorded_by: session.user.email,
     });
 

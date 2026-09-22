@@ -314,6 +314,22 @@ export async function runMigrations(existingPool?: sql.ConnectionPool): Promise<
       ALTER TABLE photos ADD thumbnail_path NVARCHAR(500) NULL
   `);
 
+    // -- Medication fields for notes --
+  await p.request().query(` 
+    IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('notes') AND name = 'is_medication')
+      ALTER TABLE notes ADD is_medication BIT NOT NULL DEFAULT 0
+  `);
+
+  await p.request().query(` 
+    IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('notes') AND name = 'medication_duration_days')
+      ALTER TABLE notes ADD medication_duration_days INT NULL
+  `);
+
+  await p.request().query(` 
+    IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('notes') AND name = 'withdrawal_days')
+      ALTER TABLE notes ADD withdrawal_days INT NULL
+  `);
+
   // -- Note images table (ADR 0006) --
   await p.request().query(`
     IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'note_images')
@@ -417,3 +433,5 @@ export async function ensureMigrations(): Promise<void> {
 ensureMigrations().catch((err) => {
   console.warn("Initial DB connection/migration deferred (DB not ready):", err instanceof Error ? err.message : err);
 });
+
+

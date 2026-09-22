@@ -356,3 +356,5 @@ function EggHistoryContent() {
     </Box>
   );
 }
+
+

@@ -87,6 +87,9 @@ type Note = {
   chicken_name: string;
   content: string;
   date: string;
+  is_medication: boolean;
+  medication_duration_days: number | null;
+  withdrawal_days: number | null;
   recorded_by: string;
   created_at: string;
   updated_at: string;
@@ -161,6 +164,9 @@ async function createNoteApi(data: {
   imageIds?: number[];
   crops?: Record<string, CropRegion>;
   aiTexts?: Record<string, string>;
+  is_medication?: boolean;
+  medication_duration_days?: number;
+  withdrawal_days?: number;
 }): Promise<Note> {
   const res = await fetch(`/api/chickens/${data.chickenId}/notes`, {
     method: "POST",
@@ -171,6 +177,9 @@ async function createNoteApi(data: {
       imageIds: data.imageIds,
       crops: data.crops,
       aiTexts: data.aiTexts,
+      is_medication: data.is_medication,
+      medication_duration_days: data.medication_duration_days,
+      withdrawal_days: data.withdrawal_days,
     }),
   });
   if (!res.ok) {
@@ -188,6 +197,9 @@ async function updateNoteApi(data: {
   imageIds?: number[];
   crops?: Record<string, CropRegion>;
   aiTexts?: Record<string, string>;
+  is_medication?: boolean;
+  medication_duration_days?: number;
+  withdrawal_days?: number;
 }): Promise<Note> {
   const res = await fetch(`/api/chickens/${data.chickenId}/notes/${data.noteId}`, {
     method: "PUT",
@@ -198,6 +210,9 @@ async function updateNoteApi(data: {
       imageIds: data.imageIds,
       crops: data.crops,
       aiTexts: data.aiTexts,
+      is_medication: data.is_medication,
+      medication_duration_days: data.medication_duration_days,
+      withdrawal_days: data.withdrawal_days,
     }),
   });
   if (!res.ok) {
@@ -298,16 +313,34 @@ async function updateChickenApi(
 const addNoteSchema = z.object({
   content: z.string(),
   date: z.string().min(1, "Date is required"),
+  is_medication: z.boolean().optional(),
+  medication_duration_days: z.coerce.number().min(1).optional().or(z.literal("").transform(() => undefined)),
+  withdrawal_days: z.coerce.number().min(0).optional().or(z.literal("").transform(() => undefined)),
 });
 
-type AddNoteFormValues = z.infer<typeof addNoteSchema>;
+type AddNoteFormValues = {
+  content: string;
+  date: string;
+  is_medication?: boolean;
+  medication_duration_days?: number;
+  withdrawal_days?: number;
+};
 
 const editNoteSchema = z.object({
   content: z.string(),
   date: z.string().min(1, "Date is required"),
+  is_medication: z.boolean().optional(),
+  medication_duration_days: z.coerce.number().min(1).optional().or(z.literal("").transform(() => undefined)),
+  withdrawal_days: z.coerce.number().min(0).optional().or(z.literal("").transform(() => undefined)),
 });
 
-type EditNoteFormValues = z.infer<typeof editNoteSchema>;
+type EditNoteFormValues = {
+  content: string;
+  date: string;
+  is_medication?: boolean;
+  medication_duration_days?: number;
+  withdrawal_days?: number;
+};
 
 function buildImagePayload(images: NoteImageEntry[]): {
   imageIds?: number[];
@@ -496,7 +529,7 @@ function ProfileContent() {
   });
 
   const addNoteMutation = useMutation({
-    mutationFn: (data: { content: string; date: string; imageIds?: number[]; crops?: Record<string, CropRegion>; aiTexts?: Record<string, string> }) =>
+    mutationFn: (data: { content: string; date: string; is_medication?: boolean; medication_duration_days?: number; withdrawal_days?: number; imageIds?: number[]; crops?: Record<string, CropRegion>; aiTexts?: Record<string, string> }) =>
       createNoteApi({ chickenId, ...data }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["chicken-notes", chickenId] });
@@ -511,6 +544,9 @@ function ProfileContent() {
       noteId: number;
       content: string;
       date: string;
+      is_medication?: boolean;
+      medication_duration_days?: number;
+      withdrawal_days?: number;
       imageIds?: number[];
       crops?: Record<string, CropRegion>;
       aiTexts?: Record<string, string>;
@@ -581,7 +617,7 @@ function ProfileContent() {
   });
 
   const addNoteForm = useForm<AddNoteFormValues>({
-    resolver: zodResolver(addNoteSchema),
+    resolver: zodResolver(addNoteSchema as any),
     mode: "onBlur",
     defaultValues: {
       content: "",
@@ -1000,6 +1036,7 @@ function ProfileContent() {
                     render={({ field }) => (
                       <TextField
                         {...field}
+                        value={field.value ?? ""}
                         label="Departure reason (optional)"
                         fullWidth
                         size="small"
@@ -1068,6 +1105,57 @@ function ProfileContent() {
                   />
                 )}
               />
+              <Controller
+                name="is_medication"
+                control={addNoteForm.control}
+                render={({ field }) => (
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={!!field.value}
+                        onChange={(e) => field.onChange(e.target.checked)}
+                      />
+                    }
+                    label="Includes Medication"
+                  />
+                )}
+              />
+              {addNoteForm.watch("is_medication") && (
+                <Stack direction="row" spacing={2}>
+                  <Controller
+                    name="medication_duration_days"
+                    control={addNoteForm.control}
+                    render={({ field }) => (
+                      <TextField
+                        {...field}
+                        value={field.value ?? ""}
+                        type="number"
+                        label="Duration (days)"
+                        size="small"
+                        fullWidth
+                        error={!!addNoteForm.formState.errors.medication_duration_days}
+                        helperText={addNoteForm.formState.errors.medication_duration_days?.message}
+                      />
+                    )}
+                  />
+                  <Controller
+                    name="withdrawal_days"
+                    control={addNoteForm.control}
+                    render={({ field }) => (
+                      <TextField
+                        {...field}
+                        value={field.value ?? ""}
+                        type="number"
+                        label="Withdrawal Period (days)"
+                        size="small"
+                        fullWidth
+                        error={!!addNoteForm.formState.errors.withdrawal_days}
+                        helperText={addNoteForm.formState.errors.withdrawal_days?.message}
+                      />
+                    )}
+                  />
+                </Stack>
+              )}
               <NoteImageManager
                 chickenId={chickenId}
                 images={addNoteImages}
@@ -1504,7 +1592,7 @@ function NotesList({
   isAdmin: boolean;
   canModifyNote: (note: Note) => boolean;
   onDeleteNote: (noteId: number) => void;
-  onUpdateNote: (noteId: number, data: { content: string; date: string; imageIds?: number[]; crops?: Record<string, CropRegion>; aiTexts?: Record<string, string> }) => void;
+  onUpdateNote: (noteId: number, data: { content: string; date: string; is_medication?: boolean; medication_duration_days?: number; withdrawal_days?: number; imageIds?: number[]; crops?: Record<string, CropRegion>; aiTexts?: Record<string, string> }) => void;
   updateNotePending: boolean;
   noteImagesMap: Record<number, NoteImageForDisplay[]>;
   chickenId: number;
@@ -1550,7 +1638,7 @@ const NoteItem = memo(function NoteItem({
   isAdmin: boolean;
   canModify: boolean;
   onDelete: () => void;
-  onSave: (data: { content: string; date: string; imageIds?: number[]; crops?: Record<string, CropRegion>; aiTexts?: Record<string, string> }) => void;
+  onSave: (data: { content: string; date: string; is_medication?: boolean; medication_duration_days?: number; withdrawal_days?: number; imageIds?: number[]; crops?: Record<string, CropRegion>; aiTexts?: Record<string, string> }) => void;
   savePending: boolean;
   images: NoteImageForDisplay[];
   chickenId: number;
@@ -1559,16 +1647,25 @@ const NoteItem = memo(function NoteItem({
   const [editNoteImages, setEditNoteImages] = useState<NoteImageEntry[]>([]);
 
   const form = useForm<EditNoteFormValues>({
-    resolver: zodResolver(editNoteSchema),
+    resolver: zodResolver(editNoteSchema as any),
     mode: "onBlur",
     values: {
       content: note.content,
       date: note.date,
+      is_medication: note.is_medication,
+      medication_duration_days: note.medication_duration_days || undefined,
+      withdrawal_days: note.withdrawal_days || undefined,
     },
   });
 
   const handleOpenEdit = () => {
-    form.reset({ content: note.content, date: note.date });
+    form.reset({ 
+      content: note.content, 
+      date: note.date,
+      is_medication: note.is_medication,
+      medication_duration_days: note.medication_duration_days || undefined,
+      withdrawal_days: note.withdrawal_days || undefined,
+    });
     setEditNoteImages(
       images.map((img) => ({
         id: img.id,
@@ -1627,15 +1724,26 @@ const NoteItem = memo(function NoteItem({
             </Stack>
           }
           secondary={
-            <>
-              <Typography
-                variant="body2"
-                sx={{ whiteSpace: "pre-wrap", lineHeight: 1.5 }}
-              >
-                {note.content}
-              </Typography>
-              <NoteImagesInline images={images} />
-            </>
+              <>
+                {note.is_medication && (
+                  <Box sx={{ mb: 1, display: "flex", gap: 1, flexWrap: "wrap" }}>
+                    <Chip size="small" color="warning" label="Medication" />
+                    {note.medication_duration_days ? (
+                      <Chip size="small" variant="outlined" label={`Duration: ${note.medication_duration_days}d`} />
+                    ) : null}
+                    {note.withdrawal_days ? (
+                      <Chip size="small" variant="outlined" label={`Withdrawal: ${note.withdrawal_days}d`} />
+                    ) : null}
+                  </Box>
+                )}
+                <Typography
+                  variant="body2"
+                  sx={{ whiteSpace: "pre-wrap", lineHeight: 1.5 }}
+                >
+                  {note.content}
+                </Typography>
+                <NoteImagesInline images={images} />
+              </>
           }
           secondaryTypographyProps={{ component: 'div' }}
         />
@@ -1685,6 +1793,57 @@ const NoteItem = memo(function NoteItem({
                   />
                 )}
               />
+              <Controller
+                name="is_medication"
+                control={form.control}
+                render={({ field }) => (
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={!!field.value}
+                        onChange={(e) => field.onChange(e.target.checked)}
+                      />
+                    }
+                    label="Includes Medication"
+                  />
+                )}
+              />
+              {form.watch("is_medication") && (
+                <Stack direction="row" spacing={2}>
+                  <Controller
+                    name="medication_duration_days"
+                    control={form.control}
+                    render={({ field }) => (
+                      <TextField
+                        {...field}
+                        value={field.value ?? ""}
+                        type="number"
+                        label="Duration (days)"
+                        size="small"
+                        fullWidth
+                        error={!!form.formState.errors.medication_duration_days}
+                        helperText={form.formState.errors.medication_duration_days?.message}
+                      />
+                    )}
+                  />
+                  <Controller
+                    name="withdrawal_days"
+                    control={form.control}
+                    render={({ field }) => (
+                      <TextField
+                        {...field}
+                        value={field.value ?? ""}
+                        type="number"
+                        label="Withdrawal Period (days)"
+                        size="small"
+                        fullWidth
+                        error={!!form.formState.errors.withdrawal_days}
+                        helperText={form.formState.errors.withdrawal_days?.message}
+                      />
+                    )}
+                  />
+                </Stack>
+              )}
               <NoteImageManager
                 chickenId={chickenId}
                 images={editNoteImages}
@@ -1707,3 +1866,13 @@ const NoteItem = memo(function NoteItem({
     </>
   );
 });
+
+
+
+
+
+
+
+
+
+

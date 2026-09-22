@@ -68,8 +68,14 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const { content, date, imageIds, crops, aiTexts } = body;
-    const updateInput: { content?: string; date?: string } = {};
+    const { content, date, imageIds, crops, aiTexts, is_medication, medication_duration_days, withdrawal_days } = body;
+    const updateInput: {
+      content?: string;
+      date?: string;
+      is_medication?: boolean;
+      medication_duration_days?: number | null;
+      withdrawal_days?: number | null;
+    } = {};
 
     if (content !== undefined) {
       const ids: number[] = Array.isArray(imageIds) ? imageIds : [];
@@ -77,6 +83,9 @@ export async function PUT(
       updateInput.content = combineNoteContent(content.trim(), orderedAiTexts);
     }
     if (date !== undefined) updateInput.date = date;
+    if (is_medication !== undefined) updateInput.is_medication = is_medication;
+    if (medication_duration_days !== undefined) updateInput.medication_duration_days = medication_duration_days;
+    if (withdrawal_days !== undefined) updateInput.withdrawal_days = withdrawal_days;
 
     const updated = await updateNote(noteId, updateInput);
     if (!updated) {

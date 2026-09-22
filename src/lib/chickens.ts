@@ -23,6 +23,11 @@ export type Chicken = {
   primary_photo_id: number | null;
   primary_photo_path: string | null;
   primary_thumbnail_path: string | null;
+  medications?: {
+    date: string;
+    medication_duration_days: number | null;
+    withdrawal_days: number | null;
+  }[];
 };
 
 export type CreateChickenInput = {
@@ -102,7 +107,29 @@ export async function listChickens(includeDeparted = false): Promise<Chicken[]> 
     ? `${LIST_JOIN_SQL} ORDER BY c.name`
     : `${LIST_JOIN_SQL} WHERE c.departed = 0 ORDER BY c.name`;
   const result = await pool.request().query(query);
-  return result.recordset as Chicken[];
+  const chickens = result.recordset as Chicken[];
+
+  const medsResult = await pool.request().query(`
+    SELECT chicken_id, CONVERT(varchar, date, 23) AS date, medication_duration_days, withdrawal_days 
+    FROM notes 
+    WHERE is_medication = 1
+  `);
+  
+  const medsMap = new Map<number, any[]>();
+  for (const row of medsResult.recordset) {
+    if (!medsMap.has(row.chicken_id)) medsMap.set(row.chicken_id, []);
+    medsMap.get(row.chicken_id)!.push({
+      date: row.date,
+      medication_duration_days: row.medication_duration_days,
+      withdrawal_days: row.withdrawal_days
+    });
+  }
+
+  for (const c of chickens) {
+    c.medications = medsMap.get(c.id) || [];
+  }
+
+  return chickens;
 }
 
 export async function getChicken(id: number): Promise<Chicken | null> {
@@ -183,3 +210,6 @@ export async function deleteChicken(id: number): Promise<boolean> {
     .query("DELETE FROM chickens WHERE id = @id");
   return result.rowsAffected[0]! > 0;
 }
+
+
+

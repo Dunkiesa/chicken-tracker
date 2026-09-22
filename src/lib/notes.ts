@@ -8,6 +8,9 @@ export type Note = {
   chicken_name: string;
   content: string;
   date: string;
+  is_medication: boolean;
+  medication_duration_days: number | null;
+  withdrawal_days: number | null;
   recorded_by: string;
   created_at: string;
   updated_at: string;
@@ -17,18 +20,25 @@ export type CreateNoteInput = {
   chicken_id: number;
   content: string;
   date: string;
+  is_medication?: boolean;
+  medication_duration_days?: number | null;
+  withdrawal_days?: number | null;
   recorded_by: string;
 };
 
 export type UpdateNoteInput = {
   content?: string;
   date?: string;
+  is_medication?: boolean;
+  medication_duration_days?: number | null;
+  withdrawal_days?: number | null;
 };
 
 const NOTE_SELECT_SQL = `
   SELECT
     n.id, n.chicken_id, c.name AS chicken_name, n.content,
     CONVERT(varchar, n.date, 23) AS date,
+    n.is_medication, n.medication_duration_days, n.withdrawal_days,
     n.recorded_by,
     CONVERT(varchar, n.created_at, 20) AS created_at,
     CONVERT(varchar, n.updated_at, 20) AS updated_at
@@ -43,11 +53,14 @@ export async function createNote(input: CreateNoteInput): Promise<Note> {
     .input("chicken_id", sql.Int, input.chicken_id)
     .input("content", sql.NVarChar(sql.MAX), input.content.trim())
     .input("date", sql.Date, input.date)
+    .input("is_medication", sql.Bit, input.is_medication ? 1 : 0)
+    .input("medication_duration_days", sql.Int, input.medication_duration_days ?? null)
+    .input("withdrawal_days", sql.Int, input.withdrawal_days ?? null)
     .input("recorded_by", sql.NVarChar(255), input.recorded_by)
     .query(`
-      INSERT INTO notes (chicken_id, content, date, recorded_by)
+      INSERT INTO notes (chicken_id, content, date, is_medication, medication_duration_days, withdrawal_days, recorded_by)
       OUTPUT INSERTED.id
-      VALUES (@chicken_id, @content, @date, @recorded_by)
+      VALUES (@chicken_id, @content, @date, @is_medication, @medication_duration_days, @withdrawal_days, @recorded_by)
     `);
 
   const id = result.recordset[0].id;
@@ -90,6 +103,18 @@ export async function updateNote(
   if (input.date !== undefined) {
     sets.push("date = @date");
     request.input("date", sql.Date, input.date);
+  }
+  if (input.is_medication !== undefined) {
+    sets.push("is_medication = @is_medication");
+    request.input("is_medication", sql.Bit, input.is_medication ? 1 : 0);
+  }
+  if (input.medication_duration_days !== undefined) {
+    sets.push("medication_duration_days = @medication_duration_days");
+    request.input("medication_duration_days", sql.Int, input.medication_duration_days);
+  }
+  if (input.withdrawal_days !== undefined) {
+    sets.push("withdrawal_days = @withdrawal_days");
+    request.input("withdrawal_days", sql.Int, input.withdrawal_days);
   }
 
   if (sets.length === 0) return getNote(id);

@@ -6,6 +6,9 @@ import Typography from "@mui/material/Typography";
 import TextField from "@mui/material/TextField";
 import CheckIcon from "@mui/icons-material/Check";
 
+import Tooltip from "@mui/material/Tooltip";
+import WarningIcon from "@mui/icons-material/Warning";
+
 type HenRowProps = {
   hen: { id: number; name: string; primary_photo_path: string | null; primary_thumbnail_path?: string | null };
   weight: string;
@@ -13,10 +16,11 @@ type HenRowProps = {
   warning: { type: string; message: string }[] | undefined;
   error: string | undefined;
   disabled: boolean;
+  isWithdrawn?: boolean;
   onWeightChange: (henId: number, value: string) => void;
 };
 
-function HenRowInner({ hen, weight, existing, warning, error, disabled, onWeightChange }: HenRowProps) {
+function HenRowInner({ hen, weight, existing, warning, error, disabled, isWithdrawn, onWeightChange }: HenRowProps) {
   return (
     <Box
       sx={{
@@ -40,19 +44,24 @@ function HenRowInner({ hen, weight, existing, warning, error, disabled, onWeight
           flexShrink: 0,
         }}
       />
-      <Typography
-        variant="body1"
-        sx={{
-          flex: "1 1 100px",
-          fontWeight: 500,
-          minWidth: 0,
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
-        }}
-      >
-        {hen.name}
-      </Typography>
+      <Box sx={{ flex: "1 1 100px", minWidth: 0, display: "flex", alignItems: "center", gap: 1 }}>
+        <Typography
+          variant="body1"
+          sx={{
+            fontWeight: 500,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {hen.name}
+        </Typography>
+        {isWithdrawn && (
+          <Tooltip title="Egg is withdrawn (medication)">
+            <WarningIcon color="warning" fontSize="small" />
+          </Tooltip>
+        )}
+      </Box>
       {existing ? (
         <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
           <Typography variant="body2" color="text.secondary">
@@ -118,3 +127,5 @@ function HenRowInner({ hen, weight, existing, warning, error, disabled, onWeight
 }
 
 export const HenRow = memo(HenRowInner);
+
+

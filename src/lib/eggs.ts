@@ -10,6 +10,7 @@ export type Egg = {
   recorded_by: string;
   created_at: string;
   updated_at: string;
+  is_withdrawn?: boolean;
 };
 
 export type CreateEggInput = {
@@ -43,7 +44,19 @@ const EGG_SELECT_SQL = `
     CONVERT(varchar, e.date, 23) AS date,
     e.recorded_by,
     CONVERT(varchar, e.created_at, 20) AS created_at,
-    CONVERT(varchar, e.updated_at, 20) AS updated_at
+    CONVERT(varchar, e.updated_at, 20) AS updated_at,
+    CAST(
+      CASE 
+        WHEN EXISTS (
+          SELECT 1 FROM notes n
+          WHERE n.chicken_id = e.chicken_id 
+            AND n.is_medication = 1
+            AND e.date >= n.date
+            AND e.date <= DATEADD(day, ISNULL(n.medication_duration_days, 0) + ISNULL(n.withdrawal_days, 0), n.date)
+        ) THEN 1 
+        ELSE 0 
+      END AS bit
+    ) AS is_withdrawn
   FROM eggs e
   JOIN chickens c ON e.chicken_id = c.id
 `;
@@ -324,3 +337,5 @@ export async function getLayingContext(): Promise<LayingContext[]> {
       : null,
   }));
 }
+
+

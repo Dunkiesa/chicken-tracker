@@ -29,6 +29,7 @@ import {
   TableRow,
   TextField,
   IconButton,
+  Chip,
 } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -53,6 +54,11 @@ type Chicken = {
   primary_photo_id: number | null;
   primary_photo_path: string | null;
   primary_thumbnail_path: string | null;
+  medications?: {
+    date: string;
+    medication_duration_days: number | null;
+    withdrawal_days: number | null;
+  }[];
 };
 
 type Egg = {
@@ -61,6 +67,7 @@ type Egg = {
   chicken_name: string;
   weight: number;
   date: string;
+  is_withdrawn?: boolean;
   recorded_by: string;
 };
 
@@ -139,6 +146,27 @@ async function deleteEggApi(id: number): Promise<void> {
     const data = await res.json();
     throw new Error(data.message || "Failed to delete egg");
   }
+}
+
+function isChickenWithdrawnOnDate(chicken: Chicken, dateStr: string): boolean {
+  if (!chicken.medications || chicken.medications.length === 0) return false;
+  const time = new Date(dateStr + "T00:00:00Z").getTime();
+  if (isNaN(time)) return false;
+
+  for (const med of chicken.medications) {
+    const medTime = new Date(med.date + "T00:00:00Z").getTime();
+    if (isNaN(medTime)) continue;
+
+    const dur = med.medication_duration_days || 0;
+    const withDur = med.withdrawal_days || 0;
+    
+    const safeTime = medTime + (dur + withDur) * 24 * 60 * 60 * 1000;
+
+    if (time >= medTime && time <= safeTime) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function validateWeight(value: string): string | undefined {
@@ -420,6 +448,7 @@ function LogEggContent() {
                         warning={rowWarnings[hen.id]}
                         error={weightErrors[hen.id]}
                         disabled={submitMutation.isPending}
+                        isWithdrawn={isChickenWithdrawnOnDate(hen, batchDate)}
                         onWeightChange={handleWeightChange}
                       />
                     </Box>
@@ -504,7 +533,14 @@ function LogEggContent() {
                 {displayEggs.map((egg) => (
                   <TableRow key={egg.id}>
                     <TableCell>{formatDateForDisplay(egg.date)}</TableCell>
-                    <TableCell>{egg.chicken_name}</TableCell>
+                    <TableCell>
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <span>{egg.chicken_name}</span>
+                        {egg.is_withdrawn && (
+                          <Chip size="small" color="warning" label="Withdrawn" />
+                        )}
+                      </Stack>
+                    </TableCell>
                     <TableCell align="right">
                       {egg.weight.toFixed(2)}g
                     </TableCell>
@@ -627,3 +663,5 @@ function LogEggContent() {
     </Box>
   );
 }
+
+
