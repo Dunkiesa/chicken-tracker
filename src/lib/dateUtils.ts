@@ -192,3 +192,57 @@ export function formatDateTimeForDisplay(dateStr: string | null | undefined): st
   if (isNaN(d.getTime())) return dateStr;
   return dateTimeFormatter.format(d);
 }
+
+export function calculateCurrentAge(acquisitionDateStr: string | null, acquisitionAge: number | null, acquisitionAgeUnit: string | null): string | null {
+  if (!acquisitionDateStr || acquisitionAge === null || !acquisitionAgeUnit) return null;
+  const [y, m, d] = acquisitionDateStr.split("-").map(Number);
+  const acqDate = new Date(y!, m! - 1, d!);
+  if (isNaN(acqDate.getTime())) return null;
+  
+  const hatchDate = new Date(acqDate);
+  if (acquisitionAgeUnit === "Weeks") {
+    hatchDate.setDate(hatchDate.getDate() - acquisitionAge * 7);
+  } else if (acquisitionAgeUnit === "Months") {
+    hatchDate.setMonth(hatchDate.getMonth() - acquisitionAge);
+  } else if (acquisitionAgeUnit === "Years") {
+    hatchDate.setFullYear(hatchDate.getFullYear() - acquisitionAge);
+  } else {
+    return null;
+  }
+  
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  hatchDate.setHours(0, 0, 0, 0);
+  
+  if (hatchDate > today) return "0 weeks";
+  
+  const diffTime = today.getTime() - hatchDate.getTime();
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  const diffWeeks = Math.floor(diffDays / 7);
+  
+  if (diffWeeks < 26) {
+    return `${diffWeeks} week${diffWeeks === 1 ? '' : 's'}`;
+  }
+  
+  let years = today.getFullYear() - hatchDate.getFullYear();
+  let months = today.getMonth() - hatchDate.getMonth();
+  if (months < 0 || (months === 0 && today.getDate() < hatchDate.getDate())) {
+    years--;
+    months += 12;
+  }
+  if (today.getDate() < hatchDate.getDate()) {
+    months--;
+    if (months < 0) months += 12;
+  }
+  
+  if (years === 0) {
+    return `${months} month${months === 1 ? '' : 's'}`;
+  }
+  
+  let result = `${years} year${years === 1 ? '' : 's'}`;
+  if (months > 0) {
+    result += `, ${months} month${months === 1 ? '' : 's'}`;
+  }
+  
+  return result;
+}

@@ -16,6 +16,8 @@ export type Chicken = {
   acquisition_type_id: number | null;
   acquisition_type_name: string | null;
   acquisition_date: string | null;
+  acquisition_age: number | null;
+  acquisition_age_unit: string | null;
   departed: boolean;
   departure_date: string | null;
   departure_reason: string | null;
@@ -37,6 +39,8 @@ export type CreateChickenInput = {
   origin_source?: string;
   acquisition_type?: string;
   acquisition_date?: string | null;
+  acquisition_age?: number | null;
+  acquisition_age_unit?: string | null;
 };
 
 export type UpdateChickenInput = {
@@ -46,6 +50,8 @@ export type UpdateChickenInput = {
   origin_source?: string | null;
   acquisition_type?: string | null;
   acquisition_date?: string | null;
+  acquisition_age?: number | null;
+  acquisition_age_unit?: string | null;
   departed?: boolean;
   departure_date?: string | null;
   departure_reason?: string | null;
@@ -61,6 +67,8 @@ const LIST_JOIN_SQL = `
     c.origin_source_id, os.value AS origin_source_name,
     c.acquisition_type_id, atv.value AS acquisition_type_name,
     CONVERT(varchar, c.acquisition_date, 23) AS acquisition_date,
+    c.acquisition_age,
+    c.acquisition_age_unit,
     c.primary_photo_id,
     pp.file_path AS primary_photo_path,
     pp.thumbnail_path AS primary_thumbnail_path
@@ -86,10 +94,12 @@ export async function createChicken(input: CreateChickenInput): Promise<Chicken>
     .input("origin_source_id", sql.Int, originSourceId)
     .input("acquisition_type_id", sql.Int, acquisitionTypeId)
     .input("acquisition_date", sql.Date, input.acquisition_date || null)
+    .input("acquisition_age", sql.Int, input.acquisition_age ?? null)
+    .input("acquisition_age_unit", sql.NVarChar(50), input.acquisition_age_unit || null)
     .query(`
-      INSERT INTO chickens (name, sex, breed_id, origin_source_id, acquisition_type_id, acquisition_date)
+      INSERT INTO chickens (name, sex, breed_id, origin_source_id, acquisition_type_id, acquisition_date, acquisition_age, acquisition_age_unit)
       OUTPUT INSERTED.id
-      VALUES (@name, @sex, @breed_id, @origin_source_id, @acquisition_type_id, @acquisition_date)
+      VALUES (@name, @sex, @breed_id, @origin_source_id, @acquisition_type_id, @acquisition_date, @acquisition_age, @acquisition_age_unit)
     `);
 
   const id = insertResult.recordset[0].id;
@@ -172,6 +182,14 @@ export async function updateChicken(id: number, input: UpdateChickenInput): Prom
   if (input.acquisition_date !== undefined) {
     sets.push("acquisition_date = @acquisition_date");
     request.input("acquisition_date", sql.Date, input.acquisition_date);
+  }
+  if (input.acquisition_age !== undefined) {
+    sets.push("acquisition_age = @acquisition_age");
+    request.input("acquisition_age", sql.Int, input.acquisition_age);
+  }
+  if (input.acquisition_age_unit !== undefined) {
+    sets.push("acquisition_age_unit = @acquisition_age_unit");
+    request.input("acquisition_age_unit", sql.NVarChar(50), input.acquisition_age_unit);
   }
   if (input.departed !== undefined) {
     sets.push("departed = @departed");

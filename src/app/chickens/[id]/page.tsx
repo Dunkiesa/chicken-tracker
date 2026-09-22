@@ -62,6 +62,7 @@ import {
   formatDateForApi,
   formatDateForDisplay,
   formatDateTimeForDisplay,
+  calculateCurrentAge,
 } from "@/lib/dateUtils";
 
 type Chicken = {
@@ -72,6 +73,8 @@ type Chicken = {
   origin_source_name: string | null;
   acquisition_type_name: string | null;
   acquisition_date: string | null;
+  acquisition_age: number | null;
+  acquisition_age_unit: string | null;
   departed: boolean;
   departure_date: string | null;
   departure_reason: string | null;
@@ -400,6 +403,8 @@ const editChickenSchema = z
     origin_source: z.string(),
     acquisition_type: z.string(),
     acquisition_date: z.string(),
+    acquisition_age: z.string().optional(),
+    acquisition_age_unit: z.enum(["Weeks", "Months", "Years", ""]).optional(),
     departed: z.boolean(),
     departure_date: z.string(),
     departure_reason: z.string(),
@@ -610,6 +615,8 @@ function ProfileContent() {
       origin_source: "",
       acquisition_type: "",
       acquisition_date: "",
+      acquisition_age: "",
+      acquisition_age_unit: "Weeks",
       departed: false,
       departure_date: "",
       departure_reason: "",
@@ -647,6 +654,8 @@ function ProfileContent() {
       origin_source: chicken.origin_source_name || "",
       acquisition_type: chicken.acquisition_type_name || "",
       acquisition_date: chicken.acquisition_date || "",
+      acquisition_age: chicken.acquisition_age !== null ? String(chicken.acquisition_age) : "",
+      acquisition_age_unit: chicken.acquisition_age_unit || "",
       departed: chicken.departed,
       departure_date: chicken.departure_date || "",
       departure_reason: chicken.departure_reason || "",
@@ -663,6 +672,8 @@ function ProfileContent() {
     if (data.origin_source) updates.origin_source = data.origin_source;
     if (data.acquisition_type) updates.acquisition_type = data.acquisition_type;
     updates.acquisition_date = data.acquisition_date || null;
+    updates.acquisition_age = data.acquisition_age ? parseInt(data.acquisition_age, 10) : null;
+    updates.acquisition_age_unit = data.acquisition_age ? (data.acquisition_age_unit || null) : null;
     updates.departed = data.departed;
     if (data.departure_date) updates.departure_date = data.departure_date;
     if (data.departure_reason) updates.departure_reason = data.departure_reason;
@@ -992,6 +1003,44 @@ function ProfileContent() {
                   />
                 )}
               />
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+                <Controller
+                  name="acquisition_age"
+                  control={editChickenForm.control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      label="Age when acquired"
+                      type="number"
+                      error={!!editChickenForm.formState.errors.acquisition_age}
+                      helperText={editChickenForm.formState.errors.acquisition_age?.message}
+                      fullWidth
+                      size="small"
+                    />
+                  )}
+                />
+                <Controller
+                  name="acquisition_age_unit"
+                  control={editChickenForm.control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      select
+                      label="Unit"
+                      error={!!editChickenForm.formState.errors.acquisition_age_unit}
+                      helperText={editChickenForm.formState.errors.acquisition_age_unit?.message}
+                      sx={{ minWidth: 120 }}
+                      size="small"
+                    >
+                      {["Weeks", "Months", "Years"].map((u) => (
+                        <MenuItem key={u} value={u}>
+                          {u}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  )}
+                />
+              </Stack>
               <Controller
                 name="departed"
                 control={editChickenForm.control}
@@ -1340,11 +1389,21 @@ function ChickenInfoCard({ chicken }: { chicken: Chicken }) {
             </Typography>
             <Typography variant="body2">{chicken.acquisition_type_name || "-"}</Typography>
           </Grid>
-          <Grid size={{ xs: 12 }}>
+          <Grid size={{ xs: 6 }}>
             <Typography variant="caption" color="text.secondary">
               Acquisition Date
             </Typography>
             <Typography variant="body2">{chicken.acquisition_date ? formatDateForDisplay(chicken.acquisition_date) : "-"}</Typography>
+          </Grid>
+          <Grid size={{ xs: 6 }}>
+            <Typography variant="caption" color="text.secondary">
+              Current Age
+            </Typography>
+            <Typography variant="body2">
+              {!chicken.departed && calculateCurrentAge(chicken.acquisition_date, chicken.acquisition_age, chicken.acquisition_age_unit)
+                ? calculateCurrentAge(chicken.acquisition_date, chicken.acquisition_age, chicken.acquisition_age_unit)
+                : "-"}
+            </Typography>
           </Grid>
         </Grid>
       </CardContent>

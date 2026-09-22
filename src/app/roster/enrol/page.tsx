@@ -44,7 +44,9 @@ async function enrollChickenApi(data: {
   breed?: string;
   origin_source?: string;
   acquisition_type?: string;
-  acquisition_date?: string;
+  acquisition_date: string;
+  acquisition_age?: number;
+  acquisition_age_unit?: string;
 }): Promise<void> {
   const res = await fetch("/api/chickens", {
     method: "POST",
@@ -63,7 +65,9 @@ const enrollSchema = z.object({
   breed: z.string(),
   origin_source: z.string(),
   acquisition_type: z.string(),
-  acquisition_date: z.string(),
+  acquisition_date: z.string().min(1, "Acquisition date is required"),
+  acquisition_age: z.string().optional(),
+  acquisition_age_unit: z.enum(["Weeks", "Months", "Years", ""]).optional(),
 });
 
 type EnrollFormValues = z.infer<typeof enrollSchema>;
@@ -130,6 +134,8 @@ function EnrolContent() {
       origin_source: "",
       acquisition_type: "",
       acquisition_date: "",
+      acquisition_age: "",
+      acquisition_age_unit: "Weeks",
     },
   });
 
@@ -154,7 +160,9 @@ function EnrolContent() {
         breed: data.breed || undefined,
         origin_source: data.origin_source || undefined,
         acquisition_type: data.acquisition_type || undefined,
-        acquisition_date: data.acquisition_date || undefined,
+        acquisition_date: data.acquisition_date,
+        acquisition_age: data.acquisition_age ? parseInt(data.acquisition_age, 10) : undefined,
+        acquisition_age_unit: data.acquisition_age ? (data.acquisition_age_unit || undefined) : undefined,
       },
       {
         onSuccess: () => {
@@ -354,6 +362,45 @@ function EnrolContent() {
                     },
                   }}
                 />
+              )}
+            />
+          </Stack>
+
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+            <Controller
+              name="acquisition_age"
+              control={control}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  label="Age when acquired"
+                  type="number"
+                  error={!!formErrors.acquisition_age}
+                  helperText={formErrors.acquisition_age?.message}
+                  fullWidth
+                  size="small"
+                />
+              )}
+            />
+            <Controller
+              name="acquisition_age_unit"
+              control={control}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  select
+                  label="Unit"
+                  error={!!formErrors.acquisition_age_unit}
+                  helperText={formErrors.acquisition_age_unit?.message}
+                  sx={{ minWidth: 120 }}
+                  size="small"
+                >
+                  {["Weeks", "Months", "Years"].map((u) => (
+                    <MenuItem key={u} value={u}>
+                      {u}
+                    </MenuItem>
+                  ))}
+                </TextField>
               )}
             />
           </Stack>

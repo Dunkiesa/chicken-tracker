@@ -17,7 +17,7 @@ import {
 import SwapHorizIcon from "@mui/icons-material/SwapHoriz";
 import CheckIcon from "@mui/icons-material/Check";
 import CloseIcon from "@mui/icons-material/Close";
-import { formatDateForDisplay } from "@/lib/dateUtils";
+import { formatDateForDisplay, calculateCurrentAge } from "@/lib/dateUtils";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 type Chicken = {
@@ -27,6 +27,9 @@ type Chicken = {
   breed_name: string | null;
   origin_source_name: string | null;
   acquisition_type_name: string | null;
+  acquisition_date: string | null;
+  acquisition_age: number | null;
+  acquisition_age_unit: string | null;
   departed: boolean;
   departure_date: string | null;
   departure_reason: string | null;
@@ -135,6 +138,11 @@ function ChickenTableRowInner({
                   fontSize: "0.8rem",
                 }}
               />
+              {!chicken.departed && calculateCurrentAge(chicken.acquisition_date, chicken.acquisition_age, chicken.acquisition_age_unit) && (
+                <Typography variant="caption" color="text.secondary" sx={{ ml: 1, display: 'inline-block' }}>
+                  {calculateCurrentAge(chicken.acquisition_date, chicken.acquisition_age, chicken.acquisition_age_unit)} old
+                </Typography>
+              )}
               {chicken.departed && chicken.departure_date && (
                 <Typography variant="caption" display="block" color="text.disabled" sx={{ mt: 0.5 }}>
                   {formatDateForDisplay(chicken.departure_date)}

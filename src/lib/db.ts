@@ -253,6 +253,16 @@ export async function runMigrations(existingPool?: sql.ConnectionPool): Promise<
   `);
 
   await p.request().query(`
+    IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('chickens') AND name = 'acquisition_age')
+      ALTER TABLE chickens ADD acquisition_age INT NULL
+  `);
+
+  await p.request().query(`
+    IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('chickens') AND name = 'acquisition_age_unit')
+      ALTER TABLE chickens ADD acquisition_age_unit NVARCHAR(50) NULL
+  `);
+
+  await p.request().query(`
     IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'users')
     CREATE TABLE users (
       email NVARCHAR(255) PRIMARY KEY,

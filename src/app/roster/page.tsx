@@ -44,6 +44,9 @@ type Chicken = {
   breed_name: string | null;
   origin_source_name: string | null;
   acquisition_type_name: string | null;
+  acquisition_date: string | null;
+  acquisition_age: number | null;
+  acquisition_age_unit: string | null;
   departed: boolean;
   departure_date: string | null;
   departure_reason: string | null;

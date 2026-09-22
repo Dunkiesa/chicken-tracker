@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, sex, breed, origin_source, acquisition_type, acquisition_date } = body;
+    const { name, sex, breed, origin_source, acquisition_type, acquisition_date, acquisition_age, acquisition_age_unit } = body;
 
     if (!name || typeof name !== "string" || name.trim().length === 0) {
       return NextResponse.json(
@@ -59,13 +59,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (!acquisition_date || typeof acquisition_date !== "string") {
+      return NextResponse.json(
+        { message: "Acquisition date is required" },
+        { status: 400 }
+      );
+    }
+
     const chicken = await createChicken({
       name,
       sex,
       breed: breed || undefined,
       origin_source: origin_source || undefined,
       acquisition_type: acquisition_type || undefined,
-      acquisition_date: acquisition_date || undefined,
+      acquisition_date,
+      acquisition_age: acquisition_age || null,
+      acquisition_age_unit: acquisition_age_unit || null,
     });
 
     return NextResponse.json(chicken, { status: 201 });
