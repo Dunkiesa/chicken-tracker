@@ -655,7 +655,7 @@ function ProfileContent() {
       acquisition_type: chicken.acquisition_type_name || "",
       acquisition_date: chicken.acquisition_date || "",
       acquisition_age: chicken.acquisition_age !== null ? String(chicken.acquisition_age) : "",
-      acquisition_age_unit: chicken.acquisition_age_unit || "",
+      acquisition_age_unit: (chicken.acquisition_age_unit as "Weeks" | "Months" | "Years" | "") || "",
       departed: chicken.departed,
       departure_date: chicken.departure_date || "",
       departure_reason: chicken.departure_reason || "",
