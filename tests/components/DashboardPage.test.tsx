@@ -30,6 +30,7 @@ const mockAnalyticsData = {
     average_weight: 55.5,
     total_laying_chickens: 5,
     active_laying_chickens: 4,
+    withdrawn_eggs: 0,
   },
   production_daily: [],
   production_weekly: [],

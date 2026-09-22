@@ -295,9 +295,10 @@ function DashboardContent() {
                   color: "info.main",
                 },
                 { label: "Active Hens", value: data.summary.active_laying_chickens, color: "warning.main" },
+                { label: "Withdrawn", value: data.summary.withdrawn_eggs, color: "error.main" },
                 { label: "Total Hens", value: data.summary.total_laying_chickens, color: "secondary.main" },
               ].map((card) => (
-                <Grid size={{ xs: 6, sm: 3 }} key={card.label}>
+                <Grid size={{ xs: 6, sm: 4 }} key={card.label}>
                   <Card>
                     <CardContent sx={{ textAlign: "center" }}>
                       <Typography
