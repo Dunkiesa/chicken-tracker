@@ -417,7 +417,7 @@ function LogEggContent() {
                 onChange={(e) => setShowAll(e.target.checked)}
               />
             }
-            label={`Show All ${hens.length}`}
+            label="Show All"
           />
 
           {hensLoading ? (

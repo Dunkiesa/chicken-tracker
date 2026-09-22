@@ -214,35 +214,26 @@ export function calculateCurrentAge(acquisitionDateStr: string | null, acquisiti
   today.setHours(0, 0, 0, 0);
   hatchDate.setHours(0, 0, 0, 0);
   
-  if (hatchDate > today) return "0 weeks";
-  
-  const diffTime = today.getTime() - hatchDate.getTime();
-  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-  const diffWeeks = Math.floor(diffDays / 7);
-  
-  if (diffWeeks < 26) {
-    return `${diffWeeks} week${diffWeeks === 1 ? '' : 's'}`;
-  }
+  if (hatchDate > today) return "0 D";
   
   let years = today.getFullYear() - hatchDate.getFullYear();
   let months = today.getMonth() - hatchDate.getMonth();
-  if (months < 0 || (months === 0 && today.getDate() < hatchDate.getDate())) {
+  let days = today.getDate() - hatchDate.getDate();
+
+  if (days < 0) {
+    months--;
+    const prevMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+    days += prevMonth.getDate();
+  }
+  if (months < 0) {
     years--;
     months += 12;
   }
-  if (today.getDate() < hatchDate.getDate()) {
-    months--;
-    if (months < 0) months += 12;
-  }
+
+  const parts = [];
+  if (years > 0) parts.push(`${years} Y`);
+  if (months > 0) parts.push(`${months} M`);
+  if (days > 0) parts.push(`${days} D`);
   
-  if (years === 0) {
-    return `${months} month${months === 1 ? '' : 's'}`;
-  }
-  
-  let result = `${years} year${years === 1 ? '' : 's'}`;
-  if (months > 0) {
-    result += `, ${months} month${months === 1 ? '' : 's'}`;
-  }
-  
-  return result;
+  return parts.length > 0 ? parts.join(", ") : "0 D";
 }
