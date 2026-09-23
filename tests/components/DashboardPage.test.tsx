@@ -18,6 +18,26 @@ jest.mock("next/navigation", () => ({
   usePathname: jest.fn(() => "/dashboard"),
 }));
 
+jest.mock("@mui/x-charts", () => {
+  const React = require("react");
+  const MockChart = React.forwardRef((props: any, _ref: any) =>
+    React.createElement("div", { "data-testid": "mock-chart", "data-dataset": JSON.stringify(props.dataset) })
+  );
+  MockChart.displayName = "MockChart";
+  return {
+    BarChart: MockChart,
+    PieChart: MockChart,
+    ResponsiveChartContainer: MockChart,
+    BarPlot: () => null,
+    LinePlot: () => null,
+    MarkPlot: () => null,
+    ChartsXAxis: () => null,
+    ChartsYAxis: () => null,
+    ChartsTooltip: () => null,
+    ChartsGrid: () => null,
+  };
+});
+
 import { useSession } from "next-auth/react";
 import { screen, waitFor } from "@testing-library/react";
 import { renderWithProviders } from "./test-utils";
@@ -114,12 +134,21 @@ describe("DashboardPage", () => {
 
     await waitFor(() => {
       expect(screen.getByText("Seasonal Trends")).toBeInTheDocument();
-      expect(screen.getByText("Winter")).toBeInTheDocument();
-      expect(screen.getByText("142")).toBeInTheDocument();
-      expect(screen.getByText("Autumn")).toBeInTheDocument();
-      expect(screen.getByText("35")).toBeInTheDocument();
-      expect(screen.getByText("Spring")).toBeInTheDocument();
-      expect(screen.getByText("50")).toBeInTheDocument();
     });
+
+    // BarChart is rendered as a mock — verify it received the correct dataset
+    const charts = screen.getAllByTestId("mock-chart");
+    const seasonalChart = charts.find((el) => {
+      const dataset = el.getAttribute("data-dataset");
+      return dataset && dataset.includes("Winter");
+    });
+    expect(seasonalChart).toBeDefined();
+    const dataset = JSON.parse(seasonalChart!.getAttribute("data-dataset")!);
+    expect(dataset).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ year: "2026", Winter: 142, Autumn: 35 }),
+        expect.objectContaining({ year: "2025", Spring: 50 }),
+      ])
+    );
   });
 });

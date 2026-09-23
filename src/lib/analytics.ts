@@ -133,6 +133,7 @@ async function getSummary(
     average_weight: row.average_weight != null ? parseFloat(row.average_weight) : null,
     total_laying_chickens: row.total_laying_chickens ?? 0,
     active_laying_chickens: row.active_laying_chickens ?? 0,
+    withdrawn_eggs: row.withdrawn_eggs ?? 0,
   };
 }
 

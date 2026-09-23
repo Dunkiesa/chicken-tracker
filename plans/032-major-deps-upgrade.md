@@ -1,7 +1,7 @@
 # Plan 032 — Major-version dependency upgrade
 
 **Generated:** 2026-07-18
-**Status:** Phases 1–5 complete (merged 2026-07-18 in `b2bdaec`). Phases 6–7 added post-completion (2026-07-18) — UX completeness + type-safety follow-ups, to be implemented in fresh sessions.
+**Status:** All phases complete. Phases 1–5 merged 2026-07-18 in `b2bdaec`. Phase 6 (loading/error files) and Phase 7 (noUncheckedIndexedAccess) verified 2026-09-23 — already implemented on `master`.
 **Original target stack:** Next 16, React 19, TypeScript 7, MUI 9 (+ x-charts 8, x-date-pickers 8), ESLint 10, Jest 30, date-fns 4, mssql 12, next-auth 5
 **Reworked target stack (latest-1):** Next 15, React 18.3 (no upgrade), TypeScript 6, MUI 7 (+ x-charts 7, x-date-pickers 7 — already at 7), ESLint 9, Jest 29 (no upgrade), date-fns 3, mssql 11 (no upgrade), next-auth 4 (no upgrade), @types/node 24
 **Final stack (post Phases 1–5):** Next 15.5, React 18.3, TypeScript 6, MUI 7.3 (+ x-charts 7, x-date-pickers 7), ESLint 9.39 (flat config), Jest 29, date-fns 3, mssql 11, next-auth 4.24, @types/node 24, Node 22-alpine
