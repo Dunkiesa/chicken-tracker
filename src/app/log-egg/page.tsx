@@ -30,6 +30,9 @@ import {
   TextField,
   IconButton,
   Chip,
+  Radio,
+  RadioGroup,
+  FormControl,
 } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -410,15 +413,23 @@ function LogEggContent() {
             )}
           />
 
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={showAll}
-                onChange={(e) => setShowAll(e.target.checked)}
+          <FormControl component="fieldset">
+            <RadioGroup
+              value={showAll ? "all" : "active"}
+              onChange={(e) => setShowAll(e.target.value === "all")}
+            >
+              <FormControlLabel
+                value="active"
+                control={<Radio />}
+                label="Show only active hens"
               />
-            }
-            label="Show All"
-          />
+              <FormControlLabel
+                value="all"
+                control={<Radio />}
+                label="Show all (including pullets and roosters)"
+              />
+            </RadioGroup>
+          </FormControl>
 
           {hensLoading ? (
             <Stack spacing={1}>

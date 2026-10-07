@@ -94,13 +94,17 @@ describe("LogEggPage hen filter", () => {
     expect(screen.queryByText("Mystery")).not.toBeInTheDocument();
     expect(screen.queryByText("Departed Hen")).not.toBeInTheDocument();
 
-    // Find the Show All checkbox
-    const showAllCheckbox = screen.getByRole("checkbox", { name: /show all/i });
-    expect(showAllCheckbox).not.toBeChecked();
+    // Find the radio buttons
+    const activeRadio = screen.getByLabelText(/show only active hens/i);
+    const allRadio = screen.getByLabelText(/show all \(including pullets and roosters\)/i);
+    
+    expect(activeRadio).toBeChecked();
+    expect(allRadio).not.toBeChecked();
 
     // Check Show All
-    fireEvent.click(showAllCheckbox);
-    expect(showAllCheckbox).toBeChecked();
+    fireEvent.click(allRadio);
+    expect(allRadio).toBeChecked();
+    expect(activeRadio).not.toBeChecked();
 
     // Now active chickens of all sexes should appear
     expect(screen.getByText("Henrietta")).toBeInTheDocument();
@@ -109,9 +113,9 @@ describe("LogEggPage hen filter", () => {
     // Departed chicken should still NOT be shown
     expect(screen.queryByText("Departed Hen")).not.toBeInTheDocument();
 
-    // Uncheck Show All
-    fireEvent.click(showAllCheckbox);
-    expect(showAllCheckbox).not.toBeChecked();
+    // Uncheck Show All (by selecting Active only)
+    fireEvent.click(activeRadio);
+    expect(activeRadio).toBeChecked();
 
     // Only active Hen should remain
     expect(screen.getByText("Henrietta")).toBeInTheDocument();
