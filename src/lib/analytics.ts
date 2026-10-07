@@ -352,6 +352,7 @@ async function getProductionConsistency(
         AND (c.departed = 0 OR e.date <= c.departure_date)
       WHERE c.sex IN ('Hen', 'Unknown')
       GROUP BY c.id, c.name, c.departed, c.departure_date, fe.first_egg_date
+      HAVING c.departed = 0 OR COUNT(e.id) > 0
       ORDER BY c.name
     `);
 
